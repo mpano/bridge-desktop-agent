@@ -1,7 +1,7 @@
-from pathlib import Path
 import os
 import shutil
 import tempfile
+from pathlib import Path
 
 
 BRIDGE_SUPPORT_DIR = Path.home() / "Library/Application Support/Bridge"
