@@ -20,3 +20,7 @@ def install_ui(app: FastAPI) -> None:
     @app.get("/ui/style.css", include_in_schema=False)
     async def stylesheet():
         return FileResponse(STATIC / "style.css", media_type="text/css")
+
+    @app.get("/ui/bridge-logo.png", include_in_schema=False)
+    async def bridge_logo():
+        return FileResponse(STATIC / "bridge-logo.png", media_type="image/png")
