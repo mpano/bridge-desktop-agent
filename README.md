@@ -389,18 +389,33 @@ python -m pip install -e '.[menubar]'
 python -m app.main --menubar
 ```
 
-Stop an existing CLI/API/UI process first. The launcher adds **DA** to the menu bar
-and starts its own dashboard service on **127.0.0.1:8000**. Set `API_TOKEN` in `.env`
-before launching. **Open Dashboard** becomes available only after startup succeeds;
-connect with your local API token as before. No token is put in a URL or clipboard.
+Stop an existing CLI/API/UI process first. The launcher adds the **Bridge** logo to the
+menu bar and starts its own dashboard service on **127.0.0.1:8000**. Set `API_TOKEN`
+in `.env` before launching. **Open Bridge Dashboard** becomes available only after
+startup succeeds; connect with your local API token as before. No token is put in a URL
+or clipboard.
+
+For hands-free voice, install the optional voice/wake-word extras and a reviewed custom
+`bridge.onnx` first:
+
+```bash
+python -m pip install -e '.[voice,wakeword,menubar]'
+bridge --install-wakeword /path/to/bridge.onnx
+bridge --menubar
+```
+
+The microphone is still off when Bridge launches. Choose **Start listening for “Bridge”**
+from the menu to enable it for that session.
 
 Menu actions:
 
-- **Open Dashboard** opens the owned running service in your default browser.
-- **Start Service / Stop Service** control only the server owned by this launcher.
-  Stop leaves the menu-bar app running so you can start it again.
-- **Service Details** shows readiness, the local URL, or a helpful startup error.
-- **Quit Bridge** stops the owned service before exiting the menu-bar app.
+- **Open Bridge Dashboard** opens the owned running service in your default browser.
+- **Start Bridge Service / Stop Bridge Service** control only the server owned by this launcher.
+  Stop also stops voice listening and leaves the menu-bar app running so you can restart it.
+- **Start listening for “Bridge” / Stop Voice Listening** explicitly control the microphone
+  wake-word listener. Spoken commands are submitted through the already-running local API.
+- **Bridge Details** shows service readiness, the local URL, and voice-listener status/errors.
+- **Quit Bridge** stops voice listening and the owned service before exiting the menu-bar app.
 
 AppKit stays on the main thread. The ASGI service owns a background thread, event
 loop, and pre-bound loopback socket. Starting twice does not create another worker.
