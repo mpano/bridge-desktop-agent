@@ -28,9 +28,12 @@ class MenuBarController:
         self.open_browser = open_browser
         self.quitting = False
         icon = Path(__file__).with_name("assets") / "bridge-menubar.png"
-        app_kwargs = {"title": "B", "quit_button": None}
+        # macOS constrains status-item image height. Keep the Bridge wordmark visible
+        # by pairing the template symbol with the product name instead of relying on
+        # image pixels alone.
+        app_kwargs = {"title": "Bridge", "quit_button": None}
         if icon.is_file():
-            app_kwargs.update(icon=str(icon), title=None, template=True)
+            app_kwargs.update(icon=str(icon), template=True)
         self.app = native.App("Bridge", **app_kwargs)
 
         self.status_item = native.MenuItem("Service stopped")
