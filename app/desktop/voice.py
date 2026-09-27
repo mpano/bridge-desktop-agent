@@ -107,7 +107,9 @@ class MenuVoiceService:
             if self.local_service.status.state in {ServiceState.STOPPED, ServiceState.FAILED}:
                 self.local_service.start()
             self._stop.clear()
-            self._status = VoiceStatus(VoiceState.STARTING, 'Starting “Bridge” wake-word listening…')
+            self._status = VoiceStatus(
+                VoiceState.STARTING, 'Starting “Bridge” wake-word listening…'
+            )
             self._thread = threading.Thread(
                 target=self._run, name="bridge-voice-service", daemon=False
             )
