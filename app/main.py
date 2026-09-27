@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import json
+from pathlib import Path
 
 from app.agent.agent import Agent
 from app.bootstrap import build_agent
@@ -109,7 +110,12 @@ def voice_notice(settings: Settings) -> None:
     destination = (
         "local Whisper" if settings.voice_stt_provider == "local" else "OpenAI (audio upload)"
     )
-    print(f"Speech transcription: {destination}. Transcript model: {settings.llm_provider}.")
+    agent_provider = (
+        f"local Ollama ({settings.local_llm_model})"
+        if settings.llm_provider == "ollama"
+        else f"OpenAI ({settings.openai_model})"
+    )
+    print(f"Speech transcription: {destination}. Agent model: {agent_provider}.")
     print("Responses are spoken aloud. Approvals require typing in this terminal.")
 
 
@@ -217,6 +223,12 @@ def main():
         action="store_true",
         help="Run explicitly enabled wake-word/background voice mode",
     )
+    mode.add_argument(
+        "--install-wakeword",
+        type=Path,
+        metavar="MODEL",
+        help="Install a reviewed custom Bridge .onnx wake-word model",
+    )
     parser.add_argument(
         "--verbose", action="store_true", help="Show structured execution logs in CLI"
     )
@@ -224,6 +236,15 @@ def main():
     settings = Settings()
     if args.doctor:
         print(json.dumps(collect_diagnostics(settings), indent=2))
+    elif args.install_wakeword:
+        from app.voice.paths import install_wake_word_model
+
+        try:
+            destination = install_wake_word_model(args.install_wakeword)
+            print(f'Installed Bridge wake-word model at: {destination}')
+            print('Start the menu bar with: bridge --menubar')
+        except (OSError, ValueError) as exc:
+            print(str(exc))
     elif args.voice_once:
         try:
             asyncio.run(voice_once(settings))
@@ -251,7 +272,7 @@ def main():
 
         if args.ui:
             print(
-                "Desktop Agent dashboard: http://127.0.0.1:8000\n"
+                "Bridge dashboard: http://127.0.0.1:8000\n"
                 "Connect using API_TOKEN from your .env file."
             )
         uvicorn.run(
