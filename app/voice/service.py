@@ -101,11 +101,9 @@ class VoiceService:
             try:
                 result = await self.listen_once()
                 if result["status"] == "confirmation_required":
-                    self.stop()
-                    raise RuntimeError(
-                        "Voice action needs review. No approval handler is configured; "
-                        "listening stopped without approving it."
-                    )
+                    # The request is now visible in Bridge's task/workflow UI. Never
+                    # approve from spoken input; keep listening for the next wake word.
+                    continue
                 if result.get("speech_error"):
                     print(result["speech_error"])
             except RuntimeError:
