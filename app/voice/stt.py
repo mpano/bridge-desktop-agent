@@ -45,7 +45,7 @@ class LocalWhisperSTT:
 class OpenAIWhisperSTT:
     """Remote transcription. Audio is uploaded only when explicitly configured."""
 
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini-transcribe", language: str | None = "en"):
+    def __init__(self, api_key: str, model: str = "gpt-transcribe", language: str | None = "en"):
         if not api_key:
             raise RuntimeError("OPENAI_API_KEY is required for remote voice transcription.")
         from openai import AsyncOpenAI
