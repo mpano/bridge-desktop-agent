@@ -46,7 +46,7 @@ class SQLiteWorkflows:
         except BlockingIOError as exc:
             self._lock.close()
             raise RuntimeError(
-                "Another Desktop Agent is using this database. Close it first."
+                "Another Bridge process is using this database. Close it first."
             ) from exc
         try:
             with sqlite3.connect(self.path) as db:
