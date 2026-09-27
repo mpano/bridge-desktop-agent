@@ -24,6 +24,17 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     api_token: SecretStr = SecretStr("")
     max_rounds: int = Field(default=12, ge=1, le=50)
+    voice_stt_provider: Literal["local", "openai"] = "local"
+    voice_local_whisper_model: str = "small"
+    voice_openai_stt_model: str = "gpt-transcribe"
+    voice_language: str | None = "en"
+    voice_record_seconds: float = Field(default=6, ge=1, le=30)
+    voice_tts_voice: str | None = None
+    voice_tts_rate: int | None = Field(default=None, ge=80, le=500)
+    voice_background_enabled: bool = False
+    voice_wake_word_enabled: bool = False
+    voice_wake_word_model_path: Path | None = None
+    voice_wake_word_threshold: float = Field(default=0.5, ge=0, le=1)
 
     @field_validator("local_llm_base_url")
     @classmethod
