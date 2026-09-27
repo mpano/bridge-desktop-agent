@@ -1,19 +1,46 @@
-# Bridge custom wake-word training configuration for upstream openWakeWord.
-# Use with the official openWakeWord training workflow; see docs/WAKEWORD_BRIDGE.md.
+# Starting configuration for training the custom "Bridge" wake word with
+# upstream openWakeWord. Dataset paths must be prepared in the training workspace.
+
 model_name: "bridge"
 
 target_phrase:
   - "bridge"
 
-# Start with close confusions seen in your deployment and tune from measured false positives.
 custom_negative_phrases:
   - "fridge"
   - "abridge"
   - "bridges"
+  - "ridge"
+  - "rich"
 
-# Upstream recommends at least 20,000 positives; larger sets often perform better.
-n_samples: 20000
-n_samples_val: 2000
+# Upstream recommends at least 20k positive examples; short/common phrases
+# generally benefit from more data and careful false-positive evaluation.
+n_samples: 50000
+n_samples_val: 5000
+
+tts_batch_size: 50
+augmentation_batch_size: 16
+augmentation_rounds: 1
+
+# Prepare these paths following the upstream openWakeWord training instructions.
+piper_sample_generator_path: "./piper-sample-generator"
+output_dir: "./bridge_custom_model"
+rir_paths:
+  - "./mit_rirs"
+background_paths:
+  - "./background_clips"
+background_paths_duplication_rate:
+  - 1
+
+false_positive_validation_data_path: "./validation_set_features.npy"
+
+feature_data_files:
+  "ACAV100M_sample": "./openwakeword_features_ACAV100M_2000_hrs_16bit.npy"
+
+batch_n_per_class:
+  "ACAV100M_sample": 1024
+  "adversarial_negative": 50
+  "positive": 50
 
 model_type: "dnn"
 layer_size: 32
