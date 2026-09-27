@@ -846,8 +846,8 @@ registry automatically includes it here.
 2. Extend local-provider evaluation and privacy controls to per-session disclosure decisions.
 3. Add typed, permission-scoped integrations and macOS Keychain-backed OAuth
    before email, Slack, calendar, GitHub and Spotify Web API.
-4. Extend the opt-in terminal voice listener with dashboard/menu-bar integration,
-   a global push-to-talk shortcut, and an explicitly managed background daemon.
+4. Extend the implemented opt-in voice + menu-bar wake-word controls with a global
+   push-to-talk shortcut and an explicitly managed background/login service.
 5. Add accessibility-tree and vision implementations behind the existing screen
    protocols, with explicit permissions and carefully scoped interaction tools.
 6. Extend Finder/search and add Notes/Reminders, Apple Music, multi-monitor
