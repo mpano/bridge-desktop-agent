@@ -128,11 +128,17 @@ declines. Approval expiry and single-use tokens still apply. Spoken words cannot
 approve an action. Background action results are printed in the terminal, and TTS
 failure does not mark a completed action as failed or retry it.
 
-Run voice modes in a terminal. They own the same single-process database lock as
-the CLI/dashboard/menu-bar service; stop that other instance first. This milestone
-does not provide dashboard microphone capture, a global push-to-talk shortcut, or
-voice control inside an already-running menu-bar server. It is an explicitly
-started terminal listener, not a launchd daemon or login item.
+Standalone `--voice-once` and `--voice-service` modes run in a terminal and own the
+same single-process database lock as the CLI/dashboard service. The menu-bar integration
+avoids that conflict by submitting recognized commands through Bridge's already-running
+authenticated localhost API, keeping one Agent and workflow database owner.
+
+The menu-bar listener is still explicitly session-scoped: launching Bridge starts the local
+dashboard service, but it does **not** start microphone listening. Choose
+**Start listening for “Bridge”** from the menu to opt in, and **Stop Voice Listening**
+to release the microphone. There is no launchd daemon, login-item voice activation, or
+spoken approval path. A global push-to-talk shortcut and dashboard microphone capture are
+still future work.
 
 ## Stop behavior
 
