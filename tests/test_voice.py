@@ -1,5 +1,5 @@
-import asyncio
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from types import SimpleNamespace
 
 import pytest
@@ -9,8 +9,9 @@ from app.voice.service import VoiceService
 
 class FakeRecorder:
     async def record_wav(self, seconds: float) -> Path:
-        path = Path("/tmp/bridge-test-voice.wav")
-        path.write_bytes(b"RIFF-test")
+        with NamedTemporaryFile(suffix=".wav", delete=False) as audio:
+            audio.write(b"RIFF-test")
+            path = Path(audio.name)
         return path
 
 
@@ -129,3 +130,155 @@ async def test_background_service_requires_wake_word():
 
     with pytest.raises(RuntimeError, match="VOICE_WAKE_WORD_ENABLED"):
         await service.run_background()
+
+
+async def test_typed_confirmation_uses_shared_presenter(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from app.main import present_result
+
+    agent = FakeAgent(
+        {
+            "status": "confirmation_required",
+            "message": "Allow it?",
+            "steps": [],
+            "confirmation": {"token": "token", "arguments": {"text": "hello"}},
+        }
+    )
+    agent.confirm = AsyncMock(return_value={"status": "completed", "message": "Done", "steps": []})
+    monkeypatch.setattr("app.main.read_input", AsyncMock(return_value="y"))
+    service = VoiceService(
+        agent,
+        settings(),
+        recorder=FakeRecorder(),
+        stt=FakeSTT("copy hello"),
+        tts=FakeTTS(),
+        on_result=lambda result: present_result(agent, result),
+    )
+    assert (await service.listen_once())["status"] == "completed"
+    agent.confirm.assert_awaited_once_with("token", True)
+
+
+async def test_speech_failure_preserves_completed_action():
+    from unittest.mock import AsyncMock
+
+    agent = FakeAgent({"status": "completed", "message": "Done", "steps": []})
+    service = VoiceService(
+        agent,
+        settings(),
+        recorder=FakeRecorder(),
+        stt=FakeSTT("open app"),
+        tts=SimpleNamespace(speak=AsyncMock(side_effect=RuntimeError("failure"))),
+    )
+    result = await service.listen_once()
+    assert result["status"] == "completed"
+    assert result["speech_error"]
+    assert agent.messages == ["open app"]
+
+
+async def test_stop_after_transcription_prevents_execution():
+    agent = FakeAgent({})
+    service = VoiceService(
+        agent, settings(), recorder=FakeRecorder(), stt=FakeSTT("open app"), tts=FakeTTS()
+    )
+
+    async def transcribe(path):
+        service.stop()
+        return "open app"
+
+    service.stt.transcribe = transcribe
+    assert (await service.listen_once())["status"] == "cancelled"
+    assert not agent.messages
+
+
+async def test_transcription_failure_removes_recording():
+    class Recorder(FakeRecorder):
+        async def record_wav(self, seconds):
+            self.path = await super().record_wav(seconds)
+            return self.path
+
+    class FailingSTT:
+        async def transcribe(self, path):
+            raise RuntimeError("transcription failed")
+
+    recorder = Recorder()
+    service = VoiceService(
+        FakeAgent({}), settings(), recorder=recorder, stt=FailingSTT(), tts=FakeTTS()
+    )
+    with pytest.raises(RuntimeError):
+        await service.listen_once()
+    assert not recorder.path.exists()
+
+
+def test_blank_optional_voice_settings():
+    from app.config.settings import Settings
+
+    config = Settings(
+        _env_file=None, voice_tts_rate="", voice_tts_voice="", voice_wake_word_model_path=""
+    )
+    assert config.voice_tts_rate is None
+    assert config.voice_tts_voice is None
+    assert config.voice_wake_word_model_path is None
+    assert not config.voice_allow_model_download
+
+
+async def test_background_routes_result_and_stops_without_repeating(tmp_path, monkeypatch):
+    class Detector:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def wait(self, stop_event):
+            pass
+
+    monkeypatch.setattr("app.voice.service.OpenWakeWordDetector", Detector)
+    agent = FakeAgent({"status": "completed", "message": "Done", "steps": []})
+    delivered = []
+
+    async def report(result):
+        delivered.append(result)
+        service.stop()
+        return result
+
+    service = VoiceService(
+        agent,
+        settings(
+            voice_background_enabled=True,
+            voice_wake_word_enabled=True,
+            voice_wake_word_model_path=tmp_path / "model.onnx",
+        ),
+        recorder=FakeRecorder(),
+        stt=FakeSTT("open app"),
+        tts=FakeTTS(),
+        on_result=report,
+    )
+    await service.run_background()
+    assert agent.messages == ["open app"]
+    assert len(delivered) == 1
+    assert service.stop_event.is_set()
+
+
+async def test_approval_eof_declines(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from app.main import present_result
+
+    agent = SimpleNamespace(
+        confirm=AsyncMock(
+            return_value={
+                "status": "cancelled",
+                "message": "Declined",
+                "steps": [],
+            }
+        )
+    )
+    monkeypatch.setattr("app.main.read_input", AsyncMock(side_effect=EOFError))
+    await present_result(
+        agent,
+        {
+            "status": "confirmation_required",
+            "message": "Approve?",
+            "steps": [],
+            "confirmation": {"token": "token", "arguments": {}},
+        },
+    )
+    agent.confirm.assert_awaited_once_with("token", False)

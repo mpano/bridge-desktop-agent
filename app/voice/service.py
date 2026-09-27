@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import asyncio
 import contextlib
+import threading
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 from app.voice.audio import MicrophoneRecorder
@@ -20,13 +21,15 @@ class VoiceService:
         recorder: MicrophoneRecorder | None = None,
         stt: SpeechToText | None = None,
         tts: TextToSpeech | None = None,
+        on_result: Callable[[dict], Awaitable[dict]] | None = None,
     ):
         self.agent = agent
         self.settings = settings
         self.recorder = recorder or MicrophoneRecorder()
         self.stt = stt or self._build_stt()
         self.tts = tts or MacOSSayTTS(settings.voice_tts_voice, settings.voice_tts_rate)
-        self.stop_event = asyncio.Event()
+        self.stop_event = threading.Event()
+        self.on_result = on_result
 
     def _build_stt(self) -> SpeechToText:
         if self.settings.voice_stt_provider == "openai":
@@ -38,24 +41,39 @@ class VoiceService:
         return LocalWhisperSTT(
             model=self.settings.voice_local_whisper_model,
             language=self.settings.voice_language,
+            allow_download=self.settings.voice_allow_model_download,
         )
 
     async def listen_once(self) -> dict:
+        if self.stop_event.is_set():
+            return {"status": "cancelled", "message": "Voice service stopped."}
         path = await self.recorder.record_wav(self.settings.voice_record_seconds)
         try:
             transcript = await self.stt.transcribe(path)
         finally:
             with contextlib.suppress(OSError):
                 path.unlink()
+        if self.stop_event.is_set():
+            return {"status": "cancelled", "message": "Voice service stopped."}
+        transcript = transcript.strip()
         if not transcript:
             return {"status": "empty", "transcript": "", "message": "I did not hear a command."}
+        if len(transcript) > 10000:
+            raise RuntimeError("Voice transcript exceeds the command length limit.")
         result = await self.agent.message(transcript)
+        if self.on_result is not None:
+            result = await self.on_result(result)
         if result["status"] == "confirmation_required":
             spoken = "That action needs confirmation. Please review it in Bridge."
         else:
             spoken = result.get("message") or "Done."
-        await self.tts.speak(spoken)
-        return {"status": result["status"], "transcript": transcript, "result": result}
+        response = {"status": result["status"], "transcript": transcript, "result": result}
+        try:
+            await self.tts.speak(spoken)
+        except RuntimeError:
+            # The action already happened. A speech failure must not imply it should be retried.
+            response["speech_error"] = "Speech output failed; review the recorded action result."
+        return response
 
     async def run_background(self) -> None:
         if not self.settings.voice_background_enabled:
@@ -78,11 +96,27 @@ class VoiceService:
             await detector.wait(self.stop_event)
             if self.stop_event.is_set():
                 break
-            await self.tts.speak("Yes?")
+            with contextlib.suppress(RuntimeError):
+                await self.tts.speak("Yes?")
             try:
-                await self.listen_once()
-            except Exception:
-                await self.tts.speak("I could not process that command.")
+                result = await self.listen_once()
+                if result["status"] == "confirmation_required":
+                    self.stop()
+                    raise RuntimeError(
+                        "Voice action needs review. No approval handler is configured; "
+                        "listening stopped without approving it."
+                    )
+                if result.get("speech_error"):
+                    print(result["speech_error"])
+            except RuntimeError:
+                # Configuration or capture failures need attention, not an endless retry loop.
+                self.stop()
+                raise
 
     def stop(self) -> None:
         self.stop_event.set()
+
+    async def close(self) -> None:
+        self.stop()
+        if hasattr(self.stt, "close"):
+            await self.stt.close()

@@ -5,6 +5,7 @@ import json
 from app.agent.agent import Agent
 from app.bootstrap import build_agent
 from app.config.settings import Settings
+from app.console import read_input
 from app.diagnostics import collect_diagnostics
 from app.workflows.retention import RetentionPolicy, WorkflowQuery
 
@@ -83,29 +84,77 @@ async def local_command(agent: Agent, message: str) -> dict | None:
     return None
 
 
+async def present_result(agent: Agent, result: dict) -> dict:
+    """One typed approval flow for text and voice; never approve from spoken input."""
+    while result["status"] == "confirmation_required":
+        confirmation = result["confirmation"]
+        print(result["message"])
+        print(json.dumps(confirmation["arguments"], indent=2))
+        try:
+            answer = await read_input("Approve this action? [y/N] ")
+        except EOFError:
+            answer = "n"
+        result = await agent.confirm(confirmation["token"], answer.lower() == "y")
+    print(result["message"])
+    for step in result["steps"]:
+        detail = step.get("result", step.get("error", "Previously recorded result"))
+        print(
+            f"{'✓' if step['success'] else '✗'} {step['tool']}: "
+            f"{json.dumps(detail, ensure_ascii=False)}"
+        )
+    return result
+
+
+def voice_notice(settings: Settings) -> None:
+    destination = (
+        "local Whisper" if settings.voice_stt_provider == "local" else "OpenAI (audio upload)"
+    )
+    print(f"Speech transcription: {destination}. Transcript model: {settings.llm_provider}.")
+    print("Responses are spoken aloud. Approvals require typing in this terminal.")
+
+
 async def voice_once(settings: Settings) -> None:
     from app.voice import VoiceService
 
     agent = build_agent(settings)
+    service = None
     try:
-        service = VoiceService(agent, settings)
+        service = VoiceService(
+            agent, settings, on_result=lambda result: present_result(agent, result)
+        )
+        voice_notice(settings)
+        print(f"Recording one command for {settings.voice_record_seconds:g} seconds…")
         result = await service.listen_once()
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+        if "result" not in result:
+            print(result["message"])
+        if result.get("speech_error"):
+            print(result["speech_error"])
     finally:
-        await agent.close()
+        try:
+            if service:
+                await service.close()
+        finally:
+            await agent.close()
 
 
 async def voice_background(settings: Settings) -> None:
     from app.voice import VoiceService
 
     agent = build_agent(settings)
-    service = VoiceService(agent, settings)
+    service = None
     try:
-        print("Bridge voice service is listening locally for the configured wake word.")
+        service = VoiceService(
+            agent, settings, on_result=lambda result: present_result(agent, result)
+        )
+        voice_notice(settings)
+        print("Starting explicitly configured local wake-word listening. Ctrl-C stops it.")
         await service.run_background()
     finally:
-        service.stop()
-        await agent.close()
+        try:
+            if service:
+                await service.close()
+        finally:
+            await agent.close()
 
 
 async def cli(settings: Settings, verbose: bool = False):
@@ -125,7 +174,7 @@ async def cli(settings: Settings, verbose: bool = False):
     try:
         while True:
             try:
-                message = await asyncio.to_thread(input, "\n> ")
+                message = await read_input("\n> ")
             except EOFError:
                 break
             if message.strip().lower() in {"exit", "quit"}:
@@ -142,22 +191,7 @@ async def cli(settings: Settings, verbose: bool = False):
                         continue
                 else:
                     result = await agent.message(message)
-                while result["status"] == "confirmation_required":
-                    confirmation = result["confirmation"]
-                    print(result["message"])
-                    print(json.dumps(confirmation["arguments"], indent=2))
-                    try:
-                        answer = await asyncio.to_thread(input, "Approve this action? [y/N] ")
-                    except EOFError:
-                        answer = "n"
-                    result = await agent.confirm(confirmation["token"], answer.lower() == "y")
-                print(result["message"])
-                for step in result["steps"]:
-                    detail = step.get("result", step.get("error", "Previously recorded result"))
-                    print(
-                        f"{'✓' if step['success'] else '✗'} {step['tool']}: "
-                        f"{json.dumps(detail, ensure_ascii=False)}"
-                    )
+                await present_result(agent, result)
             except ValueError as exc:
                 print(str(exc))
     finally:
@@ -193,7 +227,7 @@ def main():
     elif args.voice_once:
         try:
             asyncio.run(voice_once(settings))
-        except (KeyboardInterrupt, RuntimeError) as exc:
+        except (KeyboardInterrupt, RuntimeError, ValueError) as exc:
             if str(exc):
                 print(str(exc))
     elif args.voice_service:
@@ -201,7 +235,7 @@ def main():
             asyncio.run(voice_background(settings))
         except KeyboardInterrupt:
             print("\nVoice service stopped.")
-        except RuntimeError as exc:
+        except (RuntimeError, ValueError) as exc:
             print(str(exc))
     elif args.menubar:
         from app.desktop.menubar import run_menubar

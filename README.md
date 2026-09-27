@@ -1,5 +1,9 @@
 # Desktop Agent
 
+Optional voice capture, local/remote speech-to-text, local spoken responses, and an
+explicitly started wake-word listener are documented in [Voice setup](docs/VOICE.md).
+Start with `python -m app.main --voice-once`; microphone access is off in normal modes.
+
 A Python 3.12+ local macOS assistant with natural-language tool selection, native
 application controls, a CLI, a local dashboard, and an authenticated localhost FastAPI service.
 This is an executable foundation, not an autonomous GUI operator.
@@ -842,7 +846,8 @@ registry automatically includes it here.
 2. Extend local-provider evaluation and privacy controls to per-session disclosure decisions.
 3. Add typed, permission-scoped integrations and macOS Keychain-backed OAuth
    before email, Slack, calendar, GitHub and Spotify Web API.
-4. Add voice, wake word, STT/TTS, and an explicitly enabled background service.
+4. Extend the opt-in terminal voice listener with dashboard/menu-bar integration,
+   a global push-to-talk shortcut, and an explicitly managed background daemon.
 5. Add accessibility-tree and vision implementations behind the existing screen
    protocols, with explicit permissions and carefully scoped interaction tools.
 6. Extend Finder/search and add Notes/Reminders, Apple Music, multi-monitor

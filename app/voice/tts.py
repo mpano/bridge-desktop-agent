@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import asyncio
-import shutil
 from typing import Protocol
+
+from app.tools.macos.applescript import NativeRunner
 
 
 class TextToSpeech(Protocol):
@@ -10,29 +10,30 @@ class TextToSpeech(Protocol):
 
 
 class MacOSSayTTS:
-    """Local TTS through macOS 'say'. Text is passed as an argument, never through a shell."""
+    """Local speech through a bounded native subprocess, with text on stdin."""
 
-    def __init__(self, voice: str | None = None, rate: int | None = None):
+    def __init__(
+        self,
+        voice: str | None = None,
+        rate: int | None = None,
+        *,
+        runner: NativeRunner | None = None,
+    ):
         self.voice = voice
         self.rate = rate
+        self.runner = runner or NativeRunner()
 
     async def speak(self, text: str) -> None:
         if not text.strip():
             return
-        executable = shutil.which("say")
-        if not executable:
-            raise RuntimeError("macOS 'say' is unavailable.")
-        args = [executable]
+        args = ["/usr/bin/say"]
         if self.voice:
             args += ["-v", self.voice]
-        if self.rate:
+        if self.rate is not None:
             args += ["-r", str(self.rate)]
-        args.append(text[:4000])
-        process = await asyncio.create_subprocess_exec(
-            *args,
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        _, stderr = await process.communicate()
-        if process.returncode:
-            raise RuntimeError("Text-to-speech failed: " + stderr.decode(errors="replace")[:300])
+        try:
+            await self.runner.run(*args, input_text=text[:4000])
+        except (RuntimeError, OSError, TimeoutError) as exc:
+            raise RuntimeError(
+                "Text-to-speech failed or timed out; check macOS speech settings."
+            ) from exc

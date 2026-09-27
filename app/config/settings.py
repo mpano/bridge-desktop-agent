@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     max_rounds: int = Field(default=12, ge=1, le=50)
     voice_stt_provider: Literal["local", "openai"] = "local"
     voice_local_whisper_model: str = "small"
+    voice_allow_model_download: bool = False
     voice_openai_stt_model: str = "gpt-transcribe"
     voice_language: str | None = "en"
     voice_record_seconds: float = Field(default=6, ge=1, le=30)
@@ -34,7 +35,18 @@ class Settings(BaseSettings):
     voice_background_enabled: bool = False
     voice_wake_word_enabled: bool = False
     voice_wake_word_model_path: Path | None = None
-    voice_wake_word_threshold: float = Field(default=0.5, ge=0, le=1)
+    voice_wake_word_threshold: float = Field(default=0.5, gt=0, le=1)
+
+    @field_validator(
+        "voice_tts_voice",
+        "voice_tts_rate",
+        "voice_language",
+        "voice_wake_word_model_path",
+        mode="before",
+    )
+    @classmethod
+    def empty_optional_voice_setting(cls, value):
+        return None if isinstance(value, str) and not value.strip() else value
 
     @field_validator("local_llm_base_url")
     @classmethod
