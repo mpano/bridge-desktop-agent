@@ -82,7 +82,7 @@
   }
 
   function showResult(result) {
-    chatMessage("Desktop Agent", result.message, result.steps);
+    chatMessage("Bridge", result.message, result.steps);
     notify(result.message, result.status === "failed");
     if (result.status === "confirmation_required") {
       pending = result.confirmation;
