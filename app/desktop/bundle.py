@@ -21,7 +21,7 @@ def build_launcher(project: Path, python: Path, destination: Path) -> Path:
     if destination.suffix != ".app":
         raise ValueError("Destination must end in .app.")
 
-    icon_source = project / "app/desktop/assets/bridge-app-icon.png"
+    icon_source = Path(__file__).with_name("assets") / "bridge-app-icon.png"
     if not icon_source.is_file():
         raise ValueError("Bridge application icon is missing from app/desktop/assets.")
 
