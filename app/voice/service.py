@@ -3,9 +3,9 @@ from __future__ import annotations
 import contextlib
 import threading
 from collections.abc import Awaitable, Callable
-from pathlib import Path
 
 from app.voice.audio import MicrophoneRecorder
+from app.voice.paths import wake_word_model_path
 from app.voice.stt import LocalWhisperSTT, OpenAIWhisperSTT, SpeechToText
 from app.voice.tts import MacOSSayTTS, TextToSpeech
 from app.voice.wakeword import OpenWakeWordDetector
@@ -86,11 +86,14 @@ class VoiceService:
                 "Background listening requires VOICE_WAKE_WORD_ENABLED=true so Bridge does "
                 "not continuously transcribe ambient microphone audio."
             )
-        model_path = self.settings.voice_wake_word_model_path
-        if model_path is None:
-            raise RuntimeError("Set VOICE_WAKE_WORD_MODEL_PATH to an openWakeWord model file.")
+        model_path = wake_word_model_path(self.settings.voice_wake_word_model_path)
+        if not model_path.is_file():
+            raise RuntimeError(
+                'Install the custom "Bridge" wake-word model with '
+                '"bridge --install-wakeword /path/to/bridge.onnx".'
+            )
         detector = OpenWakeWordDetector(
-            Path(model_path), threshold=self.settings.voice_wake_word_threshold
+            model_path, threshold=self.settings.voice_wake_word_threshold
         )
         while not self.stop_event.is_set():
             await detector.wait(self.stop_event)
