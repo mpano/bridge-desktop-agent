@@ -239,12 +239,14 @@ async def test_background_routes_result_and_stops_without_repeating(tmp_path, mo
         service.stop()
         return result
 
+    model_path = tmp_path / "model.onnx"
+    model_path.touch()
     service = VoiceService(
         agent,
         settings(
             voice_background_enabled=True,
             voice_wake_word_enabled=True,
-            voice_wake_word_model_path=tmp_path / "model.onnx",
+            voice_wake_word_model_path=model_path,
         ),
         recorder=FakeRecorder(),
         stt=FakeSTT("open app"),
