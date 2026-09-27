@@ -153,10 +153,10 @@ def test_bundle_quotes_paths_and_does_not_copy_secrets(tmp_path):
     python = project / ".venv/bin/python"
     python.parent.mkdir(parents=True)
     python.symlink_to(sys.executable)
-    target = build_launcher(project, python, tmp_path / "Desktop Agent.app")
+    target = build_launcher(project, python, tmp_path / "Bridge.app")
     info = plistlib.loads((target / "Contents/Info.plist").read_bytes())
     assert info["LSUIElement"] is True
-    executable = target / "Contents/MacOS/DesktopAgent"
+    executable = target / "Contents/MacOS/Bridge"
     text = executable.read_text()
     assert shlex.quote(str(project)) in text
     assert shlex.quote(str(python)) in text
@@ -187,6 +187,27 @@ async def test_agent_close_waits_for_active_execution():
     await closing
     workflows.close.assert_called_once()
     llm.close.assert_awaited_once()
+
+
+def test_menu_voice_start_stop_is_explicit():
+    menu, service, native, browser = make_menu()
+    voice = Mock()
+    voice.status = SimpleNamespace(state=__import__("app.desktop.voice", fromlist=["VoiceState"]).VoiceState.STOPPED, message="off")
+    voice.wait.return_value = True
+    menu = MenuBarController(service, native, browser, voice=voice)
+    assert menu.voice_start_item.callback is not None
+    assert menu.voice_stop_item.callback is None
+
+    menu.start_voice()
+    voice.start.assert_called_once()
+    voice.status = SimpleNamespace(state=__import__("app.desktop.voice", fromlist=["VoiceState"]).VoiceState.LISTENING, message='Listening for “Bridge”')
+    menu.refresh()
+    assert 'Bridge' in menu.voice_status_item.title
+    assert menu.voice_start_item.callback is None
+    assert menu.voice_stop_item.callback is not None
+
+    menu.stop_voice()
+    voice.stop.assert_called_once()
 
 
 def test_browser_failure_is_explained_without_crashing():
