@@ -35,13 +35,19 @@ class MicrophoneRecorder:
             ) from exc
 
         frames = int(seconds * self.config.sample_rate)
-        data = sd.rec(
-            frames,
-            samplerate=self.config.sample_rate,
-            channels=self.config.channels,
-            dtype="int16",
-        )
-        sd.wait()
+        try:
+            data = sd.rec(
+                frames,
+                samplerate=self.config.sample_rate,
+                channels=self.config.channels,
+                dtype="int16",
+            )
+            sd.wait()
+        except Exception as exc:
+            raise RuntimeError(
+                "Microphone capture failed. Check System Settings > Privacy & Security > "
+                "Microphone and allow the app or Terminal running Bridge."
+            ) from exc
         samples = np.asarray(data, dtype=np.int16)
         with NamedTemporaryFile(prefix="bridge-", suffix=".wav", delete=False) as tmp:
             path = Path(tmp.name)
