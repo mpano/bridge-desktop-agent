@@ -147,3 +147,23 @@ Before relying on hands-free operation on your Mac, verify microphone permission
 one-shot recognition, a SAFE command, typed approval/decline, speech output,
 wake activation with your chosen model, and Ctrl-C shutdown. These hardware and
 model-quality checks cannot be established by the mock test suite.
+
+
+## Bridge menu-bar voice
+
+After installing the voice and wake-word extras and a reviewed custom model:
+
+```bash
+python -m pip install -e '.[voice,wakeword,menubar]'
+bridge --install-wakeword /path/to/bridge.onnx
+bridge --menubar
+```
+
+The menu shows **Start listening for “Bridge”** and **Stop Voice Listening**. Starting it is an
+explicit session-level opt-in. Merely launching Bridge does not start the microphone.
+
+Menu-bar voice submits commands through Bridge's already-running authenticated localhost API,
+so there is one Agent/workflow database owner. Confirmation-required actions remain pending for
+review in Bridge and are never approved by spoken input.
+
+See `docs/WAKEWORD_BRIDGE.md` for training and evaluating the custom “Bridge” wake-word model.
