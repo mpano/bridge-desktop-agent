@@ -39,13 +39,13 @@ def test_assets_and_security_headers(ui):
     client, _, _, _, _ = ui
     response = client.get("/")
     assert response.status_code == 200
-    assert "Desktop Agent" in response.text
+    assert "Bridge" in response.text
     assert "private-provider-secret" not in response.text
     assert "local-test-token" not in response.text
     assert response.headers["cache-control"] == "no-store"
     assert response.headers["x-frame-options"] == "DENY"
     assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
-    for path in ("/ui/app.js", "/ui/style.css"):
+    for path in ("/ui/app.js", "/ui/style.css", "/ui/bridge-logo.png"):
         assert client.get(path).status_code == 200
     assert client.get("/ui/.env").status_code == 404
     assert client.get("/api/v1/preferences").status_code == 401
