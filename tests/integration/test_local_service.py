@@ -20,7 +20,7 @@ from app.desktop.service import LocalService, ServiceState
 from app.workflows.store import SQLiteWorkflows
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("DESKTOP_AGENT_SERVICE_TESTS") != "1", reason="Opt-in loopback integration test"
+    os.environ.get("BRIDGE_SERVICE_TESTS") != "1" and os.environ.get("DESKTOP_AGENT_SERVICE_TESTS") != "1", reason="Opt-in loopback integration test"
 )
 
 
