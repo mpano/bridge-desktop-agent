@@ -83,10 +83,35 @@ async def local_command(agent: Agent, message: str) -> dict | None:
     return None
 
 
+async def voice_once(settings: Settings) -> None:
+    from app.voice import VoiceService
+
+    agent = build_agent(settings)
+    try:
+        service = VoiceService(agent, settings)
+        result = await service.listen_once()
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    finally:
+        await agent.close()
+
+
+async def voice_background(settings: Settings) -> None:
+    from app.voice import VoiceService
+
+    agent = build_agent(settings)
+    service = VoiceService(agent, settings)
+    try:
+        print("Bridge voice service is listening locally for the configured wake word.")
+        await service.run_background()
+    finally:
+        service.stop()
+        await agent.close()
+
+
 async def cli(settings: Settings, verbose: bool = False):
     console_settings = settings if verbose else settings.model_copy(update={"log_level": "WARNING"})
     agent = build_agent(console_settings)
-    print("Desktop Agent\nType /help for commands or exit to quit.")
+    print("Bridge\nType /help for commands or exit to quit.")
     if settings.llm_provider == "ollama":
         print(f"Provider: local Ollama ({settings.local_llm_model}); no OpenAI fallback.")
     else:
@@ -140,7 +165,7 @@ async def cli(settings: Settings, verbose: bool = False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Desktop Agent")
+    parser = argparse.ArgumentParser(description="Bridge desktop agent")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--doctor", action="store_true", help="Check configuration without starting the agent"
@@ -150,6 +175,14 @@ def main():
     mode.add_argument(
         "--menubar", action="store_true", help="Run the native macOS menu-bar launcher"
     )
+    mode.add_argument(
+        "--voice-once", action="store_true", help="Record one spoken command and run it"
+    )
+    mode.add_argument(
+        "--voice-service",
+        action="store_true",
+        help="Run explicitly enabled wake-word/background voice mode",
+    )
     parser.add_argument(
         "--verbose", action="store_true", help="Show structured execution logs in CLI"
     )
@@ -157,6 +190,19 @@ def main():
     settings = Settings()
     if args.doctor:
         print(json.dumps(collect_diagnostics(settings), indent=2))
+    elif args.voice_once:
+        try:
+            asyncio.run(voice_once(settings))
+        except (KeyboardInterrupt, RuntimeError) as exc:
+            if str(exc):
+                print(str(exc))
+    elif args.voice_service:
+        try:
+            asyncio.run(voice_background(settings))
+        except KeyboardInterrupt:
+            print("\nVoice service stopped.")
+        except RuntimeError as exc:
+            print(str(exc))
     elif args.menubar:
         from app.desktop.menubar import run_menubar
 
