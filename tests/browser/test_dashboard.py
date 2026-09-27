@@ -16,7 +16,7 @@ from app.config.settings import Settings
 from app.llm.models import LLMResponse
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("DESKTOP_AGENT_BROWSER_TESTS") != "1", reason="Opt-in headless browser test"
+    os.environ.get("BRIDGE_BROWSER_TESTS") != "1" and os.environ.get("DESKTOP_AGENT_BROWSER_TESTS") != "1", reason="Opt-in headless browser test"
 )
 
 
