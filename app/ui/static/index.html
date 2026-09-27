@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Desktop Agent</title>
+  <link rel="stylesheet" href="/ui/style.css">
+  <script src="/ui/app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="Desktop Agent home"><span class="monogram">da</span><span>Desktop<br><strong>Agent</strong></span></a>
+    <p class="eyebrow">WORKSPACE</p>
+    <nav aria-label="Main navigation">
+      <button type="button" data-view="chat" aria-current="page">Conversation <span>01</span></button>
+      <button type="button" data-view="projects">Projects <span>02</span></button>
+      <button type="button" data-view="workflows">Workflows <span>03</span></button>
+      <button type="button" data-view="preferences">Preferences <span>04</span></button>
+      <button type="button" data-view="capabilities">Capabilities <span>05</span></button>
+    </nav>
+    <div class="sidebar-footer"><span class="local-dot"></span> Runs on your Mac
+      <p>Actions stay under your control.<br><span id="provider-summary">Connect to see your model provider.</span></p>
+    </div>
+  </aside>
+  <main>
+    <header class="topbar"><span>LOCAL WORKSPACE</span><div><span id="connection-status">Disconnected</span><button id="disconnect" type="button" hidden>Disconnect</button></div></header>
+    <div id="notice" role="status" aria-live="polite" hidden></div>
+    <section id="connect-panel" class="card connection">
+      <p class="eyebrow">WELCOME BACK</p><h1>A little less clicking.<br>A little more doing.</h1>
+      <p>Connect to your local assistant to give instructions, manage projects, and review actions.</p>
+      <form id="connect-form"><label for="api-token">Local API token</label>
+        <div class="inline"><input id="api-token" type="password" autocomplete="off" required placeholder="API_TOKEN from your .env file"><button class="primary" type="submit">Connect</button></div>
+      </form>
+      <p class="hint">The token stays in this page's memory. Reloading or disconnecting clears it.</p>
+    </section>
+    <fieldset id="workspace" disabled hidden>
+      <section id="view-chat" class="view">
+        <div class="page-heading"><div><p class="eyebrow">CONVERSATION</p><h1>What would you like to do?</h1><p>One request, or a few steps. You decide what happens.</p></div><button type="button" id="reset-chat" class="secondary">New conversation</button></div>
+        <div id="conversation" role="log" aria-label="Conversation" aria-live="polite">
+          <div id="empty-chat" class="empty-state"><span class="large-mark">↗</span><h2>Your next action starts here.</h2><p>Open an app, find a saved project, or put a plan in motion.</p>
+            <div class="suggestions"><button type="button" data-example="Open my Downloads folder">Open Downloads ↗</button><button type="button" data-example="List my saved projects">Find a project ↗</button><button type="button" data-example="What apps are running?">See running apps ↗</button></div>
+          </div>
+        </div>
+        <form id="message-form" class="composer"><label for="message" class="sr-only">Your request</label><textarea id="message" rows="2" maxlength="10000" required placeholder="Ask Desktop Agent to do something…"></textarea><div><span>Changes that need approval will pause for your review.</span><button type="submit" class="primary">Send request ↗</button></div></form>
+        <p id="provider-privacy-hint" class="hint">Connect to review your model provider and tool-result sharing policy.</p>
+      </section>
+      <section id="view-projects" class="view" hidden>
+        <div class="page-heading"><div><p class="eyebrow">PROJECTS</p><h1>A name for every workspace.</h1><p>Save a folder once. Open it by name next time.</p></div><button type="button" id="refresh-projects" class="secondary">Refresh</button></div>
+        <div class="two-column"><div><div id="project-list" class="item-list"></div></div>
+          <form id="project-form" class="card"><h2>Save a project</h2><p class="hint">Using an existing name replaces its saved path after approval.</p><label for="project-name">Project name</label><input id="project-name" maxlength="80" required placeholder="NLP project"><label for="project-path">Folder path</label><input id="project-path" maxlength="4096" required placeholder="~/Projects/nlp-api-go"><button type="submit" class="primary">Review and save</button></form>
+        </div>
+      </section>
+      <section id="view-workflows" class="view" hidden>
+        <article class="card"><h2>Tasks in this session</h2><p>Reconnect to running work or review a recent result. Approval still requires your review.</p><div id="task-list" class="item-list"></div></article>
+        <div class="page-heading"><div><p class="eyebrow">WORKFLOWS</p><h1>Every step, accounted for.</h1><p>Review saved work before choosing what comes next.</p></div><button type="button" id="refresh-workflows" class="secondary">Refresh</button></div>
+        <div class="workflow-toolbar"><div><label for="workflow-filter">Show workflows</label><select id="workflow-filter"><option value="">All states</option><option value="unfinished">Unfinished work</option><option value="completed">Completed</option><option value="failed">Failed</option><option value="cancelled">Cancelled</option></select></div><div class="pagination"><button id="workflow-prev" type="button" class="secondary">Previous page</button><span id="workflow-page" role="status"></span><button id="workflow-next" type="button" class="secondary">Next page</button></div></div>
+        <div class="two-column"><div id="workflow-list" class="item-list"></div><article id="workflow-detail" class="card"><h2>Choose a workflow</h2><p>Select a record to inspect its completed steps and remaining actions.</p></article></div>
+        <form id="retention-form" class="card retention-card"><h2>Keep your history manageable.</h2><p>Preview old completed, failed, and cancelled records for removal. Unfinished work is always kept.</p><div class="retention-fields"><div><label for="retention-days">Older than (days)</label><input id="retention-days" type="number" min="1" max="3650" value="30" required></div><div><label for="retention-keep">Keep newest terminal records</label><input id="retention-keep" type="number" min="0" max="10000" value="100" required></div></div><button type="submit" class="secondary">Preview cleanup</button><p class="hint">Review the exact record IDs before approving. Each approval removes at most 200 records. This only removes journal records, not project files or aliases.</p></form>
+      </section>
+      <section id="view-preferences" class="view" hidden>
+        <div class="page-heading"><div><p class="eyebrow">PREFERENCES</p><h1>Make yourself at home.</h1><p>Your preferred apps, remembered across restarts.</p></div></div>
+        <form id="preferences-form" class="card settings-card"><h2>Default applications</h2><p>Use an installed application's name. Changes apply to new requests.</p><label for="default-browser">Browser</label><input id="default-browser" required maxlength="150" placeholder="Google Chrome"><label for="default-editor">Project editor</label><input id="default-editor" required maxlength="150" placeholder="Visual Studio Code"><button type="submit" class="primary">Review changes</button></form>
+        <div class="settings-note"><h2>Credentials stay out of this panel.</h2><p>Manage your OpenAI API key and local API token in your .env file. This page cannot display or change them.</p></div>
+      </section>
+      <section id="view-capabilities" class="view" hidden>
+        <div class="page-heading"><div><p class="eyebrow">CAPABILITIES</p><h1>Know what your assistant can do.</h1><p>Browse available tools and the checks applied before they run.</p></div></div>
+        <article class="card"><h2>Model and privacy</h2><div id="provider-details"></div><p class="hint">Configure LLM_PROVIDER and REMOTE_TOOL_RESULTS in .env, then restart Desktop Agent. This panel is read-only. Tool approval and data sharing are separate controls.</p></article>
+        <article class="card"><h2>Local diagnostics</h2><p id="diagnostics-summary" role="status">Connect to check local readiness.</p><div id="diagnostics-list" class="item-list"></div><button type="button" id="refresh-diagnostics" class="secondary">Refresh diagnostics</button><p class="hint">These checks do not launch applications or test macOS permissions by performing actions.</p></article>
+        <div class="card"><label for="capability-search">Search capabilities</label><input id="capability-search" type="search" placeholder="Search by tool name or description"><p id="capability-count" role="status"></p><p class="hint">Risk labels show each tool's base policy. Arguments and security rules may require approval or block an action.</p></div>
+        <div id="capability-list" class="item-list"></div>
+      </section>
+    </fieldset>
+    <section id="live-task" class="card" hidden><p id="task-progress" role="status" aria-live="polite"></p><button id="stop-task" type="button" class="secondary">Stop remaining work</button></section>
+    <p id="busy-status" role="status" aria-live="polite" hidden>Working on your request…</p>
+  </main>
+  <dialog id="confirmation-dialog" aria-labelledby="confirmation-title">
+    <p class="eyebrow">YOUR APPROVAL</p><h2 id="confirmation-title">Review this action</h2><p id="confirmation-message"></p><pre id="confirmation-arguments"></pre><p class="hint">Approve only if the action and arguments match your intent. Approvals expire after five minutes.</p><div class="dialog-actions"><button id="decline" type="button" class="secondary">Decline</button><button id="approve" type="button" class="primary">Approve action</button></div><p id="confirmation-error" role="alert"></p>
+    <button id="review-workflows" type="button" class="secondary" hidden>Leave review and inspect workflows</button>
+  </dialog>
+</body>
+</html>

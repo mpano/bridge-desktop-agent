@@ -1,0 +1,49 @@
+from pathlib import Path
+from typing import Literal
+
+from pydantic import Field, SecretStr, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    llm_provider: Literal["openai", "ollama"] = "openai"
+    local_llm_base_url: str = "http://127.0.0.1:11434"
+    local_llm_model: str = Field(default="qwen3:8b", min_length=1, max_length=200)
+    local_llm_timeout_seconds: float = Field(default=120, ge=1, le=600)
+    remote_tool_results: Literal["status_only", "allowlist", "all"] = "status_only"
+    remote_tool_result_allowlist: list[str] = Field(default_factory=list)
+    openai_api_key: SecretStr = SecretStr("")
+    openai_model: str = "gpt-4.1-mini"
+    default_browser: str = "Google Chrome"
+    default_editor: str = "Visual Studio Code"
+    database_path: Path = Path("agent.db")
+    screenshot_directory: Path = (
+        Path.home() / "Library/Application Support/Desktop Agent/screenshots"
+    )
+    log_level: str = "INFO"
+    api_token: SecretStr = SecretStr("")
+    max_rounds: int = Field(default=12, ge=1, le=50)
+
+    @field_validator("local_llm_base_url")
+    @classmethod
+    def local_url(cls, value: str) -> str:
+        from app.llm.ollama import validate_local_url
+
+        return validate_local_url(value)
+
+    @field_validator("local_llm_model")
+    @classmethod
+    def local_model(cls, value: str) -> str:
+        if not value.strip() or "cloud" in value.lower() or any(c.isspace() for c in value):
+            raise ValueError("Select a locally installed model without a cloud tag.")
+        return value
+
+    @field_validator("remote_tool_result_allowlist")
+    @classmethod
+    def tool_names(cls, values: list[str]) -> list[str]:
+        if any(
+            not name or len(name) > 100 or not name.replace("_", "").isalnum() for name in values
+        ):
+            raise ValueError("Use exact registered tool names in the remote result allowlist.")
+        return list(dict.fromkeys(values))

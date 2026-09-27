@@ -1,0 +1,13 @@
+.venv/
+.env
+*.db
+*.db-*
+*.db.lock
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.idea/
+.DS_Store
+dist/
+build/

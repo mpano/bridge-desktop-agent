@@ -1,0 +1,52 @@
+import json
+from typing import Protocol
+
+from openai import AsyncOpenAI
+
+from app.llm.models import LLMResponse, ToolCall
+from app.llm.prompts import SYSTEM_PROMPT
+
+
+class LLMClient(Protocol):
+    async def generate_response(self, history: list[dict], tools: list[dict]) -> LLMResponse: ...
+
+
+def parse_tool_calls(output: list[dict]) -> list[ToolCall]:
+    calls = []
+    for item in output:
+        if item.get("type") == "function_call":
+            arguments = json.loads(item["arguments"])
+            calls.append(ToolCall(call_id=item["call_id"], name=item["name"], arguments=arguments))
+    if len({call.call_id for call in calls}) != len(calls):
+        raise ValueError("Duplicate tool call IDs.")
+    return calls
+
+
+class OpenAILLMClient:
+    def __init__(self, settings):
+        self.settings = settings
+        self._client = None
+
+    async def generate_response(self, history, tools):
+        if not self.settings.openai_api_key.get_secret_value():
+            raise RuntimeError("Set OPENAI_API_KEY in .env to use the agent.")
+        if self._client is None:
+            self._client = AsyncOpenAI(
+                api_key=self.settings.openai_api_key.get_secret_value(),
+                timeout=45,
+                max_retries=1,
+            )
+        response = await self._client.responses.create(
+            model=self.settings.openai_model,
+            instructions=SYSTEM_PROMPT,
+            input=history,
+            tools=tools,
+            parallel_tool_calls=False,
+            store=False,
+        )
+        output = [item.model_dump(exclude_none=True) for item in response.output]
+        return LLMResponse(parse_tool_calls(output), response.output_text, output)
+
+    async def close(self):
+        if self._client:
+            await self._client.close()
