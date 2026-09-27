@@ -24,7 +24,7 @@ def create_app(settings: Settings | None = None, agent=None, *, enable_ui: bool 
         finally:
             await app.state.agent.close()
 
-    app = FastAPI(title="Desktop Agent", lifespan=lifespan)
+    app = FastAPI(title="Bridge", lifespan=lifespan)
     app.add_middleware(
         TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "testserver"]
     )
