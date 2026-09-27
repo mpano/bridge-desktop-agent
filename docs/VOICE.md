@@ -69,13 +69,13 @@ VOICE_TTS_RATE=180
 
 ## Wake word and background service
 
-Background microphone listening is OFF by default. Bridge refuses to start wake-word mode
-unless both flags are explicitly enabled:
+Background microphone listening is OFF by default. The terminal `--voice-service` mode
+requires both flags below. The menu-bar **Start listening for “Bridge”** action is itself an
+explicit session-level opt-in and enables them only for that listener session:
 
 ```dotenv
 VOICE_BACKGROUND_ENABLED=true
 VOICE_WAKE_WORD_ENABLED=true
-VOICE_WAKE_WORD_MODEL_PATH=/absolute/path/to/bridge-wakeword.onnx
 VOICE_WAKE_WORD_THRESHOLD=0.5
 ```
 
@@ -101,14 +101,22 @@ python -c 'from openwakeword.utils import download_models; download_models()'
 ```
 
 See [openWakeWord's setup instructions](https://github.com/dscripka/openWakeWord)
-for model licensing and supported pretrained wake phrases. Point
-`VOICE_WAKE_WORD_MODEL_PATH` to an actual `.onnx` wake model, not a TFLite file.
-The word it detects is determined by that model; the service does not train or
-automatically recognize a custom “Bridge” phrase.
+for model licensing and supported pretrained wake phrases.
 
-Wake-word detection uses openWakeWord locally. Bridge does not bundle or silently download a
-wake-word model. Supply a model file you have reviewed. This makes it possible to train/use a
-custom "Bridge" wake word later without sending ambient microphone audio to a cloud service.
+For the custom Bridge phrase, train/export `bridge.onnx` using
+`wakeword/bridge_custom_model.yml`, then install it explicitly:
+
+```bash
+bridge --install-wakeword /path/to/bridge.onnx
+```
+
+The default installed location is
+`~/Library/Application Support/Bridge/wakewords/bridge.onnx`. You can override it with
+`VOICE_WAKE_WORD_MODEL_PATH` when testing another reviewed ONNX model. The word detected is
+determined by the installed model; Bridge never relabels another wake-word model as “Bridge”.
+
+Wake-word detection stays local. Bridge does not silently download or fabricate a custom
+wake-word model, and ambient microphone audio is not sent to a cloud wake-word service.
 
 After the wake word is detected, Bridge records one bounded command, transcribes it, routes the
 text through the normal Agent, ToolRegistry, SecurityPolicy, and Executor, then speaks the result.
