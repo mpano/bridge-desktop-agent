@@ -157,6 +157,9 @@ def test_bundle_quotes_paths_and_does_not_copy_secrets(tmp_path):
     target = build_launcher(project, python, tmp_path / "Bridge.app")
     info = plistlib.loads((target / "Contents/Info.plist").read_bytes())
     assert info["LSUIElement"] is True
+    assert info["CFBundleName"] == "Bridge"
+    assert info["CFBundleExecutable"] == "Bridge"
+    assert "microphone" in info["NSMicrophoneUsageDescription"].lower()
     executable = target / "Contents/MacOS/Bridge"
     text = executable.read_text()
     assert shlex.quote(str(project)) in text
