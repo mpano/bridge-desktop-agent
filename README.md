@@ -1,4 +1,4 @@
-# Desktop Agent
+# Bridge
 
 Optional voice capture, local/remote speech-to-text, local spoken responses, and an
 explicitly started wake-word listener are documented in [Voice setup](docs/VOICE.md).
@@ -103,7 +103,7 @@ The example [qwen3:8b model](https://ollama.com/library/qwen3:8b) is a multi-gig
 download; model speed and memory use depend on your Mac. You can select another
 locally installed tool-capable model through configuration. The application never
 downloads models itself. Ollama's [local-only setting](https://docs.ollama.com/faq)
-must be applied to the Ollama server, not merely placed in Desktop Agent's `.env`.
+must be applied to the Ollama server, not merely placed in Bridge's `.env`.
 
 Set these values in your existing `.env` (keep your API_TOKEN for the dashboard):
 
@@ -114,7 +114,7 @@ LOCAL_LLM_MODEL=qwen3:8b
 LOCAL_LLM_TIMEOUT_SECONDS=120
 ```
 
-No OpenAI key is needed in this mode. Restart Desktop Agent:
+No OpenAI key is needed in this mode. Restart Bridge:
 
 ```bash
 python -m app.main --doctor
@@ -134,7 +134,7 @@ proxies are rejected or disabled. Known cloud-model names and model metadata
 indicating remote inference are refused before chat history is sent. The local
 service is still a trusted dependency: these checks cannot constrain a modified
 server that forwards traffic or misreports metadata. Disable Ollama Cloud on that
-server for local-only operation. Desktop Agent never falls back to OpenAI.
+server for local-only operation. Bridge never falls back to OpenAI.
 
 Connection errors, missing models, malformed tool calls, and timeouts fail the
 request without executing a guessed action. The request timeout bounds each
@@ -216,7 +216,7 @@ Keep the file private (`chmod 600 .env`). `.env`, databases, environments, and
 screenshots are not source-controlled. The CLI does not require `API_TOKEN`.
 
 Additional settings: `SCREENSHOT_DIRECTORY` defaults to
-`~/Library/Application Support/Desktop Agent/screenshots`; `MAX_ROUNDS`
+`~/Library/Application Support/Bridge/screenshots`; `MAX_ROUNDS`
 defaults to 12. Screenshots remain until manually removed.
 
 ## Run the CLI
@@ -400,7 +400,7 @@ Menu actions:
 - **Start Service / Stop Service** control only the server owned by this launcher.
   Stop leaves the menu-bar app running so you can start it again.
 - **Service Details** shows readiness, the local URL, or a helpful startup error.
-- **Quit Desktop Agent** stops the owned service before exiting the menu-bar app.
+- **Quit Bridge** stops the owned service before exiting the menu-bar app.
 
 AppKit stays on the main thread. The ASGI service owns a background thread, event
 loop, and pre-bound loopback socket. Starting twice does not create another worker.
@@ -419,7 +419,7 @@ the menu-bar application; Stop/Start uses the existing settings snapshot.
 
 ### Double-clickable local launcher
 
-The generated launcher is at `dist/Desktop Agent.app`. For a fresh checkout:
+The generated launcher is at `dist/Bridge.app`. For a fresh checkout:
 
 ```bash
 python -m app.desktop.bundle
@@ -428,7 +428,7 @@ python -m app.desktop.bundle
 Double-click it in Finder, or run:
 
 ```bash
-open "dist/Desktop Agent.app"
+open "dist/Bridge.app"
 ```
 
 The bundle contains an Info.plist and a quoted executable launch script. It points
@@ -436,7 +436,7 @@ to this checkout and its virtual environment, sets the working directory so `.en
 and the relative database path are consistent, and never copies `.env` or embeds
 credentials. It is **not a self-contained or signed/notarized distribution**. Keep
 the checkout and virtual environment in place. To rebuild after moving either,
-choose a new destination with `--output 'dist/Desktop Agent New.app'` or remove the
+choose a new destination with `--output 'dist/Bridge New.app'` or remove the
 old generated launcher yourself; the builder deliberately refuses to overwrite it.
 No login item, LaunchAgent, background autostart, or Keychain integration is installed.
 
@@ -821,7 +821,7 @@ on screen or the lock screen according to your system settings.
 
 Success means macOS accepted the request, not that a banner was displayed or read.
 Check System Settings → Notifications and Focus if no notification appears. The
-notification sender can reflect the script host rather than Desktop Agent. There
+notification sender can reflect the script host rather than Bridge. There
 is no scheduling, notification history access, or automatic completion alert yet.
 See [Apple's notification scripting guide](https://developer.apple.com/library/archive/documentation/LanguagesUtilities/Conceptual/MacAutomationScriptingGuide/DisplayNotifications.html).
 Automated tests mock the native runner and do not display notifications.
