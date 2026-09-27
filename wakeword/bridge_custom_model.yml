@@ -1,0 +1,22 @@
+# Bridge custom wake-word training configuration for upstream openWakeWord.
+# Use with the official openWakeWord training workflow; see docs/WAKEWORD_BRIDGE.md.
+model_name: "bridge"
+
+target_phrase:
+  - "bridge"
+
+# Start with close confusions seen in your deployment and tune from measured false positives.
+custom_negative_phrases:
+  - "fridge"
+  - "abridge"
+  - "bridges"
+
+# Upstream recommends at least 20,000 positives; larger sets often perform better.
+n_samples: 20000
+n_samples_val: 2000
+
+model_type: "dnn"
+layer_size: 32
+steps: 50000
+max_negative_weight: 1500
+target_false_positives_per_hour: 0.2
