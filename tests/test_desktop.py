@@ -204,7 +204,9 @@ def test_menu_voice_start_stop_is_explicit():
 
     menu.start_voice()
     voice.start.assert_called_once()
-    voice.status = SimpleNamespace(state=VoiceState.LISTENING, message='Listening for “Bridge”')
+    voice.status = SimpleNamespace(
+        state=VoiceState.LISTENING, message='Listening for “Bridge”'
+    )
     menu.refresh()
     assert 'Bridge' in menu.voice_status_item.title
     assert menu.voice_start_item.callback is None
