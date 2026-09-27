@@ -675,7 +675,7 @@ they do not use your browser profile or make live OpenAI calls.
 ```bash
 python -m pip install -e '.[dev,browser]'
 python -m playwright install chromium --only-shell
-DESKTOP_AGENT_BROWSER_TESTS=1 python -m pytest tests/browser -q
+BRIDGE_BROWSER_TESTS=1 python -m pytest tests/browser -q
 ```
 
 Browser tests are skipped in the default suite unless explicitly enabled. The existing
@@ -686,7 +686,7 @@ service integration tests use actual temporary localhost sockets with a temporar
 database and mocked LLM/native operations:
 
 ```bash
-DESKTOP_AGENT_SERVICE_TESTS=1 python -m pytest tests/integration/test_local_service.py -q
+BRIDGE_SERVICE_TESTS=1 python -m pytest tests/integration/test_local_service.py -q
 ```
 
 They cover readiness, duplicate starts, graceful stop/restart, database release,
