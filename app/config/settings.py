@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     default_editor: str = "Visual Studio Code"
     database_path: Path = Path("agent.db")
     screenshot_directory: Path = (
-        Path.home() / "Library/Application Support/Desktop Agent/screenshots"
+        Path.home() / "Library/Application Support/Bridge/screenshots"
     )
     log_level: str = "INFO"
     api_token: SecretStr = SecretStr("")
