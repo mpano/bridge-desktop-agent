@@ -8,7 +8,6 @@ from app.voice.audio import MicrophoneRecorder
 from app.voice.paths import wake_word_model_path
 from app.voice.stt import LocalWhisperSTT, OpenAIWhisperSTT, SpeechToText
 from app.voice.tts import MacOSSayTTS, TextToSpeech
-from app.voice.paths import wake_word_model_path
 from app.voice.wakeword import OpenWakeWordDetector
 
 
