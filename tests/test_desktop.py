@@ -14,6 +14,7 @@ from app.config.settings import Settings
 from app.desktop.bundle import build_launcher
 from app.desktop.menubar import MenuBarController
 from app.desktop.service import LocalService, ServiceState, ServiceStatus
+from app.desktop.voice import VoiceState
 
 
 class FakeItem:
@@ -192,7 +193,7 @@ async def test_agent_close_waits_for_active_execution():
 def test_menu_voice_start_stop_is_explicit():
     menu, service, native, browser = make_menu()
     voice = Mock()
-    voice.status = SimpleNamespace(state=__import__("app.desktop.voice", fromlist=["VoiceState"]).VoiceState.STOPPED, message="off")
+    voice.status = SimpleNamespace(state=VoiceState.STOPPED, message="off")
     voice.wait.return_value = True
     menu = MenuBarController(service, native, browser, voice=voice)
     assert menu.voice_start_item.callback is not None
@@ -200,7 +201,7 @@ def test_menu_voice_start_stop_is_explicit():
 
     menu.start_voice()
     voice.start.assert_called_once()
-    voice.status = SimpleNamespace(state=__import__("app.desktop.voice", fromlist=["VoiceState"]).VoiceState.LISTENING, message='Listening for “Bridge”')
+    voice.status = SimpleNamespace(state=VoiceState.LISTENING, message='Listening for “Bridge”')
     menu.refresh()
     assert 'Bridge' in menu.voice_status_item.title
     assert menu.voice_start_item.callback is None
