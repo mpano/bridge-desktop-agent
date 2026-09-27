@@ -74,7 +74,9 @@ def main() -> None:
     if sys.platform != "darwin":
         parser.error("The Bridge app launcher requires macOS.")
     if importlib.util.find_spec("rumps") is None:
-        parser.error("Install the optional dependency first: python -m pip install -e '.[menubar]'")
+        parser.error(
+            "Install the optional dependency first: python -m pip install -e '.[menubar]'"
+        )
     project = Path(__file__).resolve().parents[2]
     try:
         target = build_launcher(project, Path(sys.executable), args.output)
