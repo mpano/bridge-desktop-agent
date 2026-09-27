@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Desktop Agent</title>
+  <title>Bridge</title>
   <link rel="stylesheet" href="/ui/style.css">
   <script src="/ui/app.js" defer></script>
 </head>
 <body>
   <aside class="sidebar">
-    <a class="brand" href="/" aria-label="Desktop Agent home"><span class="monogram">da</span><span>Desktop<br><strong>Agent</strong></span></a>
+    <a class="brand" href="/" aria-label="Bridge home"><img src="/ui/bridge-logo.png" alt="Bridge — Your intelligent desktop agent"></a>
     <p class="eyebrow">WORKSPACE</p>
     <nav aria-label="Main navigation">
       <button type="button" data-view="chat" aria-current="page">Conversation <span>01</span></button>
@@ -41,7 +41,7 @@
             <div class="suggestions"><button type="button" data-example="Open my Downloads folder">Open Downloads ↗</button><button type="button" data-example="List my saved projects">Find a project ↗</button><button type="button" data-example="What apps are running?">See running apps ↗</button></div>
           </div>
         </div>
-        <form id="message-form" class="composer"><label for="message" class="sr-only">Your request</label><textarea id="message" rows="2" maxlength="10000" required placeholder="Ask Desktop Agent to do something…"></textarea><div><span>Changes that need approval will pause for your review.</span><button type="submit" class="primary">Send request ↗</button></div></form>
+        <form id="message-form" class="composer"><label for="message" class="sr-only">Your request</label><textarea id="message" rows="2" maxlength="10000" required placeholder="Ask Bridge to do something…"></textarea><div><span>Changes that need approval will pause for your review.</span><button type="submit" class="primary">Send request ↗</button></div></form>
         <p id="provider-privacy-hint" class="hint">Connect to review your model provider and tool-result sharing policy.</p>
       </section>
       <section id="view-projects" class="view" hidden>
@@ -64,7 +64,7 @@
       </section>
       <section id="view-capabilities" class="view" hidden>
         <div class="page-heading"><div><p class="eyebrow">CAPABILITIES</p><h1>Know what your assistant can do.</h1><p>Browse available tools and the checks applied before they run.</p></div></div>
-        <article class="card"><h2>Model and privacy</h2><div id="provider-details"></div><p class="hint">Configure LLM_PROVIDER and REMOTE_TOOL_RESULTS in .env, then restart Desktop Agent. This panel is read-only. Tool approval and data sharing are separate controls.</p></article>
+        <article class="card"><h2>Model and privacy</h2><div id="provider-details"></div><p class="hint">Configure LLM_PROVIDER and REMOTE_TOOL_RESULTS in .env, then restart Bridge. This panel is read-only. Tool approval and data sharing are separate controls.</p></article>
         <article class="card"><h2>Local diagnostics</h2><p id="diagnostics-summary" role="status">Connect to check local readiness.</p><div id="diagnostics-list" class="item-list"></div><button type="button" id="refresh-diagnostics" class="secondary">Refresh diagnostics</button><p class="hint">These checks do not launch applications or test macOS permissions by performing actions.</p></article>
         <div class="card"><label for="capability-search">Search capabilities</label><input id="capability-search" type="search" placeholder="Search by tool name or description"><p id="capability-count" role="status"></p><p class="hint">Risk labels show each tool's base policy. Arguments and security rules may require approval or block an action.</p></div>
         <div id="capability-list" class="item-list"></div>

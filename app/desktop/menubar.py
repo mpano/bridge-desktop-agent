@@ -4,6 +4,7 @@ import signal
 import sys
 import threading
 import webbrowser
+from pathlib import Path
 from collections.abc import Callable
 
 from app.config.settings import Settings
@@ -20,7 +21,14 @@ class MenuBarController:
         self.native = native
         self.open_browser = open_browser
         self.quitting = False
-        self.app = native.App("Desktop Agent", title="DA", quit_button=None)
+        icon_path = Path(__file__).resolve().parents[1] / "ui" / "static" / "bridge-menubar.png"
+        self.app = native.App(
+            "Bridge",
+            title="",
+            icon=str(icon_path) if icon_path.exists() else None,
+            template=False,
+            quit_button=None,
+        )
         self.status_item = native.MenuItem("Service stopped")
         self.open_item = native.MenuItem("Open Dashboard", callback=self.open_dashboard)
         self.start_item = native.MenuItem("Start Service", callback=self.start)
@@ -59,7 +67,7 @@ class MenuBarController:
                 opened = False
             if not opened:
                 self.native.alert(
-                    title="Desktop Agent", message=f"Open {status.url} in your browser."
+                    title="Bridge", message=f"Open {status.url} in your browser."
                 )
 
     def details(self, _=None) -> None:
@@ -67,7 +75,7 @@ class MenuBarController:
         message = status.message
         if status.url:
             message += f"\n\nDashboard: {status.url}\nConnect with API_TOKEN from your .env file."
-        self.native.alert(title="Desktop Agent", message=message)
+        self.native.alert(title="Bridge", message=message)
 
     def quit(self, _=None) -> None:
         self.quitting = True
@@ -77,7 +85,7 @@ class MenuBarController:
     def refresh(self, _=None) -> None:
         status = self.service.status
         self.status_item.title = f"Service: {status.state.value.capitalize()}"
-        self.app.title = "DA" if status.state == ServiceState.RUNNING else "DA ·"
+        self.app.title = "" if status.state == ServiceState.RUNNING else "•"
         self.open_item.set_callback(
             self.open_dashboard
             if status.state == ServiceState.RUNNING and not self.quitting
