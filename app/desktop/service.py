@@ -64,13 +64,13 @@ class LocalService:
             if not self.settings.api_token.get_secret_value():
                 self._status = ServiceStatus(
                     ServiceState.FAILED,
-                    "Set API_TOKEN in your .env file, then relaunch Desktop Agent.",
+                    "Set API_TOKEN in your .env file, then relaunch Bridge.",
                 )
                 return False
             self._stop.clear()
             self._status = ServiceStatus(ServiceState.STARTING, "Starting local service…")
             self._thread = threading.Thread(
-                target=self._run, name="desktop-agent-service", daemon=False
+                target=self._run, name="bridge-service", daemon=False
             )
             self._thread.start()
         return True
@@ -105,7 +105,7 @@ class LocalService:
             self._update(
                 ServiceState.FAILED,
                 "Service could not start or stopped unexpectedly. Check configuration and "
-                "close other agents using this database. Try --ui in Terminal for diagnostics.",
+                "close other Bridge processes using this database. Try --ui in Terminal for diagnostics.",
             )
 
     async def _serve(self) -> None:
