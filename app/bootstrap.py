@@ -5,25 +5,44 @@ import structlog
 from app.agent.agent import Agent
 from app.agent.executor import Executor
 from app.agent.planner import Planner
+from app.agent.scheduler import Scheduler
+from app.integrations.accounts import AccountManager
+from app.integrations.activity import SQLiteActivity
+from app.integrations.email import GmailService
 from app.llm.factory import create_llm
 from app.memory.store import SQLiteMemory
 from app.preferences import service as preferences_service
 from app.security.privacy import ToolResultPrivacy
-from app.tools.browser import browser
+from app.tools.browser import browser, chrome
+from app.tools.email import compose
 from app.tools.files import files, finder, projects, search
+from app.tools.integrations.register import register as register_integrations
 from app.tools.macos.applescript import MacOSAppleScript, NativeRunner
+from app.tools.productivity import briefing, calendar_mac, notes, reminders
 from app.tools.registry import ToolRegistry
 from app.tools.screen import screenshot
 from app.tools.spotify import spotify
-from app.tools.system import apps, clipboard, discovery, notifications, processes, volume
+from app.tools.system import (
+    apps,
+    clipboard,
+    discovery,
+    mac,
+    notifications,
+    processes,
+    schedules,
+    shortcuts,
+    volume,
+)
 from app.tools.terminal import terminal
 from app.workflows import retention
+from app.workflows.schedules import ScheduleStore
 from app.workflows.store import SQLiteWorkflows
 
 
-def build_agent(settings, llm=None, runner=None):
+def build_agent(settings, llm=None, runner=None, accounts=None):
     logging.basicConfig(level=settings.log_level)
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("openai").setLevel(logging.WARNING)
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(
@@ -37,6 +56,10 @@ def build_agent(settings, llm=None, runner=None):
     runner = runner or NativeRunner()
     script = MacOSAppleScript(runner)
     registry = ToolRegistry()
+    accounts = accounts or AccountManager(settings, activity=SQLiteActivity(settings.database_path))
+    spotify_app = spotify.SpotifyController(runner, script)
+    if settings.integrations_enabled:
+        register_integrations(registry, accounts, desktop_spotify=spotify_app.play_uri)
     memory = SQLiteMemory(settings.database_path)
     preferences = preferences_service.ApplicationPreferences(
         memory, settings.default_browser, settings.default_editor
@@ -48,18 +71,37 @@ def build_agent(settings, llm=None, runner=None):
     processes.register(registry, script)
     volume.register(registry, script)
     clipboard.register(registry, clipboard.ClipboardController(runner))
+    reminders_controller = reminders.RemindersController(runner)
+    reminders.register(registry, reminders_controller)
+    notes.register(registry, notes.NotesController(runner))
+    calendar_controller = calendar_mac.MacCalendarController()
+    calendar_mac.register(registry, calendar_controller)
+    shortcuts.register(registry, shortcuts.ShortcutsController(runner, settings.shortcuts_trusted))
     notifications.register(registry, notifications.NotificationController(script))
-    browser.register(
+    browser_controller = browser.BrowserController(
+        runner, settings.default_browser, default_provider=preferences.browser
+    )
+    browser.register(registry, browser_controller)
+    chrome.register(registry, chrome.ChromeController(runner))
+    schedule_store = ScheduleStore(settings.database_path)
+    schedules.register(registry, schedules.ScheduleController(schedule_store))
+    mac_controller = mac.MacController(runner)
+    mac.register(registry, mac_controller)
+    briefing.register(
         registry,
-        browser.BrowserController(
-            runner, settings.default_browser, default_provider=preferences.browser
+        briefing.BriefingController(
+            calendar=calendar_controller,
+            reminders=reminders_controller,
+            mac=mac_controller,
+            gmail=GmailService(accounts) if settings.integrations_enabled else None,
         ),
     )
+    compose.register(registry, compose.EmailComposer(runner, browser_controller.open_url))
     files.register(registry, runner, preferences.editor)
     search.register(registry, search.FileSearchController())
     finder.register(registry, finder.FinderController(runner))
     terminal.register(registry, runner)
-    spotify.register(registry, spotify.SpotifyController(runner, script))
+    spotify.register(registry, spotify_app)
     screenshot.register(
         registry, screenshot.ScreenController(runner, settings.screenshot_directory)
     )
@@ -79,6 +121,8 @@ def build_agent(settings, llm=None, runner=None):
         "create_folder",
         "run_terminal_command",
         "spotify_control",
+        "spotify_set_volume",
+        "spotify_play_uri",
         "take_screenshot",
         "remember_project",
         "lookup_project",
@@ -90,7 +134,7 @@ def build_agent(settings, llm=None, runner=None):
         settings.database_path, can_persist=lambda call: registry.get(call.name).persist_arguments
     )
     retention.register(registry, workflows)
-    return Agent(
+    agent = Agent(
         Planner(
             llm or create_llm(settings),
             registry,
@@ -105,3 +149,10 @@ def build_agent(settings, llm=None, runner=None):
         workflows=workflows,
         preferences=preferences,
     )
+    agent.accounts = accounts
+
+    async def notify(title: str, message: str) -> None:
+        await notifications.post_notification(runner, title, message)
+
+    agent.scheduler = Scheduler(agent, schedule_store, notify)
+    return agent

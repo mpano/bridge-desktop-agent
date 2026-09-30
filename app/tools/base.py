@@ -22,6 +22,9 @@ class Tool:
     persist_arguments: bool = False
     expose_to_llm: bool = True
     confirmation_message: str | None = None
+    # Formats a successful result as readable text for the user. Rendered locally,
+    # so it is shown even when the privacy policy withholds the result from the model.
+    render: Callable[[dict], str] | None = None
 
     def validate(self, arguments: dict) -> BaseModel:
         return self.input_schema.model_validate(arguments)

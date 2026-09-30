@@ -30,6 +30,13 @@ class Executor:
             else:
                 data = await tool.execute(arguments)
                 result.update(status="completed", success=True, result=data)
+                if tool.render is not None:
+                    try:
+                        display = tool.render(data)
+                    except Exception:
+                        display = None
+                    if display:
+                        result["display"] = display
         except ValidationError:
             result.update(status="failed", error="Invalid tool arguments.")
         except (PolicyError, ValueError, RuntimeError) as exc:

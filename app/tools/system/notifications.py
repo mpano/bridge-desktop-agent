@@ -51,3 +51,22 @@ def register(registry: ToolRegistry, controller: NotificationController) -> None
             "to others on your screen or lock screen, depending on your macOS settings.",
         )
     )
+
+
+NOTIFY_SCRIPT = """
+on run argv
+    display notification (item 2 of argv) with title (item 1 of argv)
+end run
+"""
+
+
+async def post_notification(runner, title: str, message: str) -> None:
+    """Bridge's own status alerts (scheduled results, approvals). Text is passed as
+    arguments, so it can never become script source. Failures are ignored."""
+    clean = lambda text, limit: " ".join(text.split())[:limit]  # noqa: E731
+    try:
+        await runner.run(
+            "/usr/bin/osascript", "-e", NOTIFY_SCRIPT, clean(title, 100), clean(message, 250)
+        )
+    except Exception:
+        pass

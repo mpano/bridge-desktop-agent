@@ -198,7 +198,7 @@ async def test_journal_omits_conversations_outputs_and_tokens(tmp_path):
 def test_single_process_lock_and_release(tmp_path):
     path = tmp_path / "db"
     first = SQLiteWorkflows(path, can_persist=lambda call: True)
-    with pytest.raises(RuntimeError, match="Another Desktop Agent"):
+    with pytest.raises(RuntimeError, match="Another Bridge"):
         SQLiteWorkflows(path, can_persist=lambda call: True)
     first.close()
     second = SQLiteWorkflows(path, can_persist=lambda call: True)

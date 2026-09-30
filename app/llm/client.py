@@ -4,7 +4,7 @@ from typing import Protocol
 from openai import AsyncOpenAI
 
 from app.llm.models import LLMResponse, ToolCall
-from app.llm.prompts import SYSTEM_PROMPT
+from app.llm.prompts import system_prompt
 
 
 class LLMClient(Protocol):
@@ -38,7 +38,7 @@ class OpenAILLMClient:
             )
         response = await self._client.responses.create(
             model=self.settings.openai_model,
-            instructions=SYSTEM_PROMPT,
+            instructions=system_prompt(),
             input=history,
             tools=tools,
             parallel_tool_calls=False,

@@ -9,7 +9,7 @@ from uuid import uuid4
 import httpx
 
 from app.llm.models import LLMProviderError, LLMResponse, ToolCall
-from app.llm.prompts import SYSTEM_PROMPT
+from app.llm.prompts import system_prompt
 
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 
@@ -62,7 +62,7 @@ def _content(value) -> str:
 
 
 def convert_history(history: list[dict]) -> list[dict]:
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages = [{"role": "system", "content": system_prompt()}]
     pending: dict[str, str] = {}
     seen = set()
     previous_call = False

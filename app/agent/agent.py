@@ -1,6 +1,7 @@
 import asyncio
 import json
 import sqlite3
+from datetime import datetime
 from uuid import uuid4
 
 from app.agent.context import AgentContext
@@ -32,6 +33,17 @@ class Agent:
         self.history: list[dict] = []
         self.tasks: dict[str, dict] = {}
         self.background: asyncio.Task | None = None
+        # What the user saw, for the dashboard after a reload. Memory only, never journaled.
+        self.transcript: list[dict] = []
+
+    def _log(self, role: str, text: str, **extra) -> None:
+        self.transcript.append(
+            {"role": role, "text": text, "at": datetime.now().astimezone().isoformat(), **extra}
+        )
+        del self.transcript[:-100]
+
+    def conversation(self) -> list[dict]:
+        return list(self.transcript)
 
     def submit(self, message: str) -> dict:
         """Start one tracked request; never create an unbounded execution queue."""
@@ -77,6 +89,7 @@ class Agent:
             async with self.lock:
                 if message is not None:
                     context.history = [*self.history, {"role": "user", "content": message}]
+                    self._log("user", message, request_id=context.request_id)
                 state["status"] = "running"
                 try:
                     state["result"] = (
@@ -95,6 +108,21 @@ class Agent:
             }
         finally:
             state["status"] = (state["result"] or {}).get("status", "interrupted")
+            result = state["result"] or {}
+            self._log(
+                "assistant",
+                result.get("message") or "Stopped.",
+                request_id=context.request_id,
+                status=state["status"],
+                steps=self._step_summary(context),
+                confirmation=(result.get("confirmation") or {}).get("action"),
+            )
+
+    @staticmethod
+    def _step_summary(context: AgentContext) -> list[dict]:
+        return [
+            {key: step.get(key) for key in ("tool", "success", "status")} for step in context.steps
+        ]
 
     def task_progress(self, request_id: str) -> dict:
         if request_id not in self.tasks:
@@ -109,6 +137,7 @@ class Agent:
             "planning_round": context.rounds,
             "current_tool": context.current_tool,
             "remaining_tools": [call.name for call in context.queue],
+            "steps": self._step_summary(context),
             "result": state["result"],
         }
 
@@ -130,6 +159,18 @@ class Agent:
             )
         self.tasks[request_id]["context"].cancel_requested = True
         return self.task_progress(request_id)
+
+    def _with_local_results(self, context: AgentContext, text: str | None) -> str:
+        """Append readable results the model could not see; they never leave this Mac."""
+        privacy = self.planner.privacy
+        displays = [
+            step["display"]
+            for step in context.steps
+            if step.get("display") and privacy.filter_result(step).get("result_withheld")
+        ]
+        parts = [text] if text else []
+        parts += displays
+        return "\n\n".join(parts) or "Request completed."
 
     def _cancelled(self, context: AgentContext) -> dict:
         context.queue.clear()
@@ -307,7 +348,9 @@ class Agent:
                     user,
                     {"role": "assistant", "content": summary},
                 ]
-                return self.response(context, "completed", reply.text or "Request completed.")
+                return self.response(
+                    context, "completed", self._with_local_results(context, reply.text)
+                )
             try:
                 context.queue = self._prepare(reply.calls)
             except ValueError:
@@ -435,6 +478,7 @@ class Agent:
             )
 
     def reset_conversation(self) -> None:
+        self.transcript.clear()
         self.history.clear()
 
     async def close(self) -> None:
