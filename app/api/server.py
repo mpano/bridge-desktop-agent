@@ -1,27 +1,44 @@
+import asyncio
 import secrets
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from app.api.schemas import AgentResponse, ConfirmationRequest, MessageRequest
+from app.api.launch import LaunchTickets
+from app.api.schemas import AgentResponse, ConfirmationRequest, LaunchRequest, MessageRequest
 from app.bootstrap import build_agent
 from app.config.settings import Settings
 from app.diagnostics import collect_diagnostics
+from app.integrations.routes import install_connections
 from app.preferences.service import ApplicationPreferencesInput
 from app.tools.files.projects import ProjectAlias, RememberProject
 from app.workflows.retention import RetentionPolicy, WorkflowFilter, WorkflowQuery
 
 
-def create_app(settings: Settings | None = None, agent=None, *, enable_ui: bool = False) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    agent=None,
+    *,
+    enable_ui: bool = False,
+    launch_tickets: LaunchTickets | None = None,
+) -> FastAPI:
     settings = settings or Settings()
 
     @asynccontextmanager
     async def lifespan(app):
         app.state.agent = agent or build_agent(settings)
+        scheduler = getattr(app.state.agent, "scheduler", None)
+        # Scheduled requests run only while this local service is up.
+        ticking = asyncio.create_task(scheduler.run()) if scheduler is not None else None
         try:
             yield
         finally:
+            if ticking is not None:
+                ticking.cancel()
+                with suppress(asyncio.CancelledError):
+                    await ticking
             await app.state.agent.close()
 
     app = FastAPI(title="Bridge", lifespan=lifespan)
@@ -44,13 +61,7 @@ def create_app(settings: Settings | None = None, agent=None, *, enable_ui: bool 
             )
         return response
 
-    async def authorize(request: Request):
-        expected = settings.api_token.get_secret_value()
-        if not expected:
-            raise HTTPException(503, "Configure API_TOKEN before using the API.")
-        supplied = request.headers.get("authorization", "")
-        if not secrets.compare_digest(supplied.encode(), f"Bearer {expected}".encode()):
-            raise HTTPException(401, "Invalid bearer token.")
+    def same_origin(request: Request):
         origin = request.headers.get("origin")
         local_origin = f"{request.url.scheme}://{request.url.netloc}"
         if origin and (not enable_ui or origin != local_origin):
@@ -58,10 +69,53 @@ def create_app(settings: Settings | None = None, agent=None, *, enable_ui: bool 
         if request.headers.get("sec-fetch-site") in {"cross-site", "same-site"}:
             raise HTTPException(403, "Cross-origin browser requests are disabled.")
 
+    def api_token_valid(request: Request) -> bool:
+        expected = settings.api_token.get_secret_value()
+        supplied = request.headers.get("authorization", "")
+        return bool(expected) and secrets.compare_digest(
+            supplied.encode(), f"Bearer {expected}".encode()
+        )
+
+    auth = None
     if enable_ui:
+        from app.auth.routes import install_auth
         from app.ui.routes import install_ui
 
         install_ui(app)
+        auth = install_auth(app, settings, same_origin, api_token_valid)
+
+    async def authorize(request: Request):
+        """The API token (menu bar, voice, scripts) or a signed-in dashboard session."""
+        if api_token_valid(request):
+            same_origin(request)
+            return
+        if auth is not None and request.cookies.get("bridge_session"):
+            if auth.owner_session(request) is not None:
+                same_origin(request)
+                # Cookies ride along automatically, so changes must come from the page itself.
+                if request.method not in {"GET", "HEAD"} and not request.headers.get("origin"):
+                    raise HTTPException(403, "Use the Bridge dashboard to do this.")
+                return
+            raise HTTPException(401, "Your session ended. Sign in again.")
+        if not settings.api_token.get_secret_value():
+            raise HTTPException(503, "Configure API_TOKEN before using the API.")
+        raise HTTPException(401, "Invalid bearer token.")
+
+    if auth is not None and launch_tickets is not None:
+
+        @app.post("/api/v1/session/launch", include_in_schema=False)
+        async def launch(payload: LaunchRequest, request: Request):
+            """Opened from the Bridge menu bar: sign the owner in, or allow first-run setup."""
+            same_origin(request)
+            if request.headers.get("origin") is None:
+                raise HTTPException(403, "Open the dashboard from the Bridge menu.")
+            if not launch_tickets.redeem(payload.ticket):
+                raise HTTPException(401, "This dashboard link expired. Open it again from Bridge.")
+            has_owner = auth.store.owner() is not None
+            response = JSONResponse({"signed_in": has_owner, "setup": not has_owner})
+            return auth.sign_in(response, request, kind="owner" if has_owner else "setup")
+
+    install_connections(app, authorize)
 
     @app.get("/health")
     async def health():
@@ -169,6 +223,10 @@ def create_app(settings: Settings | None = None, agent=None, *, enable_ui: bool 
             return await request.app.state.agent.cancel_workflow(request_id)
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
+
+    @app.get("/api/v1/conversation", dependencies=[Depends(authorize)])
+    async def conversation(request: Request):
+        return {"messages": request.app.state.agent.conversation()}
 
     @app.post("/api/v1/conversation/reset", dependencies=[Depends(authorize)])
     async def reset(request: Request):

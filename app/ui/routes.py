@@ -24,3 +24,7 @@ def install_ui(app: FastAPI) -> None:
     @app.get("/ui/bridge-logo.png", include_in_schema=False)
     async def bridge_logo():
         return FileResponse(STATIC / "bridge-logo.png", media_type="image/png")
+
+    @app.get("/ui/bridge-mark.png", include_in_schema=False)
+    async def bridge_mark():
+        return FileResponse(STATIC / "bridge-mark.png", media_type="image/png")

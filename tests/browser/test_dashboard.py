@@ -16,7 +16,9 @@ from app.config.settings import Settings
 from app.llm.models import LLMResponse
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("BRIDGE_BROWSER_TESTS") != "1" and os.environ.get("DESKTOP_AGENT_BROWSER_TESTS") != "1", reason="Opt-in headless browser test"
+    os.environ.get("BRIDGE_BROWSER_TESTS") != "1"
+    and os.environ.get("DESKTOP_AGENT_BROWSER_TESTS") != "1",
+    reason="Opt-in headless browser test",
 )
 
 
@@ -33,7 +35,7 @@ def test_dashboard_end_to_end(tmp_path):
         agent.workflows.save(AgentContext(request_id=f"old-{index:02}"), "completed")
     with sqlite3.connect(settings.database_path) as db:
         db.execute("UPDATE workflows SET updated_at='2000-01-01 00:00:00'")
-    origin = "http://127.0.0.1:8765"
+    origin = "http://localhost:8765"
     with TestClient(create_app(settings, agent, enable_ui=True), base_url=origin) as client:
         with playwright.sync_playwright() as engine:
             browser = engine.chromium.launch(headless=True)
@@ -61,15 +63,18 @@ def test_dashboard_end_to_end(tmp_path):
 
                 page.route(origin + "/**", serve)
                 page.goto(origin)
-                page.get_by_label("Local API token").fill("wrong")
-                page.get_by_role("button", name="Connect", exact=True).click()
-                playwright.expect(page.locator("#notice")).to_contain_text("Invalid bearer")
-                page.get_by_label("Local API token").fill("browser-test-token")
-                page.get_by_role("button", name="Connect", exact=True).click()
+                # First run without the menu-bar link: create the owner with the API token.
+                page.get_by_text("Use the API token instead").click()
+                page.get_by_label("API token").fill("browser-test-token")
+                page.get_by_role("button", name="Continue", exact=True).click()
+                page.get_by_label("Your name").fill("Test Owner")
+                page.get_by_label("Email").fill("owner@example.com")
+                page.get_by_label("Password").fill("browser-test-password")
+                page.get_by_role("button", name="Create account").click()
                 playwright.expect(page.locator("#workspace")).to_be_visible()
                 playwright.expect(page.get_by_role("button", name="Send request")).to_be_enabled()
                 assert page.evaluate("localStorage.length + sessionStorage.length") == 0
-                assert page.locator("#api-token").input_value() == ""
+                assert "bridge_session" not in page.evaluate("document.cookie")
                 page.screenshot(path="/private/tmp/desktop-agent-dashboard.png", full_page=True)
 
                 page.get_by_role("button", name="Capabilities 05").click()
@@ -154,9 +159,7 @@ def test_dashboard_end_to_end(tmp_path):
                 page.get_by_role("button", name="Send request").click()
                 playwright.expect(page.locator("#live-task")).to_be_visible()
                 try:
-                    page.reload()
-                    page.get_by_label("Local API token").fill("browser-test-token")
-                    page.get_by_role("button", name="Connect", exact=True).click()
+                    page.reload()  # The session cookie keeps the owner signed in.
                     playwright.expect(page.locator("#workspace")).to_be_visible()
                     page.get_by_role("button", name="Workflows 03").click()
                     page.locator("#task-list").get_by_role(
@@ -175,8 +178,8 @@ def test_dashboard_end_to_end(tmp_path):
                 playwright.expect(page.locator("#live-task")).not_to_be_visible()
                 page.set_viewport_size({"width": 390, "height": 844})
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-                page.get_by_role("button", name="Disconnect", exact=True).click()
-                playwright.expect(page.locator("#connect-panel")).to_be_visible()
+                page.get_by_role("button", name="Sign out", exact=True).click()
+                playwright.expect(page.locator("#login-form")).to_be_visible()
                 playwright.expect(page.locator("#workspace")).not_to_be_visible()
                 assert not errors
                 runner.run.assert_not_called()

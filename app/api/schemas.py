@@ -14,6 +14,11 @@ class ConfirmationRequest(BaseModel):
     approved: bool
 
 
+class LaunchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    ticket: str = Field(min_length=16, max_length=100)
+
+
 class AgentResponse(BaseModel):
     status: Literal["completed", "failed", "confirmation_required", "cancelled"]
     request_id: str

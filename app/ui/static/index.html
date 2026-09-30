@@ -3,13 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
   <title>Bridge</title>
+  <link rel="icon" type="image/png" href="/ui/bridge-mark.png">
   <link rel="stylesheet" href="/ui/style.css">
   <script src="/ui/app.js" defer></script>
 </head>
 <body>
   <aside class="sidebar">
-    <a class="brand" href="/" aria-label="Bridge home"><img class="brand-wordmark" src="/ui/bridge-logo.png" alt="Bridge — Your intelligent desktop agent"></a>
+    <a class="brand" href="/" aria-label="Bridge home"><img class="brand-mark" src="/ui/bridge-mark.png" alt="" width="40" height="40"><span><strong>Bridge</strong><small>Your desktop agent</small></span></a>
     <p class="eyebrow">WORKSPACE</p>
     <nav aria-label="Main navigation">
       <button type="button" data-view="chat" aria-current="page">Conversation <span>01</span></button>
@@ -17,28 +19,59 @@
       <button type="button" data-view="workflows">Workflows <span>03</span></button>
       <button type="button" data-view="preferences">Preferences <span>04</span></button>
       <button type="button" data-view="capabilities">Capabilities <span>05</span></button>
+      <button type="button" data-view="connections">Connections <span>06</span></button>
+      <button type="button" data-view="account">Account <span>07</span></button>
     </nav>
     <div class="sidebar-footer"><span class="local-dot"></span> Runs on your Mac
       <p>Actions stay under your control.<br><span id="provider-summary">Connect to see your model provider.</span></p>
     </div>
   </aside>
   <main>
-    <header class="topbar"><span>LOCAL WORKSPACE</span><div><span id="connection-status">Disconnected</span><button id="disconnect" type="button" hidden>Disconnect</button></div></header>
+    <header class="topbar"><span>LOCAL WORKSPACE</span><div><span id="connection-status">Signed out</span><button id="account-chip" type="button" class="account-chip" hidden><span id="account-initials" aria-hidden="true"></span><span id="account-name"></span></button><button id="disconnect" type="button" hidden>Sign out</button></div></header>
     <div id="notice" role="status" aria-live="polite" hidden></div>
-    <section id="connect-panel" class="card connection">
-      <p class="eyebrow">WELCOME BACK</p><h1>A little less clicking.<br>A little more doing.</h1>
-      <p>Connect to your local assistant to give instructions, manage projects, and review actions.</p>
-      <form id="connect-form"><label for="api-token">Local API token</label>
-        <div class="inline"><input id="api-token" type="password" autocomplete="off" required placeholder="API_TOKEN from your .env file"><button class="primary" type="submit">Connect</button></div>
-      </form>
-      <p class="hint">The token stays in this page's memory. Reloading or disconnecting clears it.</p>
+    <section id="auth-panel" class="auth" aria-live="polite">
+      <div class="auth-card">
+        <p id="auth-loading" class="hint">Checking your session…</p>
+        <form id="signup-form" hidden>
+          <p class="eyebrow">WELCOME TO BRIDGE</p><h1>Create your account</h1>
+          <p>You're the owner of this Bridge. Your account protects the dashboard on this Mac.</p>
+          <div id="signup-social" class="social-buttons"></div>
+          <div class="divider"><span>or with email</span></div>
+          <label for="signup-name">Your name</label><input id="signup-name" autocomplete="name" required maxlength="80">
+          <label for="signup-email">Email</label><input id="signup-email" type="email" autocomplete="email" required maxlength="254">
+          <label for="signup-password">Password</label><input id="signup-password" type="password" autocomplete="new-password" required minlength="10" maxlength="200">
+          <p class="hint">At least 10 characters. It never leaves this Mac.</p>
+          <button type="submit" class="primary wide">Create account</button>
+        </form>
+        <form id="login-form" hidden>
+          <p class="eyebrow">WELCOME BACK</p><h1>Sign in to Bridge</h1>
+          <button id="passkey-login" type="button" class="primary wide passkey-button" hidden>Sign in with Touch ID</button>
+          <div id="login-social" class="social-buttons"></div>
+          <div id="login-divider" class="divider"><span>or with email</span></div>
+          <div id="login-password">
+            <label for="login-email">Email</label><input id="login-email" type="email" autocomplete="username" maxlength="254">
+            <label for="login-secret">Password</label><input id="login-secret" type="password" autocomplete="current-password" maxlength="200">
+            <label class="check"><input id="login-remember" type="checkbox" checked> Keep me signed in on this Mac</label>
+            <button type="submit" class="secondary wide">Sign in</button>
+          </div>
+          <p class="hint">Trouble signing in? Click the Bridge icon in the menu bar and choose Open Dashboard.</p>
+        </form>
+        <div id="auth-need-menu" hidden>
+          <p class="eyebrow">SET UP BRIDGE</p><h1>Create your account from your Mac</h1>
+          <p>For your security, the owner account can only be created by someone at this Mac. Click the <strong>Bridge</strong> icon in the menu bar and choose <strong>Open Dashboard</strong>.</p>
+          <details><summary>Use the API token instead</summary>
+            <form id="token-form" class="inline"><label for="api-token" class="sr-only">API token</label><input id="api-token" type="password" autocomplete="off" placeholder="API_TOKEN from your .env file"><button class="secondary" type="submit">Continue</button></form>
+          </details>
+        </div>
+        <p id="auth-error" role="alert"></p>
+      </div>
     </section>
     <fieldset id="workspace" disabled hidden>
       <section id="view-chat" class="view">
         <div class="page-heading"><div><p class="eyebrow">CONVERSATION</p><h1>What would you like to do?</h1><p>One request, or a few steps. You decide what happens.</p></div><button type="button" id="reset-chat" class="secondary">New conversation</button></div>
         <div id="conversation" role="log" aria-label="Conversation" aria-live="polite">
-          <div id="empty-chat" class="empty-state"><span class="large-mark">↗</span><h2>Your next action starts here.</h2><p>Open an app, find a saved project, or put a plan in motion.</p>
-            <div class="suggestions"><button type="button" data-example="Open my Downloads folder">Open Downloads ↗</button><button type="button" data-example="List my saved projects">Find a project ↗</button><button type="button" data-example="What apps are running?">See running apps ↗</button></div>
+          <div id="empty-chat" class="empty-state"><span class="large-mark">↗</span><h2>Your next action starts here.</h2><p>Ask about your day, your apps, email, calendar, music — or put a plan in motion. Requests from the menu-bar panel, voice and schedules appear here too.</p>
+            <div class="suggestions"><button type="button" data-example="Brief me">Brief me ↗</button><button type="button" data-example="What's on my calendar tomorrow?">Tomorrow's calendar ↗</button><button type="button" data-example="What reminders do I have?">My reminders ↗</button><button type="button" data-example="What's playing on Spotify?">Now playing ↗</button><button type="button" data-example="How's my battery?">Battery ↗</button></div>
           </div>
         </div>
         <form id="message-form" class="composer"><label for="message" class="sr-only">Your request</label><textarea id="message" rows="2" maxlength="10000" required placeholder="Ask Bridge to do something…"></textarea><div><span>Changes that need approval will pause for your review.</span><button type="submit" class="primary">Send request ↗</button></div></form>
@@ -62,6 +95,26 @@
         <form id="preferences-form" class="card settings-card"><h2>Default applications</h2><p>Use an installed application's name. Changes apply to new requests.</p><label for="default-browser">Browser</label><input id="default-browser" required maxlength="150" placeholder="Google Chrome"><label for="default-editor">Project editor</label><input id="default-editor" required maxlength="150" placeholder="Visual Studio Code"><button type="submit" class="primary">Review changes</button></form>
         <div class="settings-note"><h2>Credentials stay out of this panel.</h2><p>Manage your OpenAI API key and local API token in your .env file. This page cannot display or change them.</p></div>
       </section>
+      <section id="view-connections" class="view" hidden>
+        <div class="page-heading"><div><p class="eyebrow">CONNECTED SERVICES</p><h1>Your services, working together.</h1><p>Connect each account once. Bridge reads when you ask and always asks before sending, creating or deleting.</p></div><button id="refresh-connections" class="secondary" type="button">Refresh</button></div>
+        <div class="connection-summary"><div class="summary-meter" aria-hidden="true"><span id="connections-meter"></span></div><strong id="connections-count">Checking services…</strong><p id="connections-status" role="status"></p></div>
+        <div id="service-grid" class="service-grid" aria-live="polite"></div>
+        <article class="card activity-card">
+          <div class="activity-head"><div><h2>Activity</h2><p class="hint">What Bridge did with each service. Never message content, recipients or tokens.</p></div>
+            <label class="sr-only" for="activity-filter">Filter activity</label><select id="activity-filter"><option value="">All services</option><option value="gmail">Gmail</option><option value="google_calendar">Google Calendar</option><option value="slack">Slack</option><option value="spotify">Spotify</option><option value="failed">Only problems</option></select></div>
+          <ol id="connection-activity" class="activity-list"></ol>
+        </article>
+        <article class="card tips-card"><h2>Try it</h2><div class="suggestions left"><button type="button" data-example="What are my unread emails?" data-go="chat">Unread emails ↗</button><button type="button" data-example="What's on my Google Calendar tomorrow?" data-go="chat">Tomorrow's meetings ↗</button><button type="button" data-example="What's new in #general?" data-go="chat">Slack #general ↗</button><button type="button" data-example="Play Blinding Lights" data-go="chat">Play a song ↗</button><button type="button" data-example="Brief me" data-go="chat">Brief me ↗</button></div><p class="hint">Remote models don't see connected content by default; Bridge shows results to you locally under each reply. Setup help: docs/SERVICES.md.</p></article>
+      </section>
+      <section id="view-account" class="view" hidden>
+        <div class="page-heading"><div><p class="eyebrow">ACCOUNT</p><h1>Your Bridge account.</h1><p>How you sign in to this dashboard, and where you're signed in.</p></div></div>
+        <div class="two-column">
+          <form id="profile-form" class="card"><h2>Profile</h2><label for="profile-name">Name</label><input id="profile-name" required maxlength="80"><label for="profile-email">Email</label><input id="profile-email" type="email" required maxlength="254"><button type="submit" class="primary">Save profile</button></form>
+          <form id="password-form" class="card"><h2 id="password-title">Password</h2><div id="password-current-row"><label for="password-current">Current password</label><input id="password-current" type="password" autocomplete="current-password" maxlength="200"></div><label for="password-new">New password</label><input id="password-new" type="password" autocomplete="new-password" minlength="10" maxlength="200" required><p class="hint">At least 10 characters.</p><button type="submit" class="primary">Save password</button></form>
+        </div>
+        <article class="card"><h2>Sign-in methods</h2><div id="sign-in-methods" class="method-list"></div><p class="hint">Keep at least one method. You can always get back in by choosing Open Dashboard from the Bridge menu bar.</p></article>
+        <article class="card"><div class="activity-head"><h2>Where you're signed in</h2><button id="end-other-sessions" type="button" class="secondary">Sign out everywhere else</button></div><div id="session-list" class="method-list"></div></article>
+      </section>
       <section id="view-capabilities" class="view" hidden>
         <div class="page-heading"><div><p class="eyebrow">CAPABILITIES</p><h1>Know what your assistant can do.</h1><p>Browse available tools and the checks applied before they run.</p></div></div>
         <article class="card"><h2>Model and privacy</h2><div id="provider-details"></div><p class="hint">Configure LLM_PROVIDER and REMOTE_TOOL_RESULTS in .env, then restart Bridge. This panel is read-only. Tool approval and data sharing are separate controls.</p></article>
@@ -70,7 +123,7 @@
         <div id="capability-list" class="item-list"></div>
       </section>
     </fieldset>
-    <section id="live-task" class="card" hidden><p id="task-progress" role="status" aria-live="polite"></p><button id="stop-task" type="button" class="secondary">Stop remaining work</button></section>
+    <section id="live-task" class="card" hidden><div><p id="task-progress" role="status" aria-live="polite"></p><ol id="task-steps" class="timeline" aria-label="Steps"></ol></div><button id="stop-task" type="button" class="secondary">Stop remaining work</button></section>
     <p id="busy-status" role="status" aria-live="polite" hidden>Working on your request…</p>
   </main>
   <dialog id="confirmation-dialog" aria-labelledby="confirmation-title">
