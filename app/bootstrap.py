@@ -170,7 +170,6 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
             llm or create_llm(settings),
             registry,
             privacy=ToolResultPrivacy(
-                provider=settings.llm_provider,
                 mode=settings.remote_tool_results,
                 allowed_tools=set(settings.remote_tool_result_allowlist),
             ),

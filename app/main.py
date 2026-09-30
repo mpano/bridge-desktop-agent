@@ -110,11 +110,7 @@ def voice_notice(settings: Settings) -> None:
     destination = (
         "local Whisper" if settings.voice_stt_provider == "local" else "OpenAI (audio upload)"
     )
-    agent_provider = (
-        f"local Ollama ({settings.local_llm_model})"
-        if settings.llm_provider == "ollama"
-        else f"OpenAI ({settings.openai_model})"
-    )
+    agent_provider = f"OpenAI ({settings.openai_model})"
     print(f"Speech transcription: {destination}. Agent model: {agent_provider}.")
     print("Responses are spoken aloud. Approvals require typing in this terminal.")
 
@@ -167,13 +163,10 @@ async def cli(settings: Settings, verbose: bool = False):
     console_settings = settings if verbose else settings.model_copy(update={"log_level": "WARNING"})
     agent = build_agent(console_settings)
     print("Bridge\nType /help for commands or exit to quit.")
-    if settings.llm_provider == "ollama":
-        print(f"Provider: local Ollama ({settings.local_llm_model}); no OpenAI fallback.")
-    else:
-        print(
-            f"Provider: OpenAI ({settings.openai_model}); messages are sent remotely. "
-            f"Tool-result sharing: {settings.remote_tool_results}."
-        )
+    print(
+        f"Provider: OpenAI ({settings.openai_model}); messages are sent remotely. "
+        f"Tool-result sharing: {settings.remote_tool_results}."
+    )
     unfinished = agent.workflow_page(WorkflowQuery(status="unfinished", limit=1))["total"]
     if unfinished:
         print(f"{unfinished} unfinished workflow(s). Use /workflows unfinished to review them.")

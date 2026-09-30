@@ -738,7 +738,7 @@ class VoicePanel:
         )
         self.pin_button.setNeedsDisplay_(True)
 
-        agent = "OpenAI" if self.settings.llm_provider == "openai" else "Local Ollama"
+        agent = "OpenAI"
         self.header_status.setStringValue_(
             f"● Ready · {agent}" if connected else "● " + self._preview(service.message, 40)
         )

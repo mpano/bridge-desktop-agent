@@ -425,12 +425,9 @@ def test_connected_content_follows_existing_remote_privacy_policy():
         "status": "completed",
         "result": {"body": "private thread"},
     }
-    assert "private thread" not in json.dumps(
-        ToolResultPrivacy(provider="openai").filter_result(result)
-    )
-    assert "private thread" in json.dumps(
-        ToolResultPrivacy(provider="ollama").filter_result(result)
-    )
+    assert "private thread" not in json.dumps(ToolResultPrivacy().filter_result(result))
+    allowed = ToolResultPrivacy("allowlist", {"email_read_thread"})
+    assert "private thread" in json.dumps(allowed.filter_result(result))
 
 
 def test_keychain_uses_secret_values_only_in_explicit_storage(monkeypatch):

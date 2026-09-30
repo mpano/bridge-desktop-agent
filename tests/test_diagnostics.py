@@ -74,26 +74,21 @@ def test_filesystem_probe_errors_are_safe(tmp_path):
     assert "secret path" not in json.dumps(report)
 
 
-def test_local_provider_needs_no_openai_key_and_omits_endpoint(tmp_path):
+def test_missing_openai_key_is_reported_with_the_privacy_policy(tmp_path):
     settings = Settings(
         _env_file=None,
         database_path=tmp_path / "agent.db",
-        llm_provider="ollama",
         openai_api_key="",
-        local_llm_model="qwen3:8b",
-        local_llm_base_url="http://127.0.0.1:11434",
         remote_tool_results="allowlist",
         remote_tool_result_allowlist=["get_volume"],
     )
     with patch("socket.create_connection", side_effect=AssertionError("no network probes")):
         report = collect_diagnostics(settings)
-    assert not any(check["name"] == "openai_api_key" for check in report["checks"])
-    assert any(check["name"] == "local_llm" for check in report["checks"])
-    assert report["ready"] is False
+    key = next(check for check in report["checks"] if check["name"] == "openai_api_key")
+    assert key["status"] == "warning"
     assert report["provider"] == {
-        "name": "ollama",
-        "model": "qwen3:8b",
+        "name": "openai",
+        "model": settings.openai_model,
         "remote_tool_results": "allowlist",
         "remote_tool_result_allowlist": ["get_volume"],
     }
-    assert "127.0.0.1" not in json.dumps(report)

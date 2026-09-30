@@ -574,28 +574,26 @@
   }
 
   function renderProvider(provider) {
-    const local = provider.name === "ollama";
-    const name = local ? "Local Ollama" : "OpenAI (remote)";
-    $("provider-summary").textContent = `${name} handles language requests.`;
+    const name = "OpenAI";
+    $("provider-summary").textContent = `${name} (${provider.model}) handles language requests.`;
     let policy;
-    if (local) {
-      policy = "Messages and tool results are sent to your local Ollama server. No OpenAI fallback is used.";
-    } else if (provider.remote_tool_results === "all") {
+    if (provider.remote_tool_results === "all") {
       policy = "Messages and all tool results are sent to OpenAI.";
     } else if (provider.remote_tool_results === "allowlist") {
-      policy = "Messages go to OpenAI. Tool-result contents are shared only for allowed tools; other results share execution status.";
+      policy = "Messages go to OpenAI. OpenAI can read results from the tools listed below; other results share only whether they succeeded.";
     } else {
-      policy = "Messages go to OpenAI. Tool results share execution status only; their contents are withheld.";
+      policy = "Messages go to OpenAI. Tool results share only whether they succeeded; their contents stay on this Mac.";
     }
     $("provider-privacy-hint").textContent = `${policy} Screenshot images are not uploaded.`;
     const panel = $("provider-details");
     panel.replaceChildren(node("h3", name), node("p", `Model: ${provider.model}`), node("p", policy));
-    panel.append(node("p", `Remote tool-result policy: ${provider.remote_tool_results}${local ? " (inactive in local mode)" : ""}`));
+    panel.append(node("p", `Tool-result sharing: ${provider.remote_tool_results}`));
     if (provider.remote_tool_results === "allowlist") {
-      panel.append(node("p", `Allowed tools: ${provider.remote_tool_result_allowlist.join(", ") || "none"}`));
+      panel.append(node("p", `OpenAI can read: ${provider.remote_tool_result_allowlist.join(", ") || "nothing"}`));
     }
-    panel.append(node("p", "This policy does not redact your messages. Avoid including secrets in requests.", "hint"));
+    panel.append(node("p", "Avoid including secrets in requests.", "hint"));
   }
+
 
   async function refreshTasks() {
     const data = await request("/api/v1/tasks");

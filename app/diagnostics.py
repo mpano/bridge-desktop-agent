@@ -57,22 +57,12 @@ def collect_diagnostics(settings: Settings) -> DiagnosticsReport:
         "Python 3.12 or newer is available.",
         "Python 3.12 or newer is required.",
     )
-    if settings.llm_provider == "openai":
-        check(
-            "openai_api_key",
-            bool(settings.openai_api_key.get_secret_value().strip()),
-            "An OpenAI API key is configured; validity has not been tested.",
-            "Configure OPENAI_API_KEY to use the OpenAI provider.",
-        )
-    else:
-        checks.append(
-            DiagnosticCheck(
-                name="local_llm",
-                status="warning",
-                message="Local Ollama is configured; no OpenAI API key is needed. "
-                "Server availability and model installation have not been tested.",
-            )
-        )
+    check(
+        "openai_api_key",
+        bool(settings.openai_api_key.get_secret_value().strip()),
+        "An OpenAI API key is configured; validity has not been tested.",
+        "Configure OPENAI_API_KEY in .env so Bridge can think.",
+    )
     check(
         "api_token",
         bool(settings.api_token.get_secret_value().strip()),
@@ -115,12 +105,8 @@ def collect_diagnostics(settings: Settings) -> DiagnosticsReport:
         ready=not any(c["status"] == "warning" for c in checks),
         checks=checks,
         provider=ProviderReport(
-            name=settings.llm_provider,
-            model=(
-                settings.local_llm_model
-                if settings.llm_provider == "ollama"
-                else settings.openai_model
-            ),
+            name="openai",
+            model=settings.openai_model,
             remote_tool_results=settings.remote_tool_results,
             remote_tool_result_allowlist=list(settings.remote_tool_result_allowlist),
         ),

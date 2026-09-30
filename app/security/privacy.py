@@ -13,13 +13,12 @@ _STATUSES = frozenset({"completed", "failed", "confirmation_required", "cancelle
 
 @dataclass(frozen=True)
 class ToolResultPrivacy:
-    """Local Ollama keeps results local; all other providers use remote rules.
+    """Which tool results the model (OpenAI) may see.
 
     This controls tool output, not user-authored prompts or prior disclosures.
     Allowlisting a tool permits its complete results, including errors and paths.
     """
 
-    provider: str
     mode: RemoteResultMode = "status_only"
     allowed_tools: frozenset[str] | set[str] = field(default_factory=frozenset)
 
@@ -33,10 +32,8 @@ class ToolResultPrivacy:
         if not isinstance(result, dict):
             return {"success": False, "status": "failed", "result_withheld": True}
         tool = result.get("tool")
-        if (
-            self.provider == "ollama"
-            or self.mode == "all"
-            or (self.mode == "allowlist" and isinstance(tool, str) and tool in self.allowed_tools)
+        if self.mode == "all" or (
+            self.mode == "allowlist" and isinstance(tool, str) and tool in self.allowed_tools
         ):
             return deepcopy(result)
         filtered: dict = {"result_withheld": True}

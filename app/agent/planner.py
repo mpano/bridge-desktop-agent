@@ -8,7 +8,7 @@ class Planner:
         self, llm: LLMClient, registry: ToolRegistry, privacy: ToolResultPrivacy | None = None
     ):
         self.llm, self.registry = llm, registry
-        self.privacy = privacy or ToolResultPrivacy(provider="openai")
+        self.privacy = privacy or ToolResultPrivacy()
 
     async def plan(self, history):
         return await self.llm.generate_response(

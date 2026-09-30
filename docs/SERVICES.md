@@ -53,12 +53,10 @@ account, destination and content. Declining cancels it.
 
 ### Privacy: what the AI model sees
 
-With `LLM_PROVIDER=openai` and the default `REMOTE_TOOL_RESULTS=status_only`, OpenAI never
-receives your emails, events, Slack messages or playlists. It only learns whether a step
-succeeded. Bridge formats the results **locally** and shows them under the reply, so you
-still see them. The trade-off is that the model can't reason over the content (for
-example "summarize my unread email" or "reply to the email from Alex"). For that, use
-local Ollama (`LLM_PROVIDER=ollama`), or allow specific tools, for example:
+With the default `REMOTE_TOOL_RESULTS=status_only`, OpenAI never receives your emails,
+events, Slack messages or playlists; it only learns whether a step succeeded, and Bridge
+shows the results to you locally. To let OpenAI summarize and reply to that content,
+allow the reading tools, for example:
 
 ```dotenv
 REMOTE_TOOL_RESULTS=allowlist

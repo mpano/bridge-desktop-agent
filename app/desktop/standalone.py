@@ -41,7 +41,7 @@ def ensure_settings(support: Path = SUPPORT) -> tuple[Path, bool]:
     descriptor = os.open(env, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
         stream.write(
-            "# Bridge settings. Add OPENAI_API_KEY (or set LLM_PROVIDER=ollama), save, then\n"
+            "# Bridge settings. Add your OPENAI_API_KEY, save, then\n"
             "# quit and reopen Bridge. This file stays on this Mac.\n" + "\n".join(output) + "\n"
         )
     return env, True

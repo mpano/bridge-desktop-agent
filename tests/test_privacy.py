@@ -19,9 +19,8 @@ def result():
     }
 
 
-@pytest.mark.parametrize("provider", ["openai", "unknown", "OLLAMA", ""])
-def test_remote_default_excludes_all_payload_fields(provider, result):
-    assert ToolResultPrivacy(provider).filter_result(result) == {
+def test_default_excludes_all_payload_fields(result):
+    assert ToolResultPrivacy().filter_result(result) == {
         "tool": "read_clipboard",
         "call_id": "call_123",
         "success": False,
@@ -33,9 +32,8 @@ def test_remote_default_excludes_all_payload_fields(provider, result):
 @pytest.mark.parametrize(
     "policy",
     [
-        ToolResultPrivacy("ollama"),
-        ToolResultPrivacy("openai", "all"),
-        ToolResultPrivacy("openai", "allowlist", {"read_clipboard"}),
+        ToolResultPrivacy("all"),
+        ToolResultPrivacy("allowlist", {"read_clipboard"}),
     ],
 )
 def test_full_disclosure_is_explicit_and_detached(policy, result):
@@ -47,13 +45,13 @@ def test_full_disclosure_is_explicit_and_detached(policy, result):
 
 def test_allowlist_is_exact_and_immutable(result):
     allowed = {"other_tool"}
-    policy = ToolResultPrivacy("openai", "allowlist", allowed)
+    policy = ToolResultPrivacy("allowlist", allowed)
     allowed.add("read_clipboard")
     assert policy.filter_result(result)["result_withheld"]
 
 
 def test_malformed_metadata_fails_closed():
-    policy = ToolResultPrivacy("openai")
+    policy = ToolResultPrivacy()
     for malformed in [None, [], "secret"]:
         assert policy.filter_result(malformed) == {
             "success": False,
@@ -79,7 +77,7 @@ def test_history_filters_outputs_and_summaries_without_mutation(result):
         {"role": "assistant", "content": "Ordinary assistant prose"},
     ]
     original = deepcopy(history)
-    policy = ToolResultPrivacy("openai")
+    policy = ToolResultPrivacy()
     filtered = policy.filter_history(history)
     assert "secret" not in filtered[0]["output"]
     assert "secret" not in filtered[1]["content"]
@@ -90,7 +88,7 @@ def test_history_filters_outputs_and_summaries_without_mutation(result):
 
 @pytest.mark.parametrize("output", ["not valid JSON secret", "[]", "null", "123", None])
 def test_history_malformed_output_withheld(output):
-    filtered = ToolResultPrivacy("openai").filter_history(
+    filtered = ToolResultPrivacy().filter_history(
         [
             {"type": "function_call_output", "output": output},
         ]
@@ -98,11 +96,11 @@ def test_history_malformed_output_withheld(output):
     assert json.loads(filtered[0]["output"])["result_withheld"]
 
 
-def test_local_history_preserves_results(result):
+def test_all_mode_history_preserves_results(result):
     history = [{"type": "function_call_output", "output": json.dumps(result)}]
-    assert ToolResultPrivacy("ollama").filter_history(history) == history
+    assert ToolResultPrivacy("all").filter_history(history) == history
 
 
 def test_unknown_mode_rejected():
     with pytest.raises(ValueError, match="privacy mode"):
-        ToolResultPrivacy("openai", "typo")
+        ToolResultPrivacy("typo")

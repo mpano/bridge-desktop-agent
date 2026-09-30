@@ -18,9 +18,8 @@ A Python 3.12+ local macOS assistant with natural-language tool selection, nativ
 application controls, a CLI, a local dashboard, and an authenticated localhost FastAPI service.
 This is an executable foundation, not an autonomous GUI operator.
 
-**Choose local or remote inference:** `LLM_PROVIDER=ollama` uses a loopback Ollama
-server; `openai` uses OpenAI. In remote mode, messages and recent conversation
-context leave your Mac, while tool result details are withheld by default.
+**Model:** Bridge uses OpenAI. Your messages and recent conversation context are sent to
+OpenAI; which tool results it may read is controlled by `REMOTE_TOOL_RESULTS` (below).
 Screenshots are saved locally; their pixels are never uploaded.
 Do not put credentials in messages. No API key is included in this repository.
 
@@ -36,7 +35,7 @@ flowchart TD
     API --> Agent
     Agent --> Planner
     Planner --> Privacy[Tool-result disclosure policy]
-    Privacy <--> LLM[LLMClient / OpenAI Responses or local Ollama]
+    Privacy <--> LLM[LLMClient / OpenAI Responses]
     Planner --> Registry[ToolRegistry / Pydantic schemas]
     Registry --> Policy[Independent security policy]
     Policy --> Confirmation[Single-use expiring confirmation]
@@ -56,8 +55,7 @@ rollback of already completed OS actions.
 The OpenAI adapter implements the [official Responses function-calling flow](https://developers.openai.com/api/docs/guides/function-calling).
 It sends registered schemas, preserves response items, returns function results,
 and asks the model for the next action or final response. Provider-specific code
-is confined to `app/llm/`; the factory selects the OpenAI Responses adapter or
-the native Ollama adapter. Both return the same validated tool-call structure.
+is confined to `app/llm/` and returns a validated tool-call structure.
 
 ```text
 app/
@@ -68,7 +66,7 @@ app/
     planner.py             Provider-independent planning
     executor.py            Validation, policy, sequential execution, logging
     context.py             Per-request execution state
-  llm/                     Provider factory, OpenAI and Ollama adapters, prompts, models
+  llm/                     OpenAI adapter, prompts, models
   tools/
     base.py, registry.py   Reusable tools and dynamic registry
     macos/applescript.py   Native subprocess and AppleScript boundary
@@ -93,68 +91,11 @@ pyproject.toml
 
 ## Install
 
-### Local inference with Ollama
+### What OpenAI can see from tools
 
-Install [Ollama for macOS](https://ollama.com/download/mac), then run a local-only
-server. If the Ollama desktop application is already serving port 11434, quit it
-before starting this terminal server:
-
-```bash
-OLLAMA_NO_CLOUD=1 ollama serve
-```
-
-In another terminal, download a tool-capable local model once:
-
-```bash
-ollama pull qwen3:8b
-```
-
-The example [qwen3:8b model](https://ollama.com/library/qwen3:8b) is a multi-gigabyte
-download; model speed and memory use depend on your Mac. You can select another
-locally installed tool-capable model through configuration. The application never
-downloads models itself. Ollama's [local-only setting](https://docs.ollama.com/faq)
-must be applied to the Ollama server, not merely placed in Bridge's `.env`.
-
-Set these values in your existing `.env` (keep your API_TOKEN for the dashboard):
-
-```dotenv
-LLM_PROVIDER=ollama
-LOCAL_LLM_BASE_URL=http://127.0.0.1:11434
-LOCAL_LLM_MODEL=qwen3:8b
-LOCAL_LLM_TIMEOUT_SECONDS=120
-```
-
-No OpenAI key is needed in this mode. Restart Bridge:
-
-```bash
-python -m app.main --doctor
-python -m app.main --ui
-# Or: python -m app.main
-```
-
-Try “Open Spotify and then open GitHub in Chrome,” “What apps are running?”,
-and “Read my clipboard” (review the confirmation before approving). The dashboard's
-Capabilities panel displays the selected provider, model, and disclosure policy.
-`--doctor` checks configuration without loading or contacting a model.
-
-The native [Ollama tool-calling API](https://docs.ollama.com/capabilities/tool-calling)
-is used with non-streamed responses. Only numeric loopback HTTP endpoints are allowed;
-DNS hostnames, credentials in URLs, remote endpoints, redirects, and environment
-proxies are rejected or disabled. Known cloud-model names and model metadata
-indicating remote inference are refused before chat history is sent. The local
-service is still a trusted dependency: these checks cannot constrain a modified
-server that forwards traffic or misreports metadata. Disable Ollama Cloud on that
-server for local-only operation. Bridge never falls back to OpenAI.
-
-Connection errors, missing models, malformed tool calls, and timeouts fail the
-request without executing a guessed action. The request timeout bounds each
-planning round; response bodies are limited to 2 MiB. Tool policies, sequential
-execution, confirmation, journaling, and cooperative cancellation are unchanged.
-
-### Remote tool-result privacy
-
-The default remains `LLM_PROVIDER=openai`, but **result disclosure is now restricted
-by default**, including for an existing `.env` with no privacy settings:
+By default OpenAI only learns whether each tool succeeded; you still see the results
+locally under each reply. To let it summarize email, reply to threads, or reason over
+calendar and Slack content, allow those tools:
 
 | Setting | What OpenAI receives from tool execution |
 | --- | --- |
@@ -166,7 +107,6 @@ Example: let the remote model resolve saved projects and report running apps,
 while retaining clipboard, file-search, terminal, and other results locally:
 
 ```dotenv
-LLM_PROVIDER=openai
 REMOTE_TOOL_RESULTS=allowlist
 REMOTE_TOOL_RESULT_ALLOWLIST=["lookup_project","list_projects","list_running_apps"]
 ```
@@ -174,25 +114,22 @@ REMOTE_TOOL_RESULT_ALLOWLIST=["lookup_project","list_projects","list_running_app
 Use an actual JSON array, not a comma-separated string. Restart after changes.
 An unknown tool name has no effect; future tools remain withheld unless explicitly
 listed or `all` is selected. Model instructions cannot change this policy.
-Local Ollama receives full results; the remote disclosure setting is inactive there.
 
 Filtering is deterministic at the planner boundary and applies to immediate tool
 outputs and saved in-memory step summaries used in subsequent turns. Local CLI/API
 results still contain full details. Withheld data is marked for the model; dependent
-actions such as alias lookup may require a user-supplied path, an explicit allowlist,
-or local mode. This is an intentional behavior change from earlier versions.
+actions such as alias lookup may require a user-supplied path or an explicit allowlist.
 
 This policy does **not** redact your messages, normal model-authored text, or data
 you explicitly paste into a prompt. It cannot recall previous disclosures. Tool
 approval authorizes execution; it does not override remote result restrictions.
 Conversation and task results stay in process memory, and existing workflow journal
 omission rules still apply. There is no hot provider switch, automatic cloud fallback,
-or per-request disclosure override. Screenshots are not uploaded to either provider.
+or per-request disclosure override. Screenshots are not uploaded.
 
 ### Python environment
 
-Requirements: macOS, Python 3.12 or newer, either an OpenAI API key or a local
-Ollama server with a tool-capable model, and the applications
+Requirements: macOS, Python 3.12 or newer, an OpenAI API key, and the applications
 you want to control. Git commands require Apple's command-line tools. Chrome is
 the default browser; Spotify is needed only for Spotify controls.
 
@@ -210,7 +147,6 @@ Edit `.env` locally:
 ```dotenv
 OPENAI_API_KEY=your-api-key
 OPENAI_MODEL=gpt-4.1-mini
-LLM_PROVIDER=openai
 REMOTE_TOOL_RESULTS=status_only
 DEFAULT_BROWSER=Google Chrome
 DEFAULT_EDITOR=Visual Studio Code
