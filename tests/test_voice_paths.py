@@ -7,7 +7,7 @@ from app.voice import paths
 
 
 def test_default_bridge_wakeword_path_is_under_bridge_support():
-    expected = Path.home() / "Library/Application Support/Bridge/wakewords/bridge.onnx"
+    expected = Path.home() / "Library/Application Support/Bridge/wakewords/hey_bridge.onnx"
     assert paths.wake_word_model_path(None) == expected.resolve()
 
 

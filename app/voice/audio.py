@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
+from app.voice.errors import VoiceError
+
 
 @dataclass(frozen=True)
 class AudioConfig:
@@ -28,6 +30,7 @@ class MicrophoneRecorder:
         try:
             return await asyncio.shield(worker)
         except asyncio.CancelledError:
+            self.cancel_recording()
             # Cancelling to_thread does not stop its microphone operation. Keep ownership
             # until the bounded recording closes, then remove its otherwise orphaned WAV.
             while not worker.done():
@@ -38,12 +41,15 @@ class MicrophoneRecorder:
                     worker.result().unlink()
             raise
 
+    def cancel_recording(self) -> None:
+        """Streaming recorders can interrupt capture; the fixed recorder remains bounded."""
+
     def _record_wav(self, seconds: float) -> Path:
         try:
             import numpy as np
             import sounddevice as sd
         except ImportError as exc:
-            raise RuntimeError(
+            raise VoiceError(
                 "Voice capture requires the optional voice dependencies: "
                 "python -m pip install -e '.[voice]'"
             ) from exc
@@ -58,7 +64,7 @@ class MicrophoneRecorder:
             )
             sd.wait()
         except Exception as exc:
-            raise RuntimeError(
+            raise VoiceError(
                 "Microphone capture failed. Check System Settings > Privacy & Security > "
                 "Microphone and allow the app or Terminal running Bridge."
             ) from exc
@@ -68,6 +74,9 @@ class MicrophoneRecorder:
             with contextlib.suppress(Exception):
                 sd.stop()
         samples = np.asarray(data, dtype=np.int16)
+        return self._write_wav(samples)
+
+    def _write_wav(self, samples) -> Path:
         with NamedTemporaryFile(prefix="bridge-", suffix=".wav", delete=False) as tmp:
             path = Path(tmp.name)
         try:

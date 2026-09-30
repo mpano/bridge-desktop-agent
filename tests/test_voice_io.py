@@ -149,3 +149,51 @@ def test_recording_failure_stops_microphone(monkeypatch):
     with pytest.raises(RuntimeError, match="Microphone capture failed"):
         MicrophoneRecorder()._record_wav(1)
     sounddevice.stop.assert_called_once_with()
+
+
+def test_wake_readiness_after_stream_open_and_model_reused(tmp_path, monkeypatch):
+    from unittest.mock import Mock
+
+    model_path = tmp_path / "wake.onnx"
+    model_path.touch()
+    shared = tmp_path / "resources/models"
+    shared.mkdir(parents=True)
+    for name in ("melspectrogram.onnx", "embedding_model.onnx"):
+        (shared / name).touch()
+    events = []
+
+    class Stream:
+        read_available = 1280
+
+        def __init__(self, **kwargs):
+            pass
+
+        def __enter__(self):
+            events.append("open")
+            return self
+
+        def __exit__(self, *args):
+            events.append("close")
+
+        def read(self, frames):
+            return [], False
+
+    model = Mock()
+    model.predict.return_value = {"wake": 0.9}
+    factory = Mock(return_value=model)
+    monkeypatch.setitem(
+        sys.modules,
+        "numpy",
+        SimpleNamespace(asarray=lambda x: SimpleNamespace(reshape=lambda n: [])),
+    )
+    monkeypatch.setitem(sys.modules, "sounddevice", SimpleNamespace(InputStream=Stream))
+    monkeypatch.setitem(
+        sys.modules, "openwakeword", SimpleNamespace(__file__=str(tmp_path / "__init__.py"))
+    )
+    monkeypatch.setitem(sys.modules, "openwakeword.model", SimpleNamespace(Model=factory))
+    detector = OpenWakeWordDetector(model_path, on_ready=lambda: events.append("ready"))
+    detector._wait_blocking(Event())
+    detector._wait_blocking(Event())
+    assert events == ["open", "ready", "close", "open", "ready", "close"]
+    factory.assert_called_once()
+    model.reset.assert_called_once()

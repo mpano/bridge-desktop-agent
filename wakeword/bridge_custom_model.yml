@@ -1,12 +1,16 @@
-# Starting configuration for training the custom "Bridge" wake word with
+# Starting configuration for training the custom "Hey Bridge" wake word with
 # upstream openWakeWord. Dataset paths must be prepared in the training workspace.
 
-model_name: "bridge"
+model_name: "hey_bridge"
 
 target_phrase:
-  - "bridge"
+  - "hey bridge"
 
 custom_negative_phrases:
+  - "hey fridge"
+  - "hey rich"
+  - "hey bridget"
+  - "a bridge"
   - "fridge"
   - "abridge"
   - "bridges"
@@ -24,7 +28,7 @@ augmentation_rounds: 1
 
 # Prepare these paths following the upstream openWakeWord training instructions.
 piper_sample_generator_path: "./piper-sample-generator"
-output_dir: "./bridge_custom_model"
+output_dir: "./hey_bridge_custom_model"
 rir_paths:
   - "./mit_rirs"
 background_paths:

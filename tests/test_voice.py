@@ -284,3 +284,54 @@ async def test_approval_eof_declines(monkeypatch):
         },
     )
     agent.confirm.assert_awaited_once_with("token", False)
+
+
+async def test_background_pauses_after_pending_approval(tmp_path, monkeypatch):
+    waits = []
+
+    class Detector:
+        def __init__(self, *args, **kwargs):
+            self.ready = kwargs["on_ready"]
+
+        async def wait(self, stop):
+            waits.append(True)
+            assert len(waits) == 1
+            self.ready()
+
+    monkeypatch.setattr("app.voice.service.OpenWakeWordDetector", Detector)
+    model = tmp_path / "bridge.onnx"
+    model.touch()
+    events = []
+    service = VoiceService(
+        FakeAgent({"status": "confirmation_required", "message": "Approve?"}),
+        settings(
+            voice_background_enabled=True,
+            voice_wake_word_enabled=True,
+            voice_wake_word_model_path=model,
+        ),
+        recorder=FakeRecorder(),
+        stt=FakeSTT("make a folder"),
+        tts=FakeTTS(),
+        on_event=events.append,
+    )
+    await service.run_background()
+    phases = [event.phase for event in events]
+    assert phases.index("starting") < phases.index("listening") < phases.index("recording")
+    assert len(waits) == 1
+
+
+async def test_stop_during_recording_skips_transcription():
+    from unittest.mock import AsyncMock
+
+    class Recorder(FakeRecorder):
+        async def record_wav(self, seconds):
+            self.path = await super().record_wav(seconds)
+            service.stop()
+            return self.path
+
+    recorder = Recorder()
+    stt = SimpleNamespace(transcribe=AsyncMock())
+    service = VoiceService(FakeAgent({}), settings(), recorder=recorder, stt=stt, tts=FakeTTS())
+    assert (await service.listen_once())["status"] == "cancelled"
+    stt.transcribe.assert_not_called()
+    assert not recorder.path.exists()

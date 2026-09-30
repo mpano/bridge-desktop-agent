@@ -4,6 +4,8 @@ import asyncio
 from pathlib import Path
 from typing import Protocol
 
+from app.voice.errors import VoiceError
+
 
 class SpeechToText(Protocol):
     async def transcribe(self, audio_path: Path) -> str: ...
@@ -33,7 +35,7 @@ class LocalWhisperSTT:
             try:
                 from faster_whisper import WhisperModel
             except ImportError:
-                raise RuntimeError(
+                raise VoiceError(
                     "Local STT requires the optional voice dependencies: "
                     "python -m pip install -e '.[voice]'"
                 ) from None
@@ -45,7 +47,7 @@ class LocalWhisperSTT:
                     local_files_only=not self.allow_download,
                 )
             except Exception:
-                raise RuntimeError(
+                raise VoiceError(
                     "Local speech model could not load. Install cached model weights or explicitly "
                     "enable VOICE_ALLOW_MODEL_DOWNLOAD for initial setup."
                 ) from None
@@ -54,7 +56,7 @@ class LocalWhisperSTT:
     async def transcribe(self, audio_path: Path) -> str:
         async with self._lock:
             if self._closed:
-                raise RuntimeError("Speech transcription is closed.")
+                raise VoiceError("Speech transcription is closed.")
             worker = asyncio.create_task(asyncio.to_thread(self._transcribe, audio_path))
             cancelled = False
             # Python cannot cancel an inference thread. Keep the caller's temporary audio
@@ -80,7 +82,7 @@ class LocalWhisperSTT:
             )
             return " ".join(s.text.strip() for s in segments if s.text.strip()).strip()
         except Exception:
-            raise RuntimeError(
+            raise VoiceError(
                 "Local speech transcription failed. Check the audio and model."
             ) from None
 
@@ -95,7 +97,7 @@ class OpenAIWhisperSTT:
 
     def __init__(self, api_key: str, model: str = "gpt-transcribe", language: str | None = "en"):
         if not api_key:
-            raise RuntimeError("OPENAI_API_KEY is required for remote voice transcription.")
+            raise VoiceError("OPENAI_API_KEY is required for remote voice transcription.")
         from openai import AsyncOpenAI
 
         self.client = AsyncOpenAI(api_key=api_key, timeout=60.0, max_retries=0)
@@ -107,7 +109,7 @@ class OpenAIWhisperSTT:
     async def transcribe(self, audio_path: Path) -> str:
         async with self._lock:
             if self._closed:
-                raise RuntimeError("Speech transcription is closed.")
+                raise VoiceError("Speech transcription is closed.")
             try:
                 with audio_path.open("rb") as audio:
                     arguments = {"model": self.model, "file": audio}
@@ -116,7 +118,7 @@ class OpenAIWhisperSTT:
                     result = await self.client.audio.transcriptions.create(**arguments)
                 return result.text.strip()
             except Exception:
-                raise RuntimeError(
+                raise VoiceError(
                     "Remote speech transcription failed. Check network access, API key, and model."
                 ) from None
 

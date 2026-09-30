@@ -3,9 +3,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
-
 BRIDGE_SUPPORT_DIR = Path.home() / "Library/Application Support/Bridge"
-DEFAULT_WAKE_WORD_MODEL = BRIDGE_SUPPORT_DIR / "wakewords/bridge.onnx"
+DEFAULT_WAKE_WORD_MODEL = BRIDGE_SUPPORT_DIR / "wakewords/hey_bridge.onnx"
 
 
 def wake_word_model_path(configured: Path | None) -> Path:
