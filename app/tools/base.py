@@ -25,6 +25,9 @@ class Tool:
     # Formats a successful result as readable text for the user. Rendered locally,
     # so it is shown even when the privacy policy withholds the result from the model.
     render: Callable[[dict], str] | None = None
+    # Turns friendly values (a contact's name) into exact ones (their address) BEFORE the
+    # approval check, so the user approves, and Bridge sends, exactly what is shown.
+    resolve: Callable[[Any], Awaitable[Any]] | None = None
 
     def validate(self, arguments: dict) -> BaseModel:
         return self.input_schema.model_validate(arguments)

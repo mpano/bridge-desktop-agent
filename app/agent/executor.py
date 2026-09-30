@@ -24,6 +24,8 @@ class Executor:
             tool = self.registry.get(call.name)
             selected_tool = tool.name
             arguments = tool.validate(call.arguments)
+            if tool.resolve is not None:
+                arguments = await tool.resolve(arguments)
             risk = self.policy.evaluate(tool, arguments)
             if risk == RiskLevel.CONFIRM and not approved:
                 result.update(status="confirmation_required", arguments=arguments.model_dump())

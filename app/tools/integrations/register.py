@@ -20,6 +20,7 @@ from app.tools.integrations.schemas import (
     SpotifySearchInput,
     ThreadInput,
 )
+from app.tools.productivity.contacts import email_resolver
 
 WRITE_CONFIRMATION = (
     "Review the account, destination, and full content. This sends data to the selected "
@@ -28,8 +29,9 @@ WRITE_CONFIRMATION = (
 ACCOUNT_NOTE = " account_id is optional when one account is connected."
 
 
-def register(registry, accounts, desktop_spotify=None):
-    """Register connected-service tools. desktop_spotify(uri) plays through the Mac app."""
+def register(registry, accounts, desktop_spotify=None, contacts=None):
+    """Register connected-service tools. desktop_spotify(uri) plays through the Mac app;
+    contacts lets recipients and attendees be given by name."""
 
     async def connected(_):
         return await accounts.list_accounts()
@@ -40,6 +42,11 @@ def register(registry, accounts, desktop_spotify=None):
     async def play_search(args):
         return await spotify.play_search(args, desktop_spotify)
 
+    resolvers = {
+        "email_send": email_resolver(contacts, "to"),
+        "email_create_draft": email_resolver(contacts, "to"),
+        "calendar_create_event": email_resolver(contacts, "attendees"),
+    }
     # (name, description, schema, handler, writes, renderer)
     specs = [
         (
@@ -228,5 +235,6 @@ def register(registry, accounts, desktop_spotify=None):
                 persist_arguments=False,
                 confirmation_message=WRITE_CONFIRMATION if write else None,
                 render=renderer,
+                resolve=resolvers.get(name),
             )
         )

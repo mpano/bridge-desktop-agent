@@ -289,6 +289,9 @@ class Agent:
                 if context.cancel_requested and result["status"] == "confirmation_required":
                     return self._cancelled(context)
                 if result["status"] == "confirmation_required":
+                    # Approve the resolved arguments (e.g. the real email address), not the
+                    # names the model wrote, so the approved values are exactly what runs.
+                    call = call.model_copy(update={"arguments": result["arguments"]}, deep=True)
                     try:
                         token = self.confirmations.create(context, call)
                     except ValueError as exc:

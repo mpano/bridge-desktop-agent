@@ -13,6 +13,12 @@ Address = Annotated[
         pattern=r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$",
     ),
 ]
+# An email address, or a contact's name that is resolved to one before approval. Commas,
+# angle brackets and control characters can never reach an email header.
+Recipient = Annotated[
+    str,
+    Field(min_length=1, max_length=254, pattern=r"^[^\x00-\x1f\x7f,;<>]+$"),
+]
 ResourceID = Annotated[str, Field(min_length=1, max_length=256, pattern=r"^[A-Za-z0-9_@.:-]+$")]
 
 
@@ -36,7 +42,9 @@ class ThreadInput(AccountInput):
 
 
 class SendEmailInput(AccountInput):
-    to: list[Address] = Field(min_length=1, max_length=10)
+    to: list[Recipient] = Field(
+        min_length=1, max_length=10, description="Email addresses or names from Contacts"
+    )
     subject: str = Field(min_length=1, max_length=500, pattern=r"^[^\r\n\x00]+$")
     body: str = Field(min_length=1, max_length=20000)
     thread_id: str | None = Field(default=None, pattern=r"^[a-fA-F0-9]{1,64}$")
@@ -106,7 +114,9 @@ class DeleteEventInput(CalendarWindowInput):
 class CreateEventInput(CalendarWindowInput):
     title: str = Field(min_length=1, max_length=500)
     description: str = Field(default="", max_length=10000)
-    attendees: list[Address] = Field(default_factory=list, max_length=20)
+    attendees: list[Recipient] = Field(
+        default_factory=list, max_length=20, description="Email addresses or contact names"
+    )
     send_updates: Literal["all", "none"] = "all"
 
 

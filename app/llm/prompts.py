@@ -35,6 +35,11 @@ Choosing tools:
   reminders_complete manage them.
 - Notes: notes_find, notes_read, notes_create and notes_append (e.g. add to a list note).
 - Apple Shortcuts: shortcuts_list to discover names, then shortcuts_run with the exact name.
+- People: recipients and attendees can be names from the user's Contacts ("Olivier",
+  "Mom"). Pass the name as given; the application looks up the address or number and
+  shows it for approval. Don't ask for an email or phone number when a name is given.
+- Texts: "text/message <person> …" uses messages_send (iMessage). Use contacts_find only
+  when the user asks for someone's details.
 - Briefing: "brief me" or "what's my day" use daily_briefing.
 - Automation: "every weekday at 8:30 brief me" uses schedule_create with the request text as
   the user would ask it; schedule_list and schedule_delete manage them. For a one-off alert

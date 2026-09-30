@@ -81,6 +81,9 @@ def info_plist(icon: str, executable: str = "Bridge") -> dict:
         "NSCalendarsFullAccessUsageDescription": (
             "Bridge reads and adds calendar events when you ask about your schedule."
         ),
+        "NSContactsUsageDescription": (
+            "Bridge looks up a contact's email or phone number when you ask it to message them."
+        ),
         "NSMicrophoneUsageDescription": (
             "Bridge uses the microphone only for explicitly started voice commands "
             "and wake-word listening."

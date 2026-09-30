@@ -115,6 +115,10 @@ class GmailService:
 
     @staticmethod
     def _raw(args) -> dict:
+        from app.tools.productivity.contacts import EMAIL
+
+        if not all(EMAIL.fullmatch(address) for address in args.to):
+            raise IntegrationError("Every recipient must be an email address.")
         message = EmailMessage()
         message["To"] = ", ".join(args.to)
         message["Subject"] = args.subject

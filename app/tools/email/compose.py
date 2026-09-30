@@ -7,13 +7,16 @@ from pydantic import Field
 
 from app.security.risk import RiskLevel
 from app.tools.base import Input, Tool
-from app.tools.integrations.schemas import Address
+from app.tools.integrations.schemas import Recipient
+from app.tools.productivity.contacts import email_resolver
 
 GMAIL = "https://mail.google.com/mail/"
 
 
 class ComposeInput(Input):
-    to: list[Address] = Field(default_factory=list, max_length=10)
+    to: list[Recipient] = Field(
+        default_factory=list, max_length=10, description="Email addresses or contact names"
+    )
     subject: str = Field(default="", max_length=300, pattern=r"^[^\r\n\x00]*$")
     body: str = Field(default="", max_length=4000)
     client: Literal["gmail", "mail_app"] = Field(
@@ -26,8 +29,8 @@ class InboxSearchInput(Input):
 
 
 class EmailComposer:
-    def __init__(self, runner, open_url):
-        self.runner, self.open_url = runner, open_url
+    def __init__(self, runner, open_url, contacts=None):
+        self.runner, self.open_url, self.contacts = runner, open_url, contacts
 
     async def compose(self, args):
         if args.client == "gmail":
@@ -58,6 +61,7 @@ def register(registry, composer):
             ComposeInput,
             RiskLevel.SAFE,
             composer.compose,
+            resolve=email_resolver(composer.contacts, "to"),
         )
     )
     registry.register(

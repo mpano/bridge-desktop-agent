@@ -18,7 +18,14 @@ from app.tools.email import compose
 from app.tools.files import files, finder, projects, search
 from app.tools.integrations.register import register as register_integrations
 from app.tools.macos.applescript import MacOSAppleScript, NativeRunner
-from app.tools.productivity import briefing, calendar_mac, notes, reminders
+from app.tools.productivity import (
+    briefing,
+    calendar_mac,
+    contacts,
+    messages,
+    notes,
+    reminders,
+)
 from app.tools.registry import ToolRegistry
 from app.tools.screen import screenshot
 from app.tools.spotify import spotify
@@ -58,8 +65,11 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     registry = ToolRegistry()
     accounts = accounts or AccountManager(settings, activity=SQLiteActivity(settings.database_path))
     spotify_app = spotify.SpotifyController(runner, script)
+    people = contacts.ContactsDirectory()
     if settings.integrations_enabled:
-        register_integrations(registry, accounts, desktop_spotify=spotify_app.play_uri)
+        register_integrations(
+            registry, accounts, desktop_spotify=spotify_app.play_uri, contacts=people
+        )
     memory = SQLiteMemory(settings.database_path)
     preferences = preferences_service.ApplicationPreferences(
         memory, settings.default_browser, settings.default_editor
@@ -96,7 +106,11 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
             gmail=GmailService(accounts) if settings.integrations_enabled else None,
         ),
     )
-    compose.register(registry, compose.EmailComposer(runner, browser_controller.open_url))
+    compose.register(
+        registry, compose.EmailComposer(runner, browser_controller.open_url, contacts=people)
+    )
+    contacts.register(registry, people)
+    messages.register(registry, messages.MessagesController(runner, people))
     files.register(registry, runner, preferences.editor)
     search.register(registry, search.FileSearchController())
     finder.register(registry, finder.FinderController(runner))
