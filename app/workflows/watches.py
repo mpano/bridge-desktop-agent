@@ -1,0 +1,131 @@
+"""Proactive assistant state: watches ("tell me when …"), settings, sent heads-ups."""
+
+from __future__ import annotations
+
+import json
+import sqlite3
+import time
+from dataclasses import dataclass
+from pathlib import Path
+
+MAX_WATCHES = 30
+SEEN_LIMIT = 300
+DEFAULTS = {
+    "meeting_prep": True,
+    "lead_minutes": 10,
+    "evening_summary": False,
+    "evening_time": "18:00",
+    "evening_schedule_id": 0,
+}
+
+
+@dataclass(frozen=True)
+class Watch:
+    id: int
+    kind: str  # "email" or "slack"
+    query: str
+    label: str
+    seen: list[str]
+    baseline_done: bool
+    last_checked: float | None
+    last_error: str | None
+    created_at: float
+
+
+class ProactiveStore:
+    def __init__(self, path: Path | str):
+        self.path = str(path)
+        with self._db() as db:
+            db.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS watches (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, query TEXT NOT NULL,
+                    label TEXT NOT NULL, seen TEXT NOT NULL DEFAULT '[]',
+                    baseline_done INTEGER NOT NULL DEFAULT 0, last_checked REAL,
+                    last_error TEXT, created_at REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS proactive_settings (key TEXT PRIMARY KEY, value TEXT);
+                CREATE TABLE IF NOT EXISTS proactive_notified (key TEXT PRIMARY KEY, at REAL);
+                """
+            )
+
+    def _db(self):
+        return sqlite3.connect(self.path)
+
+    # Watches ------------------------------------------------------------------------------
+
+    def watches(self) -> list[Watch]:
+        with self._db() as db:
+            rows = db.execute(
+                "SELECT id, kind, query, label, seen, baseline_done, last_checked, last_error, "
+                "created_at FROM watches ORDER BY id"
+            ).fetchall()
+        return [
+            Watch(row[0], row[1], row[2], row[3], json.loads(row[4]), bool(row[5]), *row[6:])
+            for row in rows
+        ]
+
+    def add_watch(self, kind: str, query: str, label: str) -> Watch:
+        existing = self.watches()
+        for watch in existing:
+            if watch.kind == kind and watch.query.casefold() == query.casefold():
+                return watch
+        if len(existing) >= MAX_WATCHES:
+            raise ValueError("You have too many watches. Remove some first.")
+        with self._db() as db:
+            cursor = db.execute(
+                "INSERT INTO watches (kind, query, label, created_at) VALUES (?, ?, ?, ?)",
+                (kind, query, label, time.time()),
+            )
+            new_id = cursor.lastrowid
+        return next(watch for watch in self.watches() if watch.id == new_id)
+
+    def remove_watch(self, watch_id: int) -> bool:
+        with self._db() as db:
+            return db.execute("DELETE FROM watches WHERE id = ?", (watch_id,)).rowcount > 0
+
+    def checked(self, watch_id: int, seen: list[str], error: str | None = None) -> None:
+        with self._db() as db:
+            db.execute(
+                "UPDATE watches SET seen = ?, baseline_done = 1, last_checked = ?, last_error = ? "
+                "WHERE id = ?",
+                (json.dumps(seen[-SEEN_LIMIT:]), time.time(), error, watch_id),
+            )
+
+    def failed(self, watch_id: int, error: str) -> None:
+        with self._db() as db:
+            db.execute(
+                "UPDATE watches SET last_checked = ?, last_error = ? WHERE id = ?",
+                (time.time(), error[:300], watch_id),
+            )
+
+    # Settings -----------------------------------------------------------------------------
+
+    def settings(self) -> dict:
+        with self._db() as db:
+            rows = dict(db.execute("SELECT key, value FROM proactive_settings").fetchall())
+        return {
+            key: json.loads(rows[key]) if key in rows else value for key, value in DEFAULTS.items()
+        }
+
+    def update_settings(self, **values) -> dict:
+        unknown = set(values) - set(DEFAULTS)
+        if unknown:
+            raise ValueError(f"Unknown proactive settings: {', '.join(sorted(unknown))}")
+        with self._db() as db:
+            db.executemany(
+                "INSERT INTO proactive_settings VALUES (?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                [(key, json.dumps(value)) for key, value in values.items() if value is not None],
+            )
+        return self.settings()
+
+    # Heads-ups already sent (so a restart never repeats one) ------------------------------
+
+    def notify_once(self, key: str) -> bool:
+        with self._db() as db:
+            db.execute("DELETE FROM proactive_notified WHERE at < ?", (time.time() - 3 * 86400,))
+            try:
+                db.execute("INSERT INTO proactive_notified VALUES (?, ?)", (key, time.time()))
+            except sqlite3.IntegrityError:
+                return False
+        return True

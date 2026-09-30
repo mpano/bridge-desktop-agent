@@ -7,12 +7,17 @@ failing the whole briefing.
 import asyncio
 from datetime import datetime, time, timedelta
 from types import SimpleNamespace
+from typing import Literal
 
 from app.integrations.models import IntegrationError
 from app.security.risk import RiskLevel
 from app.tools.base import Input, Tool
 from app.tools.productivity.calendar_mac import render_events
 from app.tools.productivity.reminders import ReminderListInput
+
+
+class BriefingInput(Input):
+    day: Literal["today", "tomorrow"] = "today"
 
 
 class BriefingController:
@@ -27,36 +32,47 @@ class BriefingController:
         self.calendar, self.reminders, self.mac, self.gmail = calendar, reminders, mac, gmail
         self.clock = clock
 
-    async def _schedule(self, now: datetime):
-        end = datetime.combine(now.date() + timedelta(days=1), time(), now.tzinfo)
-        window = SimpleNamespace(start=now.isoformat(), end=end.isoformat())
+    @staticmethod
+    def _day(now: datetime, tomorrow: bool) -> tuple[datetime, datetime]:
+        """The rest of today, or all of tomorrow, in local time."""
+        if not tomorrow:
+            return now, datetime.combine(now.date() + timedelta(days=1), time(), now.tzinfo)
+        start = datetime.combine(now.date() + timedelta(days=1), time(), now.tzinfo)
+        return start, start + timedelta(days=1)
+
+    async def _schedule(self, now: datetime, tomorrow: bool = False):
+        start, end = self._day(now, tomorrow)
+        window = SimpleNamespace(start=start.isoformat(), end=end.isoformat())
         return (await self.calendar.events(window))["events"]
 
-    async def _reminders(self, now: datetime):
+    async def _reminders(self, now: datetime, tomorrow: bool = False):
         listed = await self.reminders.list(ReminderListInput())
-        today = now.strftime("%Y-%m-%d")
-        return [item for item in listed["reminders"] if item["due"] and item["due"][:10] <= today]
+        last_day = (self._day(now, tomorrow)[0]).strftime("%Y-%m-%d")
+        return [
+            item for item in listed["reminders"] if item["due"] and item["due"][:10] <= last_day
+        ]
 
-    async def _mail(self, _now):
+    async def _mail(self, _now, _tomorrow=False):
         found = await self.gmail.search(
             SimpleNamespace(account_id=None, query="is:unread in:inbox newer_than:2d", limit=5)
         )
         return found["messages"]
 
-    async def _mac(self, _now):
+    async def _mac(self, _now, _tomorrow=False):
         return await self.mac.status(None)
 
-    async def brief(self, _):
+    async def brief(self, args=None):
         now = self.clock()
+        tomorrow = getattr(args, "day", "today") == "tomorrow"
         sources = {
             "schedule": self._schedule if self.calendar else None,
             "reminders": self._reminders if self.reminders else None,
             "mail": self._mail if self.gmail else None,
-            "mac": self._mac if self.mac else None,
+            "mac": self._mac if self.mac and not tomorrow else None,
         }
         names = [name for name, source in sources.items() if source]
         results = await asyncio.gather(
-            *(sources[name](now) for name in names), return_exceptions=True
+            *(sources[name](now, tomorrow) for name in names), return_exceptions=True
         )
         sections, skipped = {}, {}
         for name, result in zip(names, results, strict=True):
@@ -68,7 +84,8 @@ class BriefingController:
             else:
                 sections[name] = result
         return {
-            "date": now.strftime("%A %d %B"),
+            "tomorrow": tomorrow,
+            "date": (now + timedelta(days=1 if tomorrow else 0)).strftime("%A %d %B"),
             "hour": now.hour,
             **sections,
             "skipped": skipped,
@@ -84,13 +101,15 @@ def render(data: dict) -> str:
         if data["hour"] < 18
         else "Good evening"
     )
-    parts = [f"☀️ {greeting} — {data['date']}"]
+    tomorrow = data.get("tomorrow")
+    heading = "Tomorrow:" if tomorrow else "Rest of today:"
+    parts = [f"🌙 Tomorrow — {data['date']}" if tomorrow else f"☀️ {greeting} — {data['date']}"]
     if "schedule" in data:
         events = data["schedule"]
         parts.append(
-            render_events({"events": events}).replace("Calendar:", "Rest of today:")
+            render_events({"events": events}).replace("Calendar:", heading)
             if events
-            else "Rest of today: nothing scheduled."
+            else f"{heading} nothing scheduled."
         )
     if "reminders" in data:
         due = data["reminders"]
@@ -124,9 +143,10 @@ def register(registry, controller):
     registry.register(
         Tool(
             "daily_briefing",
-            "Give a briefing: the rest of today's calendar, reminders due, unread email (if "
-            "Gmail is connected) and battery. Use for 'brief me' or 'what's my day'.",
-            Input,
+            "Give a briefing: the rest of today's (or all of tomorrow's) calendar, reminders "
+            "due, unread email (if Gmail is connected) and battery. Use for 'brief me', "
+            "'what's my day' or, with day=tomorrow, 'what's tomorrow look like'.",
+            BriefingInput,
             RiskLevel.SAFE,
             controller.brief,
             render=render,

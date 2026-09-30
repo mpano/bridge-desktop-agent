@@ -93,6 +93,15 @@
       <section id="view-preferences" class="view" hidden>
         <div class="page-heading"><div><p class="eyebrow">PREFERENCES</p><h1>Make yourself at home.</h1><p>Your preferred apps, remembered across restarts.</p></div></div>
         <form id="preferences-form" class="card settings-card"><h2>Default applications</h2><p>Use an installed application's name. Changes apply to new requests.</p><label for="default-browser">Browser</label><input id="default-browser" required maxlength="150" placeholder="Google Chrome"><label for="default-editor">Project editor</label><input id="default-editor" required maxlength="150" placeholder="Visual Studio Code"><button type="submit" class="primary">Review changes</button></form>
+        <article class="card memory-card"><h2>Proactive assistant</h2><p>Bridge tells you things before you ask, with Mac notifications, while it's open.</p>
+          <div class="method-list">
+            <div class="method-row"><span class="method-icon">▦</span><div><strong>Meeting heads-up</strong><span class="account-facts">A notification before each event on your Mac calendar.</span></div><label class="check"><input id="pro-meetings" type="checkbox"> <select id="pro-lead" aria-label="Minutes before"><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option></select></label></div>
+            <div class="method-row"><span class="method-icon">☾</span><div><strong>Evening summary</strong><span class="account-facts">Weekdays: tomorrow's meetings, reminders due and unread email.</span></div><label class="check"><input id="pro-evening" type="checkbox"> <input id="pro-evening-time" type="time" aria-label="Summary time"></label></div>
+          </div>
+          <h3 class="subhead">Watching</h3>
+          <div id="watch-list" class="method-list"></div>
+          <form id="watch-form" class="watch-form"><label class="sr-only" for="watch-kind">Service</label><select id="watch-kind"><option value="email">Gmail</option><option value="slack">Slack</option></select><label class="sr-only" for="watch-query">Search</label><input id="watch-query" required maxlength="200" placeholder="from:olivier · subject:invoice · mentions"><button class="primary" type="submit">Watch</button></form>
+          <p class="hint">Or just say “tell me when Olivier emails me” or “tell me when someone mentions me on Slack”. Notifications show the sender and subject on this Mac only.</p></article>
         <article class="card memory-card"><h2>What Bridge remembers</h2><p>Facts you asked Bridge to remember, like “Olivier Mupenzi is my brother”. They're used with every request, so “text my brother” just works.</p>
           <form id="memory-form" class="inline"><label class="sr-only" for="memory-text">Something to remember</label><input id="memory-text" maxlength="300" required placeholder="e.g. My boss is Sarah Kim"><button class="primary" type="submit">Remember</button></form>
           <div id="memory-list" class="method-list"></div>

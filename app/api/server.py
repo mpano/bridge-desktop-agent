@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import secrets
 from contextlib import asynccontextmanager, suppress
 
@@ -21,6 +22,8 @@ from app.diagnostics import collect_diagnostics
 from app.integrations.routes import install_connections
 from app.preferences.service import ApplicationPreferencesInput
 from app.tools.files.projects import ProjectAlias, RememberProject
+from app.tools.system.proactive import SettingsInput as ProactiveSettings
+from app.tools.system.proactive import WatchInput as WatchRequest
 from app.workflows.retention import RetentionPolicy, WorkflowFilter, WorkflowQuery
 
 
@@ -36,16 +39,22 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app):
         app.state.agent = agent or build_agent(settings)
-        scheduler = getattr(app.state.agent, "scheduler", None)
-        # Scheduled requests run only while this local service is up.
-        ticking = asyncio.create_task(scheduler.run()) if scheduler is not None else None
+        # Scheduled requests and proactive heads-ups run only while this service is up.
+        loops = [
+            asyncio.create_task(worker.run())
+            for worker in (
+                getattr(app.state.agent, "scheduler", None),
+                getattr(app.state.agent, "proactive", None),
+            )
+            if worker is not None and inspect.iscoroutinefunction(getattr(worker, "run", None))
+        ]
         try:
             yield
         finally:
-            if ticking is not None:
-                ticking.cancel()
+            for task in loops:
+                task.cancel()
                 with suppress(asyncio.CancelledError):
-                    await ticking
+                    await task
             await app.state.agent.close()
 
     app = FastAPI(title="Bridge", lifespan=lifespan)
@@ -249,6 +258,30 @@ def create_app(
         if request.app.state.agent.memories.forget(payload.id) is None:
             raise HTTPException(404, "That memory was already forgotten.")
         return {"forgotten": payload.id}
+
+    @app.get("/api/v1/proactive", dependencies=[Depends(authorize)])
+    async def proactive(request: Request):
+        return await request.app.state.agent.proactive_controller.list(None)
+
+    @app.post("/api/v1/proactive/settings", dependencies=[Depends(authorize)])
+    async def proactive_settings(payload: ProactiveSettings, request: Request):
+        try:
+            return await request.app.state.agent.proactive_controller.configure(payload)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+
+    @app.post("/api/v1/watches", dependencies=[Depends(authorize)])
+    async def add_watch(payload: WatchRequest, request: Request):
+        try:
+            return await request.app.state.agent.proactive_controller.watch(payload)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+
+    @app.post("/api/v1/watches/remove", dependencies=[Depends(authorize)])
+    async def remove_watch(payload: ForgetRequest, request: Request):
+        if not request.app.state.agent.proactive_store.remove_watch(payload.id):
+            raise HTTPException(404, "That watch was already removed.")
+        return {"removed": payload.id}
 
     @app.get("/api/v1/conversation", dependencies=[Depends(authorize)])
     async def conversation(request: Request):

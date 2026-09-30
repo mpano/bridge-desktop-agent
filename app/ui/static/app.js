@@ -446,13 +446,61 @@
   async function refreshAll() {
     const [projects, preferences] = await Promise.all([
       request("/api/v1/projects"), request("/api/v1/preferences"), refreshWorkflows(), refreshTasks(),
-      refreshCapabilities(), refreshDiagnostics(), loadConversation(), refreshMemories(),
+      refreshCapabilities(), refreshDiagnostics(), loadConversation(), refreshMemories(), refreshProactive(),
       refreshConnections().catch(() => {})
     ]);
     renderProjects(projects.projects);
     $("default-browser").value = preferences.default_browser;
     $("default-editor").value = preferences.default_editor;
   }
+
+  async function refreshProactive() {
+    const data = await request("/api/v1/proactive");
+    const settings = data.settings;
+    $("pro-meetings").checked = settings.meeting_prep;
+    $("pro-lead").value = String(settings.lead_minutes);
+    $("pro-evening").checked = settings.evening_summary;
+    $("pro-evening-time").value = settings.evening_time;
+    const list = $("watch-list");
+    list.replaceChildren();
+    if (!data.watches.length) list.append(node("p", "Nothing yet. Add a Gmail or Slack search below.", "hint"));
+    for (const watch of data.watches) {
+      const row = node("div", undefined, "method-row");
+      const text = node("div");
+      const checked = watch.last_checked ? `checked ${ago(watch.last_checked)}` : "not checked yet";
+      text.append(node("strong", watch.label), node("span", `${watch.kind === "email" ? "Gmail" : "Slack"}: ${watch.query} · ${checked}`, "account-facts"));
+      if (watch.last_error) text.append(node("span", `⚠ ${watch.last_error}`, "account-error"));
+      row.append(node("span", watch.kind === "email" ? "✉" : "#", "method-icon"), text, action("Stop", () => execute(async () => {
+        await request("/api/v1/watches/remove", "POST", {id: watch.id});
+        await refreshProactive();
+      }, {refresh: false})));
+      list.append(row);
+    }
+  }
+
+  function saveProactive() {
+    execute(async () => {
+      await request("/api/v1/proactive/settings", "POST", {
+        meeting_prep: $("pro-meetings").checked, lead_minutes: Number($("pro-lead").value),
+        evening_summary: $("pro-evening").checked, evening_time: $("pro-evening-time").value || "18:00",
+      });
+      await refreshProactive();
+      notify("Proactive settings saved.");
+    }, {refresh: false});
+  }
+  for (const id of ["pro-meetings", "pro-lead", "pro-evening", "pro-evening-time"]) $(id).addEventListener("change", saveProactive);
+
+  $("watch-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const kind = $("watch-kind").value;
+    const query = $("watch-query").value.trim();
+    const label = kind === "slack" && /^(mentions|@me|me)$/i.test(query) ? "Slack mentions of me" : `${kind === "email" ? "Emails" : "Slack messages"}: ${query}`;
+    execute(async () => {
+      await request("/api/v1/watches", "POST", {kind, query, label});
+      $("watch-query").value = "";
+      await refreshProactive();
+    }, {refresh: false});
+  });
 
   async function refreshMemories() {
     const data = await request("/api/v1/memories");

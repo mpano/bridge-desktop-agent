@@ -807,3 +807,7 @@ dialog .eyebrow { color: var(--amber); }
 .signed-out .sidebar nav, .signed-out .sidebar > .eyebrow { visibility: hidden; }
 .memory-card { max-width: 700px; margin-bottom: 20px; }
 .memory-card .inline { margin-top: 12px; }
+.subhead { margin: 22px 0 0; font-size: 14px; }
+.watch-form { display: grid; grid-template-columns: 110px 1fr auto; gap: 8px; margin-top: 12px; }
+.method-row .check select, .method-row .check input[type="time"] { width: auto; padding: 6px 8px; font-size: 12px; }
+@media (max-width: 650px) { .watch-form { grid-template-columns: 1fr; } .method-row { grid-template-columns: 34px 1fr; } .method-row > :last-child { grid-column: 1 / -1; } }
