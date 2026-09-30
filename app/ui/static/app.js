@@ -446,13 +446,42 @@
   async function refreshAll() {
     const [projects, preferences] = await Promise.all([
       request("/api/v1/projects"), request("/api/v1/preferences"), refreshWorkflows(), refreshTasks(),
-      refreshCapabilities(), refreshDiagnostics(), loadConversation(),
+      refreshCapabilities(), refreshDiagnostics(), loadConversation(), refreshMemories(),
       refreshConnections().catch(() => {})
     ]);
     renderProjects(projects.projects);
     $("default-browser").value = preferences.default_browser;
     $("default-editor").value = preferences.default_editor;
   }
+
+  async function refreshMemories() {
+    const data = await request("/api/v1/memories");
+    const list = $("memory-list");
+    list.replaceChildren();
+    if (!data.memories.length) list.append(node("p", "Nothing yet. Add a fact above or say “remember that …”.", "hint"));
+    for (const fact of [...data.memories].reverse()) {
+      const row = node("div", undefined, "method-row");
+      const text = node("div");
+      text.append(node("strong", fact.text), node("span", `Remembered ${ago(fact.created_at)}`, "account-facts"));
+      row.append(node("span", "✦", "method-icon"), text, action("Forget", () => execute(async () => {
+        await request("/api/v1/memories/forget", "POST", {id: fact.id});
+        await refreshMemories();
+      }, {refresh: false})));
+      list.append(row);
+    }
+    const remote = authStatus && document.getElementById("provider-summary").textContent.includes("OpenAI");
+    $("memory-privacy").textContent = "Bridge won't store passwords, codes or card numbers. You can also say “remember that …” or “forget …” in the conversation." +
+      (remote ? " With OpenAI selected, memories are sent along with each request." : "");
+  }
+
+  $("memory-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    execute(async () => {
+      await request("/api/v1/memories", "POST", {text: $("memory-text").value});
+      $("memory-text").value = "";
+      await refreshMemories();
+    }, {refresh: false});
+  });
 
   function renderCapabilities() {
     const query = $("capability-search").value.trim().toLowerCase();

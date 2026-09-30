@@ -7,7 +7,14 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.launch import LaunchTickets
-from app.api.schemas import AgentResponse, ConfirmationRequest, LaunchRequest, MessageRequest
+from app.api.schemas import (
+    AgentResponse,
+    ConfirmationRequest,
+    ForgetRequest,
+    LaunchRequest,
+    MemoryRequest,
+    MessageRequest,
+)
 from app.bootstrap import build_agent
 from app.config.settings import Settings
 from app.diagnostics import collect_diagnostics
@@ -223,6 +230,25 @@ def create_app(
             return await request.app.state.agent.cancel_workflow(request_id)
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
+
+    @app.get("/api/v1/memories", dependencies=[Depends(authorize)])
+    async def memories(request: Request):
+        store = request.app.state.agent.memories
+        return {"memories": [fact.__dict__ for fact in store.list()]}
+
+    @app.post("/api/v1/memories", dependencies=[Depends(authorize)])
+    async def remember(payload: MemoryRequest, request: Request):
+        try:
+            fact = request.app.state.agent.memories.add(payload.text)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+        return fact.__dict__
+
+    @app.post("/api/v1/memories/forget", dependencies=[Depends(authorize)])
+    async def forget(payload: ForgetRequest, request: Request):
+        if request.app.state.agent.memories.forget(payload.id) is None:
+            raise HTTPException(404, "That memory was already forgotten.")
+        return {"forgotten": payload.id}
 
     @app.get("/api/v1/conversation", dependencies=[Depends(authorize)])
     async def conversation(request: Request):

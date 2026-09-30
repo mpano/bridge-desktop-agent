@@ -19,6 +19,16 @@ class LaunchRequest(BaseModel):
     ticket: str = Field(min_length=16, max_length=100)
 
 
+class MemoryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=1, max_length=300)
+
+
+class ForgetRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    id: int = Field(ge=1)
+
+
 class AgentResponse(BaseModel):
     status: Literal["completed", "failed", "confirmation_required", "cancelled"]
     request_id: str

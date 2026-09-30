@@ -805,3 +805,5 @@ dialog .eyebrow { color: var(--amber); }
 #view-account .card + .card, #view-account .two-column + .card { margin-top: 20px; }
 #profile-form .primary, #password-form .primary { margin-top: 20px; }
 .signed-out .sidebar nav, .signed-out .sidebar > .eyebrow { visibility: hidden; }
+.memory-card { max-width: 700px; margin-bottom: 20px; }
+.memory-card .inline { margin-top: 12px; }

@@ -93,6 +93,10 @@
       <section id="view-preferences" class="view" hidden>
         <div class="page-heading"><div><p class="eyebrow">PREFERENCES</p><h1>Make yourself at home.</h1><p>Your preferred apps, remembered across restarts.</p></div></div>
         <form id="preferences-form" class="card settings-card"><h2>Default applications</h2><p>Use an installed application's name. Changes apply to new requests.</p><label for="default-browser">Browser</label><input id="default-browser" required maxlength="150" placeholder="Google Chrome"><label for="default-editor">Project editor</label><input id="default-editor" required maxlength="150" placeholder="Visual Studio Code"><button type="submit" class="primary">Review changes</button></form>
+        <article class="card memory-card"><h2>What Bridge remembers</h2><p>Facts you asked Bridge to remember, like “Olivier Mupenzi is my brother”. They're used with every request, so “text my brother” just works.</p>
+          <form id="memory-form" class="inline"><label class="sr-only" for="memory-text">Something to remember</label><input id="memory-text" maxlength="300" required placeholder="e.g. My boss is Sarah Kim"><button class="primary" type="submit">Remember</button></form>
+          <div id="memory-list" class="method-list"></div>
+          <p id="memory-privacy" class="hint">Bridge won't store passwords, codes or card numbers. You can also say “remember that …” or “forget …” in the conversation.</p></article>
         <div class="settings-note"><h2>Credentials stay out of this panel.</h2><p>Manage your OpenAI API key and local API token in your .env file. This page cannot display or change them.</p></div>
       </section>
       <section id="view-connections" class="view" hidden>

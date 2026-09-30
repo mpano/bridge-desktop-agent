@@ -9,7 +9,9 @@ from app.agent.scheduler import Scheduler
 from app.integrations.accounts import AccountManager
 from app.integrations.activity import SQLiteActivity
 from app.integrations.email import GmailService
+from app.llm import prompts
 from app.llm.factory import create_llm
+from app.memory.facts import FactStore
 from app.memory.store import SQLiteMemory
 from app.preferences import service as preferences_service
 from app.security.privacy import ToolResultPrivacy
@@ -26,6 +28,7 @@ from app.tools.productivity import (
     notes,
     reminders,
 )
+from app.tools.productivity import memory as memory_tools
 from app.tools.registry import ToolRegistry
 from app.tools.screen import screenshot
 from app.tools.spotify import spotify
@@ -110,6 +113,9 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
         registry, compose.EmailComposer(runner, browser_controller.open_url, contacts=people)
     )
     contacts.register(registry, people)
+    facts = FactStore(settings.database_path)
+    memory_tools.register(registry, facts)
+    prompts.memory_provider = facts.prompt_block
     messages.register(registry, messages.MessagesController(runner, people))
     files.register(registry, runner, preferences.editor)
     search.register(registry, search.FileSearchController())
@@ -164,6 +170,7 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
         preferences=preferences,
     )
     agent.accounts = accounts
+    agent.memories = facts
 
     async def notify(title: str, message: str) -> None:
         await notifications.post_notification(runner, title, message)

@@ -26,6 +26,9 @@ Bridge works with these services at two levels:
 If you type a request in the panel and close it, a notification tells you when it's done
 or needs your approval.
 
+| **Contacts & Messages** | "Email Olivier that I miss him" · "Text Mom I'm on my way" · "What's Sam's number?" | Names come from your Mac's Contacts. The approval shows the real address or number, and exactly that is used. If a name matches several people, Bridge asks which. |
+| **Memory** | "Remember that Olivier Mupenzi is my brother" · "Text my brother I'll call tonight" · "What do you remember?" · "Forget my boss" | Facts are stored on this Mac and included with each request (sent to OpenAI when it is your model). Passwords, codes and card numbers are refused. Manage them on the dashboard's Preferences page. |
+
 The first time Bridge uses Reminders, Notes, Chrome or System Events, macOS asks whether
 **Bridge** may control that app; for Calendar it asks for calendar access (choose **Full
 Access**). Click **OK**. If you missed the prompt, allow it in System Settings → Privacy &
