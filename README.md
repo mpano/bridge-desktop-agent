@@ -1,5 +1,15 @@
 # Bridge
 
+**Signing in.** The dashboard has a real owner account. The first time you open it from the
+Bridge menu bar (right-click → Open Dashboard) you create it with email and password, Google
+or GitHub; only someone at this Mac can do that. Afterwards sign in with your password,
+Google, GitHub or Touch ID (add a passkey on the Account page), and manage linked sign-ins
+and active sessions there. Opening the dashboard from the menu bar always signs you in.
+Details: [Signing in](docs/SIGN_IN.md).
+
+Email, Slack, Calendar and Spotify actions (search, read, send, create events, play by name),
+plus Reminders, Notes and Apple Shortcuts, are described in [Services and apps](docs/SERVICES.md).
+
 Optional voice capture, local/remote speech-to-text, local spoken responses, and an
 explicitly started wake-word listener are documented in [Voice setup](docs/VOICE.md).
 Start with `python -m app.main --voice-once`; microphone access is off in normal modes.
@@ -391,31 +401,46 @@ python -m app.main --menubar
 
 Stop an existing CLI/API/UI process first. The launcher adds the **Bridge** logo to the
 menu bar and starts its own dashboard service on **127.0.0.1:8000**. Set `API_TOKEN`
-in `.env` before launching. **Open Bridge Dashboard** becomes available only after
+in `.env` before launching. Click the status item to open a native voice control panel.
+The panel uses a dark navy interface with a microphone orb, live voice states, a wake-word
+switch, and a last-command card. Native controls support keyboard focus and accessibility
+labels; the content scrolls on shorter displays. Status animation respects macOS Reduce Motion.
+See the [panel preview](docs/images/bridge-voice-panel.png) (offscreen render with mocked service
+state; no command or microphone recording was performed for the preview).
+**Open dashboard** becomes available only after
 startup succeeds; connect with your local API token as before. No token is put in a URL
 or clipboard.
 
-For hands-free voice, install the optional voice/wake-word extras and a reviewed custom
-`bridge.onnx` first:
+For voice, install the optional extras:
 
 ```bash
 python -m pip install -e '.[voice,wakeword,menubar]'
-bridge --install-wakeword /path/to/bridge.onnx
 bridge --menubar
 ```
 
-The microphone is still off when Bridge launches. Choose **Start listening for “Bridge”**
-from the menu to enable it for that session.
+The microphone is off at launch. The panel offers:
 
-Menu actions:
-
-- **Open Bridge Dashboard** opens the owned running service in your default browser.
-- **Start Bridge Service / Stop Bridge Service** control only the server owned by this launcher.
-  Stop also stops voice listening and leaves the menu-bar app running so you can restart it.
-- **Start listening for “Bridge” / Stop Voice Listening** explicitly control the microphone
-  wake-word listener. Spoken commands are submitted through the already-running local API.
-- **Bridge Details** shows service readiness, the local URL, and voice-listener status/errors.
+- **Speak now** records one bounded command with no wake-word model required.
+- **Command–Shift–Space** starts a command from other apps while Bridge is running.
+  Wait for the start sound before speaking. Capture stops after a quiet pause, up to a
+  configurable 15-second default maximum. See [Voice settings](docs/VOICE.md).
+- **Wake-word setup** explains how to train the custom **Hey Bridge** phrase;
+  **Enable** becomes available after its model is installed. No model is silently downloaded.
+  Install the trained model with
+  `bridge --install-wakeword /path/to/hey_bridge.onnx`. See [Voice setup](docs/VOICE.md).
+- **Stop** releases the microphone after audio cleanup and requests cancellation of a submitted
+  voice task. Completed actions are not undone.
+- Live recording/transcription/processing status, the last transcript, and the response.
+- **Review action** shows the pending action and full arguments in a native sheet, with
+  **Decline** as the default and an explicit **Approve once** button. Listening pauses during
+  review and must be re-enabled afterward. Spoken input cannot approve actions.
+- **Open dashboard** opens the owned service for full results and approval recovery.
+- **Start service** retries a failed local server startup; errors appear directly in the panel.
+- **Microphone settings / Voice guide** provide permission and model setup help.
 - **Quit Bridge** stops voice listening and the owned service before exiting the menu-bar app.
+
+Closing the panel does not stop an enabled listener; the status item shows **Bridge ●**
+while a voice session is active. Use **Stop** or **Quit Bridge** to end it.
 
 AppKit stays on the main thread. The ASGI service owns a background thread, event
 loop, and pre-bound loopback socket. Starting twice does not create another worker.
@@ -429,31 +454,67 @@ finish, then cancels remaining requests and waits for cleanup. Database ownershi
 is retained until active agent execution has unwound. A timed-out or interrupted
 OS operation can still have an uncertain outcome; inspect its saved workflow before
 issuing a new request. Pending confirmations require fresh approval after a restart.
-The menu remains responsive during shutdown. Changes to `.env` require relaunching
-the menu-bar application; Stop/Start uses the existing settings snapshot.
+The panel remains responsive during shutdown. Changes to `.env` require relaunching
+the menu-bar application.
 
-### Double-clickable local launcher
+### Self-contained Bridge.app and .dmg
 
-The generated launcher is at `dist/Bridge.app`. For a fresh checkout:
-
-```bash
-python -m app.desktop.bundle
-```
-
-Double-click it in Finder, or run:
+Build a standalone app that needs neither this checkout nor the virtual environment:
 
 ```bash
-open "dist/Bridge.app"
+python -m pip install -e '.[menubar,package]'
+python -m app.desktop.package            # dist/standalone/Bridge.app and dist/Bridge-0.1.0.dmg
+python -m app.desktop.package --install  # also copy it into ~/Applications
 ```
 
-The bundle contains an Info.plist and a quoted executable launch script. It points
-to this checkout and its virtual environment, sets the working directory so `.env`
-and the relative database path are consistent, and never copies `.env` or embeds
-credentials. It is **not a self-contained or signed/notarized distribution**. Keep
-the checkout and virtual environment in place. To rebuild after moving either,
-choose a new destination with `--output 'dist/Bridge New.app'` or remove the
-old generated launcher yourself; the builder deliberately refuses to overwrite it.
-No login item, LaunchAgent, background autostart, or Keychain integration is installed.
+The standalone app keeps its settings in `~/Library/Application Support/Bridge/.env`
+(created on first launch with a fresh `API_TOKEN`, opened in TextEdit so you can add
+`OPENAI_API_KEY`), along with its database. Logs go to `~/Library/Logs/Bridge/`. The build is
+about 210 MB (100 MB as a .dmg) because it includes local speech recognition. It is ad-hoc
+signed, so it runs on this Mac; to give it to other people you need an Apple Developer ID
+signature and notarization, otherwise Gatekeeper blocks it.
+
+### Development launcher
+
+Build a lightweight launcher that runs this checkout, and install it into `~/Applications`
+so it shows up in Spotlight and Launchpad:
+
+```bash
+python -m app.desktop.bundle --install --open
+```
+
+Without `--install` the app is written to `dist/Bridge.app`. Use `--force` to rebuild
+over an existing Bridge build; the builder only ever replaces bundles it generated.
+
+The bundle contains:
+
+- a multi-resolution `Bridge.icns` rendered from the same vector mark as the panel,
+- an Info.plist (menu-bar only, microphone and Automation usage strings),
+- an ad-hoc code signature, so macOS keeps privacy grants attached to **Bridge**
+  instead of Python (skip with `--no-sign`),
+- a quoted launch script that points to this checkout and virtual environment and
+  writes logs to `~/Library/Logs/Bridge/bridge.log` (the previous run is kept as
+  `bridge.log.1`). If the checkout or environment moves, Bridge shows an alert
+  explaining how to rebuild.
+
+It never copies `.env` or embeds credentials, and it is **not a self-contained or
+notarized distribution**: keep the checkout and virtual environment in place.
+
+**Menu bar.** Click the Bridge item to open the Bridge window; click again (or press Esc)
+to hide it. It is a normal window: other apps can cover it and the yellow button minimizes
+it. Use the pin button to keep it on top; Bridge remembers that and where you put it. The
+window has a request box, one-click quick actions, a scrolling history of recent requests,
+and **Train my voice**, which records you saying “Hey Bridge” six times (plus a few
+seconds of room sound and one ordinary sentence), retrains the wake-word detector on this
+Mac and installs it. Recordings stay in `~/Library/Application Support/Bridge/wakewords/voice`.
+Right-click (or Control-click) for the full menu: service and voice status, Speak Now,
+Open Dashboard, start/stop the service or wake-word listening, **Open at Login**,
+details, and Quit. Open Dashboard signs you in automatically with a single-use,
+60-second link; the API token itself is never placed in a URL.
+
+**Open at Login** is off by default and only available when running from Bridge.app.
+Turning it on writes `~/Library/LaunchAgents/app.bridge.desktop-agent.login.plist`,
+which opens Bridge.app at login; turning it off deletes that file.
 
 macOS may attribute Automation, Accessibility, or Screen Recording requests to
 Python or the launcher instead of Terminal/PyCharm. Grant only the permissions
@@ -861,8 +922,8 @@ registry automatically includes it here.
 2. Extend local-provider evaluation and privacy controls to per-session disclosure decisions.
 3. Add typed, permission-scoped integrations and macOS Keychain-backed OAuth
    before email, Slack, calendar, GitHub and Spotify Web API.
-4. Extend the implemented opt-in voice + menu-bar wake-word controls with a global
-   push-to-talk shortcut and an explicitly managed background/login service.
+4. Evaluate Hey Bridge on human speech and continuous background audio, then add an explicitly
+   managed background/login service. The menu-bar global voice shortcut is implemented.
 5. Add accessibility-tree and vision implementations behind the existing screen
    protocols, with explicit permissions and carefully scoped interaction tools.
 6. Extend Finder/search and add Notes/Reminders, Apple Music, multi-monitor

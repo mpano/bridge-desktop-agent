@@ -7,13 +7,19 @@ name = "bridge-desktop-agent"
 version = "0.1.0"
 description = "Bridge: a policy-controlled local macOS AI desktop agent"
 requires-python = ">=3.12"
-dependencies = ["openai>=2,<3", "pydantic>=2.10,<3", "pydantic-settings>=2.7,<3", "fastapi>=0.115,<1", "uvicorn>=0.34,<1", "structlog>=25,<26", "httpx>=0.28,<1"]
+dependencies = ["openai>=2,<3", "pydantic>=2.10,<3", "pydantic-settings>=2.7,<3", "fastapi>=0.115,<1", "uvicorn>=0.34,<1", "structlog>=25,<26", "httpx>=0.28,<1", "webauthn>=2.2,<3"]
 
 [project.optional-dependencies]
+integrations = ["keyring>=25,<26; sys_platform == 'darwin'"]
 browser = ["playwright>=1.50,<2"]
-menubar = ["rumps>=0.4,<0.5; sys_platform == 'darwin'"]
+menubar = [
+    "rumps>=0.4,<0.5; sys_platform == 'darwin'",
+    "pyobjc-framework-EventKit>=11; sys_platform == 'darwin'",
+]
 voice = ["numpy>=2,<3", "sounddevice>=0.5,<1", "faster-whisper>=1.1,<2"]
 wakeword = ["openwakeword>=0.6,<1"]
+wakeword-training = ["openwakeword>=0.6,<1", "onnx>=1.16,<2", "scikit-learn>=1.5,<2"]
+package = ["pyinstaller>=6.10,<7"]
 dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "httpx>=0.28,<1", "ruff>=0.11,<1"]
 
 [project.scripts]

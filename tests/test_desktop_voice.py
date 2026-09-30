@@ -74,3 +74,41 @@ def test_menu_voice_requires_api_token(tmp_path):
     assert voice.start() is False
     assert voice.status.state == VoiceState.FAILED
     assert "API_TOKEN" in voice.status.message
+
+
+def test_typed_request_runs_through_local_api_and_captures_approval(monkeypatch):
+    local = Mock()
+    local.status = ServiceStatus(ServiceState.RUNNING, "Running", "http://127.0.0.1:8000")
+    sent = []
+
+    class FakeAgent:
+        def __init__(self, service, token, stop):
+            assert token == "secret"
+
+        async def message(self, text):
+            sent.append(text)
+            return {
+                "status": "confirmation_required",
+                "message": "Review this",
+                "confirmation": {"token": "t", "action": "email_send", "arguments": {}},
+            }
+
+    monkeypatch.setattr("app.desktop.voice.LocalAPIAgent", FakeAgent)
+    voice = MenuVoiceService(settings(), local)
+    assert voice.submit_text("  send   the report ") is True
+    assert voice.wait(2)
+    assert sent == ["send the report"]
+    assert voice.status.transcript == "send the report"
+    assert voice.status.state == VoiceState.APPROVAL
+    assert voice.pending_review.action == "email_send"
+    # Nothing else starts until the pending action is reviewed.
+    assert voice.submit_text("another") is False
+
+
+def test_typed_request_ignores_blank_text_and_missing_token():
+    local = Mock()
+    local.status = ServiceStatus(ServiceState.RUNNING, "Running", "http://127.0.0.1:8000")
+    assert MenuVoiceService(settings(), local).submit_text("   ") is False
+    voice = MenuVoiceService(settings(token=""), local)
+    assert voice.submit_text("hello") is False
+    assert "API_TOKEN" in voice.status.message

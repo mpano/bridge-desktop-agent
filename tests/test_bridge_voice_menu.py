@@ -1,4 +1,3 @@
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -61,7 +60,7 @@ def test_menu_voice_start_is_explicit_and_nonblocking(tmp_path, monkeypatch):
     service = MenuVoiceService(settings, local)
 
     def fake_run():
-        service._update(VoiceState.LISTENING, 'Listening for “Bridge”')
+        service._update(VoiceState.LISTENING, "Listening for “Bridge”")
         service._stop.wait(1)
         service._update(VoiceState.STOPPED, "Voice listening is off")
 

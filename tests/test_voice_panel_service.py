@@ -102,6 +102,7 @@ async def test_one_shot_results_and_approval_survive_cleanup(tmp_path, monkeypat
     assert service.status.state == VoiceState.APPROVAL
     assert service.status.transcript == "create a folder"
     assert service.status.response == "Create reports?"
+    assert service.status.result_status == "confirmation_required"
     fake.close.assert_awaited_once()
     assert service._voice is None
 

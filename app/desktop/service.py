@@ -11,6 +11,7 @@ from enum import StrEnum
 import uvicorn
 from fastapi import FastAPI
 
+from app.api.launch import LaunchTickets
 from app.api.server import create_app
 from app.config.settings import Settings
 
@@ -40,7 +41,10 @@ class LocalService:
             raise ValueError("Invalid service port.")
         self.settings = settings
         self.port = port
-        self._factory = app_factory or (lambda: create_app(settings, enable_ui=True))
+        self.tickets = LaunchTickets()
+        self._factory = app_factory or (
+            lambda: create_app(settings, enable_ui=True, launch_tickets=self.tickets)
+        )
         self._guard = threading.Lock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -57,6 +61,14 @@ class LocalService:
                 return
             self._status = ServiceStatus(state, message, url)
 
+    def dashboard_url(self) -> str | None:
+        """A signed-in dashboard link: a single-use ticket in the fragment, never the token."""
+        status = self.status
+        if status.state != ServiceState.RUNNING or not status.url:
+            return None
+        # localhost (not 127.0.0.1): passkeys need a domain name. Same machine, same server.
+        return f"http://localhost:{self.port}/#launch={self.tickets.issue()}"
+
     def start(self) -> bool:
         with self._guard:
             if self._thread and self._thread.is_alive():
@@ -69,9 +81,7 @@ class LocalService:
                 return False
             self._stop.clear()
             self._status = ServiceStatus(ServiceState.STARTING, "Starting local service…")
-            self._thread = threading.Thread(
-                target=self._run, name="bridge-service", daemon=False
-            )
+            self._thread = threading.Thread(target=self._run, name="bridge-service", daemon=False)
             self._thread.start()
         return True
 
@@ -105,7 +115,8 @@ class LocalService:
             self._update(
                 ServiceState.FAILED,
                 "Service could not start or stopped unexpectedly. Check configuration and "
-                "close other Bridge processes using this database. Try --ui in Terminal for diagnostics.",
+                "close other Bridge processes using this database. "
+                "Try --ui in Terminal for diagnostics.",
             )
 
     async def _serve(self) -> None:

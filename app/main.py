@@ -129,7 +129,7 @@ async def voice_once(settings: Settings) -> None:
             agent, settings, on_result=lambda result: present_result(agent, result)
         )
         voice_notice(settings)
-        print(f"Recording one command for {settings.voice_record_seconds:g} seconds…")
+        print(f"Recording one command, up to {settings.voice_record_seconds:g} seconds…")
         result = await service.listen_once()
         if "result" not in result:
             print(result["message"])
@@ -241,8 +241,8 @@ def main():
 
         try:
             destination = install_wake_word_model(args.install_wakeword)
-            print(f'Installed Bridge wake-word model at: {destination}')
-            print('Start the menu bar with: bridge --menubar')
+            print(f"Installed Bridge wake-word model at: {destination}")
+            print("Start the menu bar with: bridge --menubar")
         except (OSError, ValueError) as exc:
             print(str(exc))
     elif args.voice_once:

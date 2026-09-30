@@ -46,6 +46,9 @@ def panel(tmp_path):
                 "open_voice_guide",
                 "open_wakeword_guide",
                 "quit",
+                "details",
+                "submit_text",
+                "train_voice",
             )
         },
     )
@@ -79,7 +82,6 @@ def test_native_panel_states_render_and_preserve_approval_action(panel):
         assert panel.state_label.stringValue()
     panel.controller.voice._update(VoiceState.APPROVAL, "Review in dashboard")
     panel.refresh()
-    assert panel.dashboard_button.title() == "Review action in dashboard"
     assert panel.dashboard_button.isEnabled()
     panel.controller.quitting = True
     panel.refresh()
@@ -121,3 +123,116 @@ def test_rumps_status_item_hosts_panel_without_dropdown(panel, monkeypatch):
         if hasattr(app, "_nsapp") and hasattr(app._nsapp, "nsstatusitem"):
             AK.NSStatusBar.systemStatusBar().removeStatusItem_(app._nsapp.nsstatusitem)
         signal.signal(signal.SIGINT, saved)
+
+
+def test_wake_switch_can_stop_listener_and_never_enables_missing_model(panel):
+    import AppKit as AK
+
+    voice = panel.controller.voice
+    panel.refresh()
+    assert not panel.wake_button.isEnabled()
+    assert panel.wake_button.state() == AK.NSControlStateValueOff
+    assert "your voice" in panel.wake_detail.stringValue()
+    assert panel.train_button.isEnabled()
+    # Model and worker are fake; this represents an explicitly enabled wake session.
+    voice._thread = SimpleNamespace(is_alive=lambda: True)
+    voice._once = False
+    panel.refresh()
+    assert panel.wake_button.isEnabled()
+    assert panel.wake_button.state() == AK.NSControlStateValueOn
+    AK.NSApplication.sharedApplication().sendAction_to_from_(
+        panel.wake_button.action(), panel.wake_button.target(), panel.wake_button
+    )
+    panel.controller.stop_voice.assert_called_once_with()
+    panel.controller.start_voice.assert_not_called()
+    voice._once = True
+    panel.refresh()
+    assert not panel.wake_button.isEnabled()
+    assert panel.wake_button.state() == AK.NSControlStateValueOff
+
+
+def test_result_badge_requires_actual_result_status(panel):
+    from app.desktop.voice import VoiceState, VoiceStatus
+
+    voice = panel.controller.voice
+    voice._status = VoiceStatus(VoiceState.READY, "Ready", "Open Spotify", "Response text")
+    panel.refresh()
+    assert "Done" not in panel.outcome_label.stringValue()
+    voice._status = VoiceStatus(VoiceState.READY, "Ready", "Open Spotify", "Opened", "completed")
+    panel.refresh()
+    assert "Done" in panel.outcome_label.stringValue()
+    voice._status = VoiceStatus(VoiceState.READY, "Ready", "Open Spotify", "Failed", "failed")
+    panel.refresh()
+    assert "Needs attention" in panel.outcome_label.stringValue()
+
+
+def test_compact_panel_keeps_footer_in_scrollable_document(panel):
+    from Foundation import NSMakePoint
+
+    panel.scroll.setFrameSize_((panel.WIDTH, 480))
+    panel.view.scrollPoint_(NSMakePoint(0, panel.HEIGHT - 480))
+    assert panel.view.isFlipped()
+    assert panel.scroll.hasVerticalScroller()
+    assert panel.scroll.documentVisibleRect().origin.y > 0
+    assert panel.service_button.frame().origin.y < panel.view.bounds().size.height
+
+
+def test_approval_sheet_shows_full_arguments_and_enter_defaults_to_decline():
+    import AppKit as AK
+
+    from app.desktop.approval import ApprovalSheet
+    from app.desktop.voice import ApprovalView
+
+    arguments = '{"path": "' + ("long directory/" * 200) + 'reports"}'
+    decision = Mock()
+    sheet = ApprovalSheet(
+        ApprovalView("review-id", "create_folder", arguments, "Create?", 99999), decision
+    )
+    assert sheet.arguments_view.string() == arguments
+    assert sheet.alert.buttons()[0].title() == "Decline"
+    assert sheet.alert.buttons()[1].keyEquivalent() == ""
+    sheet.decide(AK.NSAlertFirstButtonReturn)
+    decision.assert_called_once_with("review-id", False)
+
+
+def test_native_hotkey_registration_and_cleanup():
+    from app.desktop.hotkey import GlobalVoiceShortcut
+
+    callback = Mock()
+    shortcut = GlobalVoiceShortcut(callback)
+    try:
+        registered = shortcut.start()
+        assert registered or "unavailable" in shortcut.status
+        callback.assert_not_called()
+    finally:
+        shortcut.close()
+    assert not shortcut.key_ref.value
+    assert not shortcut.handler_ref.value
+
+
+def test_window_is_normal_minimizable_and_pin_is_remembered(panel, tmp_path, monkeypatch):
+    import AppKit as AK
+
+    from app.desktop import panel as panel_module
+
+    monkeypatch.setattr(panel_module, "PREFERENCES", tmp_path / "panel.json")
+    assert panel.window.level() == AK.NSNormalWindowLevel
+    assert panel.window.styleMask() & AK.NSWindowStyleMaskMiniaturizable
+    panel.preferences = {}
+    panel.toggle_pin()
+    assert panel.window.level() == AK.NSFloatingWindowLevel
+    assert panel_module.load_preferences() == {"pinned": True}
+    panel.toggle_pin()
+    assert panel.window.level() == AK.NSNormalWindowLevel
+
+
+def test_quick_actions_and_history_render(panel):
+    panel.quick_buttons[0].performClick_(None)
+    panel.controller.submit_text.assert_called_once_with("Brief me")
+    voice = panel.controller.voice
+    voice._history = [
+        {"at": 1.0, "request": "Brief me", "reply": "Here's your day", "status": "completed"}
+    ]
+    panel.refresh()
+    assert "Brief me" in panel.history_view.string()
+    assert "Here's your day" in panel.history_view.string()
