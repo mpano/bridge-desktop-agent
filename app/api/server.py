@@ -21,6 +21,7 @@ from app.config.settings import Settings
 from app.diagnostics import collect_diagnostics
 from app.integrations.routes import install_connections
 from app.preferences.service import ApplicationPreferencesInput
+from app.text_actions import TextActionRequest, run_text_action
 from app.tools.files.projects import ProjectAlias, RememberProject
 from app.tools.system.proactive import SettingsInput as ProactiveSettings
 from app.tools.system.proactive import WatchInput as WatchRequest
@@ -282,6 +283,22 @@ def create_app(
         if not request.app.state.agent.proactive_store.remove_watch(payload.id):
             raise HTTPException(404, "That watch was already removed.")
         return {"removed": payload.id}
+
+    @app.post("/api/v1/text/transform", dependencies=[Depends(authorize)])
+    async def transform_text(payload: TextActionRequest, request: Request):
+        from app.llm.models import LLMProviderError
+
+        try:
+            result = await run_text_action(request.app.state.agent.planner.llm, payload)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+        except (LLMProviderError, RuntimeError) as exc:
+            raise HTTPException(503, str(exc)) from None
+        except Exception:
+            raise HTTPException(
+                503, "OpenAI didn't answer. Check your connection and API key."
+            ) from None
+        return {"result": result}
 
     @app.get("/api/v1/conversation", dependencies=[Depends(authorize)])
     async def conversation(request: Request):

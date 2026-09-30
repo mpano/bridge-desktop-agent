@@ -13,12 +13,32 @@ class HotKeyID(ct.Structure):
     _fields_ = [("signature", ct.c_uint32), ("identifier", ct.c_uint32)]
 
 
+COMMAND, SHIFT, OPTION, CONTROL = 256, 512, 2048, 4096
+SPACE = 49
+
+
 class GlobalVoiceShortcut:
+    """One global hotkey. Several can coexist; each ignores the others' events."""
+
     LABEL = "⌘⇧Space"
 
-    def __init__(self, callback, library=None):
+    def __init__(
+        self,
+        callback,
+        library=None,
+        *,
+        key: int = SPACE,
+        modifiers: int = COMMAND | SHIFT,
+        identifier: int = 1,
+        label: str | None = None,
+        purpose: str = "to speak",
+        fallback: str = "use Speak now",
+    ):
         self.callback = callback
         self.library = library
+        self.key, self.modifiers, self.identifier = key, modifiers, identifier
+        self.label = label or self.LABEL
+        self.purpose, self.fallback = purpose, fallback
         self.key_ref = ct.c_void_p()
         self.handler_ref = ct.c_void_p()
         self.handler = None
@@ -68,7 +88,7 @@ class GlobalVoiceShortcut:
             lib.UnregisterEventHotKey.restype = ct.c_int32
             lib.RemoveEventHandler.argtypes = [ct.c_void_p]
             lib.RemoveEventHandler.restype = ct.c_int32
-            identifier = HotKeyID(int.from_bytes(b"Brdg", "big"), 1)
+            identifier = HotKeyID(int.from_bytes(b"Brdg", "big"), self.identifier)
 
             def handle(_next, event, _data):
                 value = HotKeyID()
@@ -81,7 +101,11 @@ class GlobalVoiceShortcut:
                     None,
                     ct.byref(value),
                 )
-                if code or value.signature != identifier.signature or value.identifier != 1:
+                if (
+                    code
+                    or value.signature != identifier.signature
+                    or value.identifier != self.identifier
+                ):
                     return -9874  # eventNotHandledErr
                 try:
                     self.callback()
@@ -96,16 +120,15 @@ class GlobalVoiceShortcut:
                 target, self.handler, 1, ct.byref(event_type), None, ct.byref(self.handler_ref)
             ):
                 raise RuntimeError("Could not install hotkey handler")
-            # Physical Space key (49), Command (256) + Shift (512).
             if lib.RegisterEventHotKey(
-                49, 256 | 512, identifier, target, 0, ct.byref(self.key_ref)
+                self.key, self.modifiers, identifier, target, 0, ct.byref(self.key_ref)
             ):
                 raise RuntimeError("Shortcut unavailable")
         except (OSError, AttributeError, RuntimeError):
             self.close()
-            self.status = "Shortcut unavailable — use Speak now"
+            self.status = f"{self.label} unavailable — {self.fallback}"
             return False
-        self.status = f"{self.LABEL} to speak"
+        self.status = f"{self.label} {self.purpose}"
         return True
 
     def close(self):

@@ -27,7 +27,7 @@ class OpenAILLMClient:
         self.settings = settings
         self._client = None
 
-    async def generate_response(self, history, tools):
+    def _openai(self):
         if not self.settings.openai_api_key.get_secret_value():
             raise RuntimeError("Set OPENAI_API_KEY in .env to use the agent.")
         if self._client is None:
@@ -36,6 +36,20 @@ class OpenAILLMClient:
                 timeout=45,
                 max_retries=1,
             )
+        return self._client
+
+    async def complete(self, instructions: str, text: str) -> str:
+        """One plain text answer: no tools, no conversation history, nothing stored."""
+        response = await self._openai().responses.create(
+            model=self.settings.openai_model,
+            instructions=instructions,
+            input=[{"role": "user", "content": text}],
+            store=False,
+        )
+        return response.output_text.strip()
+
+    async def generate_response(self, history, tools):
+        self._openai()
         response = await self._client.responses.create(
             model=self.settings.openai_model,
             instructions=system_prompt(),

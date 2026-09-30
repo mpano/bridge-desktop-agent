@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     voice_activity_threshold: float = Field(default=0.012, gt=0, lt=1)
     voice_start_sound: bool = True
     voice_shortcut_enabled: bool = True
+    # ⌃⌥Space: act on the text selected in any app.
+    text_actions_shortcut_enabled: bool = True
     voice_tts_voice: str | None = None
     voice_tts_rate: int | None = Field(default=None, ge=80, le=500)
     voice_background_enabled: bool = False

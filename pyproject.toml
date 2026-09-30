@@ -16,6 +16,8 @@ menubar = [
     "rumps>=0.4,<0.5; sys_platform == 'darwin'",
     "pyobjc-framework-EventKit>=11; sys_platform == 'darwin'",
     "pyobjc-framework-Contacts>=11; sys_platform == 'darwin'",
+    "pyobjc-framework-Quartz>=11; sys_platform == 'darwin'",
+    "pyobjc-framework-ApplicationServices>=11; sys_platform == 'darwin'",
 ]
 voice = ["numpy>=2,<3", "sounddevice>=0.5,<1", "faster-whisper>=1.1,<2"]
 wakeword = ["openwakeword>=0.6,<1"]

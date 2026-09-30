@@ -33,6 +33,8 @@ class MenuBarController:
         self.quitting = False
         self.panel = None
         self.shortcut = None
+        self.text_shortcut = None
+        self.text_popup = None
         self.shortcut_status = "Shortcut off"
         icon = Path(__file__).with_name("assets") / "bridge-menubar.png"
         # macOS constrains status-item image height. Keep the Bridge wordmark visible
@@ -109,6 +111,25 @@ class MenuBarController:
         self.refresh(None)
         return started
 
+    def text_action(self, _=None) -> None:
+        """⌃⌥Space: read the frontmost app's selection and open the text actions popup."""
+        if self.quitting or self.text_popup is None:
+            return
+        import AppKit as AK
+
+        from app.desktop.selection import accessibility_allowed, read_selection
+
+        frontmost = AK.NSWorkspace.sharedWorkspace().frontmostApplication()
+        name = str(frontmost.localizedName()) if frontmost is not None else ""
+        allowed = accessibility_allowed()
+        text = ""
+        if allowed:
+            try:
+                text = read_selection()
+            except Exception:
+                text = ""
+        self.text_popup.open(text, name, allowed)
+
     def submit_text(self, text: str) -> bool:
         if self.voice is None or self.quitting:
             return False
@@ -172,8 +193,9 @@ class MenuBarController:
 
     def quit(self, _=None) -> None:
         self.quitting = True
-        if self.shortcut is not None:
-            self.shortcut.close()
+        for shortcut in (self.shortcut, self.text_shortcut):
+            if shortcut is not None:
+                shortcut.close()
         if self.voice is not None:
             self.voice.stop()
         self.service.stop()
@@ -183,8 +205,10 @@ class MenuBarController:
         return self.voice is None or self.voice.wait(timeout=0)
 
     def refresh(self, _=None) -> None:
-        if self.shortcut is not None:
-            self.shortcut_status = self.shortcut.status
+        if self.shortcut is not None or self.text_shortcut is not None:
+            self.shortcut_status = " · ".join(
+                item.status for item in (self.shortcut, self.text_shortcut) if item is not None
+            )
         status = self.service.status
         self.status_item.title = f"Service: {status.state.value.capitalize()}"
         self.open_item.set_callback(
@@ -261,8 +285,9 @@ class MenuBarController:
             self.app.run()
         finally:
             self.timer.stop()
-            if self.shortcut is not None:
-                self.shortcut.close()
+            for shortcut in (self.shortcut, self.text_shortcut):
+                if shortcut is not None:
+                    shortcut.close()
             if self.voice is not None:
                 self.voice.stop()
             self.service.stop()
@@ -347,6 +372,20 @@ def run_menubar(settings: Settings) -> None:
             controller.shortcut = GlobalVoiceShortcut(controller.shortcut_action)
             controller.shortcut.start()
             controller.shortcut_status = controller.shortcut.status
+        if settings.text_actions_shortcut_enabled:
+            from app.desktop.hotkey import CONTROL, OPTION, GlobalVoiceShortcut
+            from app.desktop.text_popup import TextPopup
+
+            controller.text_popup = TextPopup(controller, settings)
+            controller.text_shortcut = GlobalVoiceShortcut(
+                controller.text_action,
+                modifiers=CONTROL | OPTION,
+                identifier=2,
+                label="⌃⌥Space",
+                purpose="for selected text",
+                fallback="shortcut in use",
+            )
+            controller.text_shortcut.start()
         for signum in (signal.SIGINT, signal.SIGTERM):
             MachSignals.signal(signum, lambda _: controller.quit())
 

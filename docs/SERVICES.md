@@ -31,6 +31,8 @@ or needs your approval.
 
 | **Proactive** | "Tell me when Olivier emails me" · "Let me know when someone mentions me on Slack" · "Remind me 15 minutes before meetings" · "Send me a summary of tomorrow every weekday at 7pm" · "What are you watching?" · "Stop watching Olivier" | Watches check Gmail/Slack every 2 minutes. They never announce mail that was already there when the watch was created, and notifications show only the sender and subject. Meeting heads-ups use your Mac calendar. Everything runs on this Mac while Bridge is open; nothing is sent to the AI. Manage it on the dashboard's Preferences page. |
 
+| **Selected text** | Select text in any app → **⌃⌥Space** → Improve · Shorter · Fix grammar · Translate · Summarize · Explain · Draft reply · Remind me, or type your own instruction | **Replace** pastes the result over your selection and restores your clipboard; **Copy** or **Ask Bridge** also work. Needs Bridge in System Settings → Privacy & Security → **Accessibility**. The selected text is sent to OpenAI. Turn the shortcut off with `TEXT_ACTIONS_SHORTCUT_ENABLED=false`. |
+
 The first time Bridge uses Reminders, Notes, Chrome or System Events, macOS asks whether
 **Bridge** may control that app; for Calendar it asks for calendar access (choose **Full
 Access**). Click **OK**. If you missed the prompt, allow it in System Settings → Privacy &

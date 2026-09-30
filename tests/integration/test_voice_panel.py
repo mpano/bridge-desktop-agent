@@ -236,3 +236,28 @@ def test_quick_actions_and_history_render(panel):
     panel.refresh()
     assert "Brief me" in panel.history_view.string()
     assert "Here's your day" in panel.history_view.string()
+
+
+def test_text_popup_explains_missing_permission_and_needs_text():
+    import AppKit as AK
+
+    from app.desktop.text_popup import TextPopup
+
+    AK.NSApplication.sharedApplication()
+    controller = SimpleNamespace(
+        service=SimpleNamespace(status=None), submit_text=Mock(), show_panel=Mock()
+    )
+    popup = TextPopup(controller, SimpleNamespace(api_token=SimpleNamespace(get_secret_value=str)))
+    popup.open("", "Mail", allowed=False)
+    assert "Accessibility" in popup.status.stringValue()
+    assert popup.result_buttons["Ask Bridge"].title() == "Allow…"
+    assert not popup.result_buttons["Replace"].isEnabled()
+    popup.run("improve")
+    assert "no text" in popup.status.stringValue()
+    popup.close()
+    popup.open("hello", "Notes", allowed=True)
+    assert popup.source_label.stringValue() == "Selected in Notes"
+    popup.run("remind")
+    controller.submit_text.assert_called_once()
+    assert "Create a reminder" in controller.submit_text.call_args.args[0]
+    popup.close()
