@@ -225,6 +225,7 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
         await notifications.post_notification(runner, title, message)
 
     agent.scheduler = Scheduler(agent, schedule_store, notify)
+    agent.schedule_store = schedule_store
     focus_mode.notify = notify
     agent.focus = focus_mode
     # For the Today screen.

@@ -1102,3 +1102,49 @@ dialog.sheet p { margin: 0 0 16px; font-size: 14px; }
 .button-link { display: inline-flex; align-items: center; text-decoration: none; border: 1px solid var(--line-strong); color: var(--text); font-weight: 600; }
 .mail-detail > h2 { margin: 40px 0 0; font-size: 26px; font-weight: 750; letter-spacing: -.025em; }
 .mail-detail > * { flex-shrink: 0; }
+
+/* Automations ------------------------------------------------------------------------------ */
+.automations { display: flex; flex-direction: column; gap: 24px; }
+.page-head { display: flex; flex-direction: column; gap: 8px; }
+.page-head h1 { margin: 0; font-size: 32px; font-weight: 750; letter-spacing: -.03em; }
+.auto-new { grid-template-columns: minmax(0, 1fr) auto; }
+.small-btn { width: auto !important; padding: 0 16px !important; }
+.section-label { margin-bottom: 12px; }
+.routine-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 12px; }
+.routine { display: flex; flex-direction: column; gap: 12px; }
+.routine.active { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+.routine-top { display: flex; gap: 14px; align-items: flex-start; }
+.routine-words { flex: 1; }
+.routine-words h3 { margin: 0 0 4px; font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+.routine-words p { margin: 0; font-size: 13.5px; line-height: 1.45; }
+.routine-setting { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 13px; font-weight: 500; color: var(--muted); }
+.routine-setting input, .routine-setting select { width: auto; padding: 6px 10px; font-size: 13px; border-radius: 8px; background: var(--surface); }
+.switch {
+  position: relative; flex: none; width: 42px; height: 26px; padding: 0; border: 0; border-radius: 99px;
+  background: var(--line-strong);
+}
+.switch:hover:not(:disabled) { background: var(--faint); }
+.switch .knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: left .15s; }
+.switch.on, .switch.on:hover:not(:disabled) { background: var(--accent); }
+.switch.on .knob { left: 19px; }
+.list-card { padding: 0; overflow: hidden; }
+.list-card .card-head { padding: 16px 18px 12px; align-items: flex-start; }
+.list-card .card-head h2 { font-size: 17px; font-weight: 700; margin: 0; }
+.list-card .card-head .hint { margin: 2px 0 0; font-size: 12.5px; }
+.watch-new { display: flex; gap: 8px; padding: 0 18px 14px; }
+.watch-new select { width: auto; }
+.lines { list-style: none; margin: 0; padding: 0; }
+.line { display: flex; align-items: center; gap: 12px; padding: 11px 18px; border-top: 1px solid var(--line); font-size: 14px; }
+.line-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.line-main .mono { font-size: 12px; }
+.line .when { font-size: 12.5px; color: var(--muted); min-width: 150px; }
+.line-error { color: var(--red); font-size: 12.5px; max-width: 220px; }
+.line-empty { padding: 12px 18px 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13.5px; }
+.src { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 6px; font: 500 11px ui-monospace, "SF Mono", Menlo, monospace; }
+.src.email { background: var(--amber-soft); color: var(--amber); }
+.src.slack { background: var(--accent-soft); color: var(--accent); }
+.two-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 20px; align-items: start; }
+.pill.good { color: var(--green); background: var(--green-soft); border: 0; padding: 2px 8px; border-radius: 99px; font-size: 11.5px; }
+.sidebar nav button .grow { font: inherit; opacity: 1; }
+.sidebar nav button .nav-badge { opacity: 1; }
+.list-card .card-head > div { flex: 1; }

@@ -10,6 +10,7 @@
   <script src="/ui/app.js" defer></script>
   <script src="/ui/today.js" defer></script>
   <script src="/ui/inbox.js" defer></script>
+  <script src="/ui/automations.js" defer></script>
 </head>
 <body>
   <aside class="sidebar">
@@ -19,6 +20,7 @@
       <button type="button" data-view="today" aria-current="page"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5a1.5 1.5 0 0 1 1.5-1.5h8a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5zM2.5 6.5h11M5.5 1.8v2.4M10.5 1.8v2.4"/></svg>Today</button>
       <button type="button" data-view="chat"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11v7.5H7.5L4.5 13.5V11h-2z"/></svg>Ask</button>
       <button type="button" data-view="inbox"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 9.5 4 3h8l1.5 6.5v3.5h-11zM2.5 9.5h3l1 1.5h3l1-1.5h3"/></svg><span class="grow">Inbox</span><span id="inbox-badge" class="nav-badge" hidden></span></button>
+      <button type="button" data-view="automations"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.5 3.5 9H8l-1 5.5L12.5 7H8z"/></svg>Automations</button>
       <button type="button" data-view="connections"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 9.5l3-3M5 8l-1.3 1.3a2.3 2.3 0 0 0 3.3 3.3L8.3 11.3M11 8l1.3-1.3a2.3 2.3 0 0 0-3.3-3.3L7.7 4.7"/></svg>Connections</button>
     </nav>
     <p class="nav-group">More</p>
@@ -155,6 +157,45 @@
           <article id="inbox-detail" class="mail-detail" aria-live="polite"></article>
         </div>
       </section>
+      <section id="view-automations" class="view automations" hidden aria-labelledby="auto-title">
+        <header class="page-head">
+          <p class="label">Runs while Bridge is open</p>
+          <h1 id="auto-title">Automations</h1>
+          <p class="lede">Things Bridge does on its own. It only reads and tells you — anything that sends or changes something still asks first.</p>
+        </header>
+        <form id="auto-new" class="ask-box auto-new">
+          <label for="auto-input" class="sr-only">Describe a new automation</label>
+          <input id="auto-input" autocomplete="off" maxlength="500" placeholder="Describe it in plain words — “every Friday at 5, tell me what slipped this week”">
+          <button type="submit" class="primary small-btn">Create</button>
+        </form>
+        <section aria-labelledby="routines-title">
+          <h2 id="routines-title" class="label section-label">Routines</h2>
+          <div id="routines" class="routine-grid"></div>
+        </section>
+        <section class="card list-card" aria-labelledby="watch-title">
+          <div class="card-head"><div><h2 id="watch-title">Tell me when…</h2><p class="hint">Checked every 2 minutes. You get a Mac notification with the sender and subject.</p></div>
+            <button type="button" id="watch-add" class="secondary small">Add</button></div>
+          <form id="watch-new" class="watch-new" hidden>
+            <label for="watch-new-kind" class="sr-only">Where</label>
+            <select id="watch-new-kind"><option value="email">Email</option><option value="slack">Slack</option></select>
+            <label for="watch-new-query" class="sr-only">What to look for</label>
+            <input id="watch-new-query" maxlength="200" required placeholder="from:olivier · subject:invoice · mentions">
+            <button type="submit" class="primary small">Watch</button>
+            <button type="button" id="watch-cancel" class="ghost small">Cancel</button>
+          </form>
+          <ul id="watches" class="lines"></ul>
+        </section>
+        <div class="two-up">
+          <section class="card list-card" aria-labelledby="sched-title">
+            <div class="card-head"><h2 id="sched-title">Scheduled requests</h2></div>
+            <ul id="schedules" class="lines"></ul>
+          </section>
+          <section class="card list-card" aria-labelledby="follow-title">
+            <div class="card-head"><h2 id="follow-title">Waiting for replies</h2></div>
+            <ul id="followups" class="lines"></ul>
+          </section>
+        </div>
+      </section>
       <section id="view-chat" class="view ask" hidden aria-labelledby="ask-title">
         <header class="ask-head">
           <div><p id="ask-when" class="label">Ask</p><h1 id="ask-title">New conversation</h1></div>
@@ -195,7 +236,7 @@
       <section id="view-preferences" class="view" hidden>
         <div class="page-heading"><div><p class="eyebrow">PREFERENCES</p><h1>Make yourself at home.</h1><p>Your preferred apps, remembered across restarts.</p></div></div>
         <form id="preferences-form" class="card settings-card"><h2>Default applications</h2><p>Use an installed application's name. Changes apply to new requests.</p><label for="default-browser">Browser</label><input id="default-browser" required maxlength="150" placeholder="Google Chrome"><label for="default-editor">Project editor</label><input id="default-editor" required maxlength="150" placeholder="Visual Studio Code"><button type="submit" class="primary">Review changes</button></form>
-        <article class="card memory-card"><h2>Proactive assistant</h2><p>Bridge tells you things before you ask, with Mac notifications, while it's open.</p>
+        <article class="card memory-card" hidden><h2>Proactive assistant</h2><p>Bridge tells you things before you ask, with Mac notifications, while it's open.</p>
           <div class="method-list">
             <div class="method-row"><span class="method-icon">▦</span><div><strong>Meeting heads-up</strong><span class="account-facts">A notification before each event on your Mac calendar.</span></div><label class="check"><input id="pro-meetings" type="checkbox"> <select id="pro-lead" aria-label="Minutes before"><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option></select></label></div>
             <div class="method-row"><span class="method-icon">☾</span><div><strong>Evening summary</strong><span class="account-facts">Weekdays: tomorrow's meetings, reminders due and unread email.</span></div><label class="check"><input id="pro-evening" type="checkbox"> <input id="pro-evening-time" type="time" aria-label="Summary time"></label></div>

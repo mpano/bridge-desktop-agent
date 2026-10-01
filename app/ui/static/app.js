@@ -72,6 +72,7 @@
     if (name === "account" && signedIn) setTimeout(() => execute(refreshAccount, {refresh: false}));
     if (name === "today" && signedIn && window.BridgeToday) window.BridgeToday.refresh();
     if (name === "inbox" && signedIn && window.BridgeInbox) window.BridgeInbox.refresh();
+    if (name === "automations" && signedIn && window.BridgeAutomations) window.BridgeAutomations.refresh();
     if (name === "chat" && signedIn) {
       setTimeout(() => { peekScreen(); scrollThread(); if (!pending) $("message").focus(); });
     }

@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from app.api.automations import install as install_automations
 from app.api.inbox import install as install_inbox
 from app.api.launch import LaunchTickets
 from app.api.schemas import (
@@ -142,6 +143,7 @@ def create_app(
     install_connections(app, authorize)
     install_today(app, authorize)
     install_inbox(app, authorize)
+    install_automations(app, authorize)
 
     @app.get("/health")
     async def health():
