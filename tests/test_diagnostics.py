@@ -57,6 +57,7 @@ def test_available_prerequisites_without_executing_tools(tmp_path):
         patch("app.diagnostics.Path.is_file", return_value=True),
         patch("app.diagnostics.os.access", return_value=True),
         patch("subprocess.run", side_effect=AssertionError("must not execute commands")),
+        patch("app.diagnostics.accessibility_status", return_value=(True, "Bridge.app")),
     ):
         report = collect_diagnostics(config(tmp_path))
     assert report["ready"] is False
@@ -92,3 +93,10 @@ def test_missing_openai_key_is_reported_with_the_privacy_policy(tmp_path):
         "remote_tool_results": "allowlist",
         "remote_tool_result_allowlist": ["get_volume"],
     }
+
+
+def test_accessibility_check_names_the_app_to_allow(tmp_path):
+    with patch("app.diagnostics.accessibility_status", return_value=(False, "/Apps/Bridge.app")):
+        report = collect_diagnostics(config(tmp_path))
+    check = next(item for item in report["checks"] if item["name"] == "accessibility")
+    assert check["status"] == "warning" and "/Apps/Bridge.app" in check["message"]
