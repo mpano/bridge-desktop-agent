@@ -47,6 +47,9 @@ def make(tmp_path, clock, slack=None):
     calendar = SimpleNamespace(backend=Mock())
     calendar.backend.create.side_effect = lambda title, *rest: {"title": title}
     spotify_web = AsyncMock()
+    spotify_web.playlists.return_value = {
+        "playlists": [{"name": "Gym", "uri": "spotify:playlist:g"}]
+    }
     spotify_web.search.return_value = {
         "items": [{"name": "Deep Focus", "uri": "spotify:playlist:abc", "artists": []}]
     }
@@ -189,3 +192,22 @@ def test_menu_bar_shows_the_countdown(tmp_path):
     menu._focus_checked = 0
     menu.refresh()
     assert menu.app.title == "Bridge" and menu.focus_item.callback is None
+
+
+async def test_music_prefers_your_playlists_and_falls_back_to_deep_focus(tmp_path):
+    from app.assistant.focus import DEEP_FOCUS
+
+    mode, fakes = make(tmp_path, Clock())
+    mode.spotify_web.playlists.return_value = {
+        "playlists": [{"name": "Lofi Beats to Code", "uri": "spotify:playlist:mine"}]
+    }
+    assert await mode._find_playlist("lofi beats") == (
+        "Lofi Beats to Code",
+        "spotify:playlist:mine",
+    )
+    mode.spotify_web.search.return_value = {"items": [{"name": None, "uri": None}]}  # Empty entry.
+    assert await mode._find_playlist(None) == ("Deep Focus", DEEP_FOCUS)
+    with pytest.raises(ValueError, match="No Spotify playlist matches “jazz”"):
+        await mode._find_playlist("jazz")
+    mode.spotify_web = None  # Not connected: the default still plays through the app.
+    assert await mode._find_playlist(None) == ("Deep Focus", DEEP_FOCUS)

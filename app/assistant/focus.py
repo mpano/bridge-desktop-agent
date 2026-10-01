@@ -10,6 +10,7 @@ anyone; the only visible change for others is your own Slack status and a busy b
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import sqlite3
 import time
@@ -20,6 +21,7 @@ from types import SimpleNamespace
 
 from app.agent.proactive import slack_query
 
+DEEP_FOCUS = "spotify:playlist:37i9dQZF1DWZeKCadgRdKQ"  # Spotify's own "Deep Focus".
 PROFILE_READ, PROFILE_WRITE, DND_WRITE = "users.profile:read", "users.profile:write", "dnd:write"
 SLACK_RECONNECT = "Reconnect Slack in Connections to let Bridge set your status and Do Not Disturb."
 
@@ -212,17 +214,34 @@ class FocusMode:
     async def _play_music(self, _task, _start, _end, playlist):
         if self.spotify_desktop is None:
             raise ValueError("Spotify isn't available.")
-        query = playlist or self.default_playlist
+        name, uri = await self._find_playlist(playlist)
+        await self.spotify_desktop.play_uri(uri)
+        return f"Playing “{name}” on Spotify", {"uri": uri, "name": name}
+
+    async def _find_playlist(self, wanted: str | None) -> tuple[str, str]:
+        """Your own playlists first, then Spotify search. Spotify's API no longer returns
+        its own editorial playlists to new apps, so the default "Deep Focus" falls back
+        to its well-known address, which the Spotify app plays directly."""
+        query = (wanted or "").strip() or self.default_playlist
+        if self.spotify_web is not None:
+            words = query.casefold().split()
+            with contextlib.suppress(Exception):
+                mine = await self.spotify_web.playlists(SimpleNamespace(account_id=None))
+                for item in mine["playlists"]:
+                    if item.get("uri") and all(w in (item["name"] or "").casefold() for w in words):
+                        return item["name"], item["uri"]
+            with contextlib.suppress(Exception):
+                found = await self.spotify_web.search(
+                    SimpleNamespace(account_id=None, query=query, kind="playlist", limit=10)
+                )
+                for item in found["items"]:  # Spotify sometimes returns empty entries.
+                    if item.get("uri"):
+                        return item["name"] or query, item["uri"]
+        if not wanted:
+            return "Deep Focus", DEEP_FOCUS
         if self.spotify_web is None:
-            raise ValueError("Connect Spotify in Connections to pick a playlist.")
-        found = await self.spotify_web.search(
-            SimpleNamespace(account_id=None, query=query, kind="playlist", limit=1)
-        )
-        if not found["items"]:
-            raise ValueError(f"No Spotify playlist matches “{query}”.")
-        best = found["items"][0]
-        await self.spotify_desktop.play_uri(best["uri"])
-        return f"Playing “{best['name']}” on Spotify", {"uri": best["uri"], "name": best["name"]}
+            raise ValueError("Connect Spotify in Connections to pick a playlist by name.")
+        raise ValueError(f"No Spotify playlist matches “{query}”.")
 
     # End ---------------------------------------------------------------------------------
 
