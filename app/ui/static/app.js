@@ -83,16 +83,30 @@
     });
   }
 
+  // What each service lets Bridge do, in plain words. These follow the scopes Bridge asks for.
   const SERVICES = {
-    gmail: {icon: "✉", blurb: "Search, read, draft and send email.", actions: "sending and drafts"},
-    google_calendar: {icon: "▦", blurb: "See your schedule, find free time, add and remove events.", actions: "creating and deleting events"},
-    slack: {icon: "#", blurb: "Read channels, search messages and send to #channels or @people.", actions: "sending messages"},
-    spotify: {icon: "♫", blurb: "Play any song, album, artist or playlist by name.", actions: "playback control"},
+    gmail: {glyph: "M", tone: "warm", actions: "sending replies and drafts",
+      reads: ["Your inbox, to sort it, find threads and see who replied"],
+      does: ["Send an email or a reply", "Save a draft"],
+      never: ["Delete email or change your labels and Gmail settings"]},
+    google_calendar: {glyph: "C", tone: "cool", actions: "creating and deleting events",
+      reads: ["Your Google calendars and free time"],
+      does: ["Create events and send invitations", "Delete an event you name"],
+      never: ["Accept or decline invitations for you"]},
+    slack: {glyph: "#", tone: "violet", actions: "sending messages and setting your status",
+      reads: ["Channels and messages you can see, to search and summarize", "Mentions of you"],
+      does: ["Send a message", "Set your status and pause notifications while you focus"],
+      never: ["Change workspace settings or anyone else's account"]},
+    spotify: {glyph: "♪", tone: "green", actions: "playing music",
+      reads: ["Your playlists and what's playing"],
+      does: ["Play, pause and skip music"],
+      never: ["Change your playlists or follow anyone"]},
   };
   const SIGN_IN_HOSTS = ["accounts.google.com", "accounts.spotify.com", "slack.com"];
   let connectionData = {enabled: false, providers: [], accounts: [], activity: []};
-  const signIns = {};  // provider → {url, started, allowActions}
+  const signIns = {};  // provider → {url, started}
   let signInPoll = null;
+  let chosenService = null;
 
   function ago(seconds) {
     const delta = Math.max(0, Date.now() / 1000 - seconds);
@@ -110,86 +124,115 @@
   function serviceState(provider, accounts) {
     if (!connectionData.enabled) return ["off", "Turned off"];
     if (!provider.configured) return ["setup", "Setup needed"];
-    if (signIns[provider.provider]) return ["pending", "Waiting for sign-in"];
-    const failed = connectionData.activity.find((item) => item.provider === provider.provider);
-    if (accounts.length) return failed && !failed.ok ? ["warn", "Needs attention"] : ["on", "Connected"];
+    if (signIns[provider.provider]) return ["pending", "Signing in…"];
+    const last = connectionData.activity.find((item) => item.provider === provider.provider);
+    if (accounts.length) return last && !last.ok ? ["warn", "Needs attention"] : ["on", "Connected"];
     return ["idle", "Not connected"];
   }
 
-  function serviceCard(provider) {
-    const info = SERVICES[provider.provider] || {icon: "•", blurb: "", actions: "actions"};
-    const accounts = connectionData.accounts.filter((item) => item.provider === provider.provider);
+  const accountsFor = (provider) => connectionData.accounts.filter((item) => item.provider === provider.provider);
+
+  function serviceTile(provider) {
+    const info = SERVICES[provider.provider] || {glyph: "•", tone: ""};
+    const accounts = accountsFor(provider);
     const [state, label] = serviceState(provider, accounts);
-    const card = node("article", undefined, `service-card state-${state}`);
-    const head = node("header");
-    const title = node("div");
-    title.append(node("h3", provider.name), node("span", label, `pill ${state}`));
-    head.append(node("span", info.icon, `service-icon ${provider.provider}`), title);
-    card.append(head, node("p", info.blurb, "service-blurb"));
+    const chosen = chosenService === provider.provider;
+    const tile = node("button", undefined, `svc${chosen ? " on" : ""}`);
+    tile.type = "button";
+    tile.setAttribute("aria-pressed", String(chosen));
+    tile.addEventListener("click", () => { chosenService = provider.provider; renderConnections(); });
+    const words = node("span", undefined, "svc-words");
+    words.append(node("strong", provider.name), node("span", accounts.length ? accounts.map(shortIdentity).join(", ") : label, "faint"));
+    tile.append(node("span", info.glyph, `glyph ${info.tone}`), words, node("span", label, `state ${state}`));
+    return tile;
+  }
 
-    if (!connectionData.enabled) {
-      card.append(node("p", "Set INTEGRATIONS_ENABLED=true in .env, then restart Bridge.", "hint"));
-      return card;
-    }
-    if (!provider.configured) {
+  function permissionList(title, items, kind) {
+    const block = node("div", undefined, "perm-block");
+    block.append(node("h3", title, "label"));
+    const list = node("ul", undefined, `perms ${kind}`);
+    for (const item of items) list.append(node("li", item));
+    block.append(list);
+    return block;
+  }
+
+  function serviceDetail(provider) {
+    const panel = $("service-detail");
+    panel.replaceChildren();
+    if (!provider) return;
+    const info = SERVICES[provider.provider] || {glyph: "•", tone: "", reads: [], does: [], never: [], actions: "actions"};
+    const accounts = accountsFor(provider);
+    const [state, label] = serviceState(provider, accounts);
+    const head = node("header", undefined, "svc-head");
+    const words = node("div");
+    words.append(node("h2", provider.name), node("p", accounts.length ? accounts.map(shortIdentity).join(", ") : label, "faint"));
+    head.append(node("span", info.glyph, `glyph big ${info.tone}`), words);
+    panel.append(head);
+
+    if (state === "off") {
+      panel.append(node("p", "Connected services are turned off. Set INTEGRATIONS_ENABLED=true in .env and restart Bridge.", "notice-box"));
+    } else if (state === "setup") {
       const key = provider.provider === "slack" ? "SLACK_CLIENT_ID" : provider.provider === "spotify" ? "SPOTIFY_CLIENT_ID" : "GOOGLE_CLIENT_ID";
-      card.append(node("p", `Add ${key} to .env and restart Bridge. Steps are in docs/SERVICES.md.`, "hint"));
-      return card;
+      panel.append(node("p", `Add ${key} to .env and restart Bridge. Steps are in docs/SERVICES.md.`, "notice-box"));
     }
+    const last = connectionData.activity.find((item) => item.provider === provider.provider);
+    if (last && !last.ok) panel.append(node("p", `${last.event} ${ago(last.at)}: ${last.detail}`, "notice-box bad"));
 
-    const writeScopes = new Set(provider.write_scopes);
     for (const account of accounts) {
-      const row = node("div", undefined, "account-row");
-      const who = node("div");
-      const canAct = account.scopes.some((scope) => writeScopes.has(scope));
-      const last = connectionData.activity.find((item) => item.provider === account.provider && item.account === account.identity && item.event !== "Connected");
-      who.append(node("strong", shortIdentity(account)));
-      const facts = [canAct ? "Read & actions" : "Read only"];
-      if (account.connected_at) facts.push(`connected ${ago(account.connected_at)}`);
-      if (last) facts.push(`last used ${ago(last.at)}`);
-      who.append(node("span", facts.join(" · "), "account-facts"));
-      if (last && !last.ok) who.append(node("span", `⚠ ${last.detail}`, "account-error"));
-      if (!canAct) who.append(node("span", `Reconnect with “Allow ${info.actions}” to let Bridge act.`, "account-error"));
-      row.append(who, action("Disconnect", () => {
-        if (!window.confirm(`Disconnect ${shortIdentity(account)} from Bridge?`)) return;
-        execute(async () => {
-          const result = await request("/api/v1/connections/disconnect", "POST", {account_id: account.account_id});
-          await refreshConnections();
-          notify(result.message);
-        }, {refresh: false});
-      }));
-      card.append(row);
+      const writeScopes = new Set(provider.write_scopes);
+      if (!account.scopes.some((scope) => writeScopes.has(scope))) {
+        panel.append(node("p", `${shortIdentity(account)} is read-only. Reconnect with “Allow ${info.actions}” to let Bridge act after you approve.`, "notice-box"));
+      }
     }
 
-    if (!accounts.length && !signIns[provider.provider]) {
-      const failure = connectionData.activity.find((item) => item.provider === provider.provider);
-      if (failure && !failure.ok) card.append(node("p", `Last sign-in failed ${ago(failure.at)}: ${failure.detail}`, "account-error"));
-    }
+    panel.append(permissionList("Reads", info.reads, "reads"), permissionList("Does, after you approve", info.does, "does"), permissionList("Never", info.never, "never"));
+
     const pending = signIns[provider.provider];
-    const controls = node("div", undefined, "service-controls");
+    const controls = node("div", undefined, "svc-controls");
     if (pending) {
-      const link = node("a", `Continue to ${provider.name} sign-in ↗`, "primary signin-link");
+      const link = node("a", `Continue to ${provider.name} sign-in ↗`, "primary button-link");
       link.href = pending.url;
       link.target = "_blank";
       link.rel = "noopener noreferrer";
-      const cancel = action("Cancel", () => { delete signIns[provider.provider]; renderConnections(); });
-      controls.append(link, cancel);
-      card.append(controls, node("p", "Sign in in the new tab. This card updates by itself when you're done.", "hint"));
-      return card;
+      controls.append(link, action("Cancel", () => { delete signIns[provider.provider]; renderConnections(); }, "ghost"));
+      panel.append(controls, node("p", "Finish signing in in your browser. This updates by itself when you're done.", "hint"));
+    } else if (state !== "off" && state !== "setup") {
+      const allow = node("label", undefined, "allow");
+      const box = node("input");
+      box.type = "checkbox";
+      box.checked = true;
+      allow.append(box, node("span", `Allow ${info.actions}`));
+      controls.append(action(accounts.length ? "Reconnect" : `Connect ${provider.name}`, () => startSignIn(provider, box.checked), accounts.length ? "secondary" : "primary"));
+      for (const account of accounts) {
+        controls.append(action("Disconnect", () => {
+          if (!window.confirm(`Disconnect ${shortIdentity(account)} from Bridge?`)) return;
+          execute(async () => {
+            const result = await request("/api/v1/connections/disconnect", "POST", {account_id: account.account_id});
+            await refreshConnections();
+            notify(result.message);
+          }, {refresh: false});
+        }, "ghost danger"));
+      }
+      panel.append(allow, controls);
     }
-    const toggle = node("label", undefined, "toggle");
-    const box = node("input");
-    box.type = "checkbox";
-    box.checked = true;
-    toggle.append(box, node("span", `Allow ${info.actions}`));
-    const connect = action(accounts.length ? "Reconnect" : "Connect", () => startSignIn(provider, box.checked), accounts.length ? "secondary" : "primary");
-    controls.append(toggle, connect);
-    card.append(controls);
-    const details = node("details");
-    details.append(node("summary", "Permissions and callback address"),
+
+    const recent = connectionData.activity.filter((item) => item.provider === provider.provider).slice(0, 5);
+    if (recent.length) {
+      const block = node("div", undefined, "perm-block");
+      block.append(node("h3", "Recently", "label"));
+      const list = node("ul", undefined, "recent");
+      for (const item of recent) {
+        const row = node("li", undefined, item.ok ? "" : "bad");
+        row.append(node("span", item.event), node("time", ago(item.at), "mono faint"));
+        list.append(row);
+      }
+      block.append(list);
+      panel.append(block);
+    }
+    const details = node("details", undefined, "tech");
+    details.append(node("summary", "Exact permissions"),
       node("pre", `Callback: ${provider.redirect_uri}\n\nRead:\n${provider.read_scopes.join("\n")}\n\nActions:\n${provider.write_scopes.join("\n")}`));
-    card.append(details);
-    return card;
+    panel.append(details);
   }
 
   function renderActivity() {
@@ -199,27 +242,30 @@
       !filter || (filter === "failed" ? !item.ok : item.provider === filter));
     const list = $("connection-activity");
     list.replaceChildren();
-    if (!items.length) list.append(node("li", filter ? "Nothing here yet." : "No activity yet. Connect a service and ask Bridge something.", "empty"));
-    for (const item of items.slice(0, 60)) {
-      const row = node("li", undefined, item.ok ? "ok" : "failed");
-      row.append(node("span", (SERVICES[item.provider] || {}).icon || "•", `service-icon small ${item.provider}`));
-      const text = node("div");
-      text.append(node("strong", item.event), node("span", ` · ${names[item.provider] || item.provider}${item.account ? " · " + item.account : ""}`, "muted"));
-      if (item.detail) text.append(node("p", item.detail, item.ok ? "muted" : "account-error"));
-      row.append(text, node("time", ago(item.at)));
+    if (!items.length) list.append(node("li", filter ? "Nothing here yet." : "No activity yet. Connect a service and ask Bridge something.", "line-empty"));
+    for (const item of items.slice(0, 40)) {
+      const row = node("li", undefined, `line${item.ok ? "" : " bad"}`);
+      const info = SERVICES[item.provider] || {tone: ""};
+      row.append(node("time", ago(item.at), "mono faint when-short"), node("span", names[item.provider] || item.provider, `src ${info.tone}`));
+      const text = node("span", undefined, "line-main");
+      text.append(node("span", item.event));
+      if (item.detail) text.append(node("span", item.detail, item.ok ? "faint" : "line-error"));
+      row.append(text);
       list.append(row);
     }
   }
 
   function renderConnections() {
     const providers = connectionData.providers;
-    const connected = providers.filter((p) => connectionData.accounts.some((a) => a.provider === p.provider)).length;
-    $("connections-count").textContent = connectionData.enabled ? `${connected} of ${providers.length} services connected` : "Connected services are turned off";
-    $("connections-meter").style.width = providers.length ? `${(connected / providers.length) * 100}%` : "0";
-    $("connections-status").textContent = connectionData.enabled
-      ? "Access tokens stay in macOS Keychain on this Mac."
-      : connectionData.message || "";
-    $("service-grid").replaceChildren(...providers.map(serviceCard));
+    const connected = providers.filter((p) => accountsFor(p).length).length;
+    $("connections-count").textContent = connectionData.enabled ? `${connected} of ${providers.length} connected` : "Turned off";
+    $("connections-status").hidden = connectionData.enabled || !connectionData.message;
+    $("connections-status").textContent = connectionData.enabled ? "" : connectionData.message || "";
+    if (!providers.some((p) => p.provider === chosenService)) {
+      chosenService = (providers.find((p) => accountsFor(p).length) || providers[0] || {}).provider || null;
+    }
+    $("service-grid").replaceChildren(...providers.map(serviceTile));
+    serviceDetail(providers.find((p) => p.provider === chosenService));
     renderActivity();
   }
 

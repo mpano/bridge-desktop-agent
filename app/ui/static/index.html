@@ -255,16 +255,29 @@
           <p id="memory-privacy" class="hint">Bridge won't store passwords, codes or card numbers. You can also say “remember that …” or “forget …” in the conversation.</p></article>
         <div class="settings-note"><h2>Credentials stay out of this panel.</h2><p>Manage your OpenAI API key and local API token in your .env file. This page cannot display or change them.</p></div>
       </section>
-      <section id="view-connections" class="view" hidden>
-        <div class="page-heading"><div><p class="eyebrow">CONNECTED SERVICES</p><h1>Your services, working together.</h1><p>Connect each account once. Bridge reads when you ask and always asks before sending, creating or deleting.</p></div><button id="refresh-connections" class="secondary" type="button">Refresh</button></div>
-        <div class="connection-summary"><div class="summary-meter" aria-hidden="true"><span id="connections-meter"></span></div><strong id="connections-count">Checking services…</strong><p id="connections-status" role="status"></p></div>
-        <div id="service-grid" class="service-grid" aria-live="polite"></div>
-        <article class="card activity-card">
-          <div class="activity-head"><div><h2>Activity</h2><p class="hint">What Bridge did with each service. Never message content, recipients or tokens.</p></div>
-            <label class="sr-only" for="activity-filter">Filter activity</label><select id="activity-filter"><option value="">All services</option><option value="gmail">Gmail</option><option value="google_calendar">Google Calendar</option><option value="slack">Slack</option><option value="spotify">Spotify</option><option value="failed">Only problems</option></select></div>
-          <ol id="connection-activity" class="activity-list"></ol>
-        </article>
-        <article class="card tips-card"><h2>Try it</h2><div class="suggestions left"><button type="button" data-example="What are my unread emails?" data-go="chat">Unread emails ↗</button><button type="button" data-example="What's on my Google Calendar tomorrow?" data-go="chat">Tomorrow's meetings ↗</button><button type="button" data-example="What's new in #general?" data-go="chat">Slack #general ↗</button><button type="button" data-example="Play Blinding Lights" data-go="chat">Play a song ↗</button><button type="button" data-example="Brief me" data-go="chat">Brief me ↗</button></div><p class="hint">Remote models don't see connected content by default; Bridge shows results to you locally under each reply. Setup help: docs/SERVICES.md.</p></article>
+      <section id="view-connections" class="view connections" hidden aria-labelledby="conn-title">
+        <div class="conn-split">
+          <div class="conn-main">
+            <header class="page-head">
+              <p id="connections-count" class="label">Checking services…</p>
+              <h1 id="conn-title">Connections</h1>
+              <p class="lede">The apps Bridge can work with. Sign-ins are kept in your Mac's Keychain, never in a file.</p>
+              <p id="connections-status" class="conn-status" hidden></p>
+            </header>
+            <div id="service-grid" class="svc-grid" aria-live="polite"></div>
+            <p class="hint on-mac">Calendar, Contacts, Reminders and Messages on this Mac work without connecting anything — Bridge uses them directly once macOS allows it.</p>
+            <section class="card list-card" aria-labelledby="activity-title">
+              <div class="card-head">
+                <div><h2 id="activity-title">Recent activity</h2><p class="hint">What Bridge did with each service — never the content, recipients or tokens.</p></div>
+                <label class="sr-only" for="activity-filter">Filter activity</label>
+                <select id="activity-filter" class="small-select"><option value="">All services</option><option value="gmail">Gmail</option><option value="google_calendar">Google Calendar</option><option value="slack">Slack</option><option value="spotify">Spotify</option><option value="failed">Problems</option></select>
+                <button type="button" id="refresh-connections" class="ghost small">Refresh</button>
+              </div>
+              <ol id="connection-activity" class="lines activity-lines"></ol>
+            </section>
+          </div>
+          <aside id="service-detail" class="svc-detail" aria-live="polite"></aside>
+        </div>
       </section>
       <section id="view-account" class="view" hidden>
         <div class="page-heading"><div><p class="eyebrow">ACCOUNT</p><h1>Your Bridge account.</h1><p>How you sign in to this dashboard, and where you're signed in.</p></div></div>
