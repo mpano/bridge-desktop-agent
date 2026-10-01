@@ -200,6 +200,13 @@ class ProactiveStore:
             )
             return cursor.lastrowid
 
+    def latest_plan(self, day: str) -> tuple[int, list[dict]] | None:
+        with self._db() as db:
+            row = db.execute(
+                "SELECT id, blocks FROM day_plans WHERE day = ? ORDER BY id DESC LIMIT 1", (day,)
+            ).fetchone()
+        return (row[0], json.loads(row[1])) if row else None
+
     def plan(self, plan_id: int) -> tuple[str, list[dict]] | None:
         with self._db() as db:
             row = db.execute(

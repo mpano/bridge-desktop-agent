@@ -16,6 +16,7 @@ from app.api.schemas import (
     MemoryRequest,
     MessageRequest,
 )
+from app.api.today import install as install_today
 from app.bootstrap import build_agent
 from app.config.settings import Settings
 from app.diagnostics import collect_diagnostics
@@ -138,6 +139,7 @@ def create_app(
             return auth.sign_in(response, request, kind="owner" if has_owner else "setup")
 
     install_connections(app, authorize)
+    install_today(app, authorize)
 
     @app.get("/health")
     async def health():

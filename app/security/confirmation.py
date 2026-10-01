@@ -33,6 +33,10 @@ class ConfirmationStore:
             raise ValueError("Confirmation expired, unknown, or already used.")
         return pending
 
+    def waiting(self) -> list[tuple[str, Pending]]:
+        now = time.monotonic()
+        return [(token, p) for token, p in list(self._pending.items()) if p.expires > now]
+
     def count(self) -> int:
         """Approvals still waiting for the user (for the menu bar icon)."""
         now = time.monotonic()

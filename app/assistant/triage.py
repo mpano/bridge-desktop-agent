@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from types import SimpleNamespace
 
 from app.llm.structured import ask_json
@@ -21,6 +22,7 @@ Include every message exactly once, using its id."""
 class InboxTriage:
     def __init__(self, gmail, llm):
         self.gmail, self.llm = gmail, llm
+        self.last: tuple[float, dict] | None = None  # (time.time(), result) of the last run
 
     async def triage(self, days: int = 2, limit: int = 20) -> dict:
         found = await self.gmail.search(
@@ -30,7 +32,9 @@ class InboxTriage:
         )
         messages = found["messages"]
         if not messages:
-            return {"groups": {key: [] for key in CATEGORIES}, "total": 0, "days": days}
+            empty = {"groups": {key: [] for key in CATEGORIES}, "total": 0, "days": days}
+            self.last = (time.time(), empty)
+            return empty
         data = [
             {
                 "id": item["message_id"],
@@ -75,13 +79,15 @@ class InboxTriage:
                         "action": "",
                     }
                 )
-        return {
+        result = {
             "groups": groups,
             "total": len(messages),
             "days": days,
             "has_more": found.get("has_more", False),
             "content_is_untrusted": True,
         }
+        self.last = (time.time(), result)
+        return result
 
 
 def sender(value: str) -> str:

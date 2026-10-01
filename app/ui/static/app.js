@@ -65,6 +65,7 @@
 
   function view(name) {
     if (name === "account" && signedIn) setTimeout(() => execute(refreshAccount, {refresh: false}));
+    if (name === "today" && signedIn && window.BridgeToday) window.BridgeToday.refresh();
     document.querySelectorAll(".view").forEach((panel) => { panel.hidden = panel.id !== `view-${name}`; });
     document.querySelectorAll("[data-view]").forEach((button) => {
       if (button.dataset.view === name) button.setAttribute("aria-current", "page");
@@ -597,7 +598,7 @@
 
   function renderProvider(provider) {
     const name = "OpenAI";
-    $("provider-summary").textContent = `${name} (${provider.model}) handles language requests.`;
+    $("provider-summary").textContent = `On this Mac · ${name}`;
     let policy;
     if (provider.remote_tool_results === "all") {
       policy = "Messages and all tool results are sent to OpenAI.";
@@ -717,7 +718,7 @@
     $("connection-status").classList.add("online");
     syncControls();
     await refreshAll();
-    $("message").focus();
+    view("today");
   }
 
   $("signup-form").addEventListener("submit", (event) => {
@@ -1009,6 +1010,43 @@
       return result;
     });
   }
+  // A card elsewhere (Today) approves an action by its token; the result lands in Ask.
+  function decideToken(token, approved) {
+    if (busy || pending) return Promise.resolve();
+    return execute(async () => {
+      const progress = await request("/api/v1/tasks/confirm", "POST", {token, approved});
+      const result = await watchTask(progress);
+      await loadConversation();
+      return result;
+    }, {refresh: false});
+  }
+
+  function ask(text) {
+    view("chat");
+    $("message").value = text;
+    $("message-form").requestSubmit();
+  }
+
+  function focusAsk() {
+    view("chat");
+    $("message").focus();
+  }
+  $("ask-shortcut").addEventListener("click", focusAsk);
+  document.addEventListener("keydown", (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k" && signedIn) {
+      event.preventDefault();
+      focusAsk();
+    }
+  });
+
+  // What other screens (today.js) may use. Same page, same session; nothing new is exposed.
+  window.BridgeUI = {
+    request, view, notify, ask, decideToken,
+    run: (task) => execute(task, {refresh: false}),
+    owner: () => (authStatus && authStatus.owner) || {name: "", email: ""},
+    busy: () => busy || Boolean(pending),
+  };
+
   $("approve").addEventListener("click", () => decide(true));
   $("decline").addEventListener("click", () => decide(false));
   dialog.addEventListener("cancel", (event) => { event.preventDefault(); decide(false); });

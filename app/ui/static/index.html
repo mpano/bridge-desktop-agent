@@ -8,26 +8,32 @@
   <link rel="icon" type="image/png" href="/ui/bridge-mark.png">
   <link rel="stylesheet" href="/ui/style.css">
   <script src="/ui/app.js" defer></script>
+  <script src="/ui/today.js" defer></script>
 </head>
 <body>
   <aside class="sidebar">
-    <a class="brand" href="/" aria-label="Bridge home"><img class="brand-mark" src="/ui/bridge-mark.png" alt="" width="40" height="40"><span><strong>Bridge</strong><small>Your desktop agent</small></span></a>
-    <p class="eyebrow">WORKSPACE</p>
+    <a class="brand" href="/" aria-label="Bridge home"><img class="brand-mark" src="/ui/bridge-mark.png" alt="" width="26" height="26"><strong>Bridge</strong></a>
+    <button type="button" id="ask-shortcut" class="ask-shortcut"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M7 2.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9zM10.5 10.5l3 3"/></svg><span>Ask Bridge…</span><kbd>⌘K</kbd></button>
     <nav aria-label="Main navigation">
-      <button type="button" data-view="chat" aria-current="page">Conversation <span>01</span></button>
-      <button type="button" data-view="projects">Projects <span>02</span></button>
-      <button type="button" data-view="workflows">Workflows <span>03</span></button>
-      <button type="button" data-view="preferences">Preferences <span>04</span></button>
-      <button type="button" data-view="capabilities">Capabilities <span>05</span></button>
-      <button type="button" data-view="connections">Connections <span>06</span></button>
-      <button type="button" data-view="account">Account <span>07</span></button>
+      <button type="button" data-view="today" aria-current="page"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5a1.5 1.5 0 0 1 1.5-1.5h8a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5zM2.5 6.5h11M5.5 1.8v2.4M10.5 1.8v2.4"/></svg>Today</button>
+      <button type="button" data-view="chat"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11v7.5H7.5L4.5 13.5V11h-2z"/></svg>Ask</button>
+      <button type="button" data-view="connections"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 9.5l3-3M5 8l-1.3 1.3a2.3 2.3 0 0 0 3.3 3.3L8.3 11.3M11 8l1.3-1.3a2.3 2.3 0 0 0-3.3-3.3L7.7 4.7"/></svg>Connections</button>
     </nav>
-    <div class="sidebar-footer"><span class="local-dot"></span> Runs on your Mac
-      <p>Actions stay under your control.<br><span id="provider-summary">Connect to see your model provider.</span></p>
+    <p class="nav-group">More</p>
+    <nav aria-label="More" class="nav-more">
+      <button type="button" data-view="workflows">Workflows</button>
+      <button type="button" data-view="preferences">Preferences</button>
+      <button type="button" data-view="projects">Projects</button>
+      <button type="button" data-view="capabilities">Capabilities</button>
+      <button type="button" data-view="account">Account</button>
+    </nav>
+    <div class="sidebar-footer">
+      <button id="account-chip" type="button" class="account-chip" hidden><span id="account-initials" aria-hidden="true"></span><span class="who"><span id="account-name"></span><span class="where"><span class="local-dot"></span><span id="provider-summary">Running on this Mac</span></span></span></button>
+      <button id="disconnect" type="button" class="sign-out" hidden>Sign out</button>
     </div>
   </aside>
   <main>
-    <header class="topbar"><span>LOCAL WORKSPACE</span><div><span id="connection-status">Signed out</span><button id="account-chip" type="button" class="account-chip" hidden><span id="account-initials" aria-hidden="true"></span><span id="account-name"></span></button><button id="disconnect" type="button" hidden>Sign out</button></div></header>
+    <span id="connection-status" class="sr-only" role="status">Signed out</span>
     <div id="notice" role="status" aria-live="polite" hidden></div>
     <section id="auth-panel" class="auth" aria-live="polite">
       <div class="auth-card">
@@ -67,7 +73,76 @@
       </div>
     </section>
     <fieldset id="workspace" disabled hidden>
-      <section id="view-chat" class="view">
+      <section id="view-today" class="view today" aria-labelledby="today-greeting">
+        <div id="focus-banner" class="focus-banner" hidden>
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a6 6 0 1 1 0 12A6 6 0 0 1 8 2zM8 5.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"/></svg>
+          <span id="focus-text"></span>
+          <button type="button" id="focus-stop" class="on-accent">Stop focus</button>
+        </div>
+        <header class="today-head">
+          <div>
+            <p id="today-date" class="label"></p>
+            <h1 id="today-greeting">Today</h1>
+            <p id="today-summary" class="lede"></p>
+          </div>
+          <div class="today-actions">
+            <button type="button" id="today-focus" class="primary">Start focus</button>
+          </div>
+        </header>
+        <form id="today-ask" class="ask-box">
+          <label for="today-input" class="sr-only">Ask Bridge</label>
+          <input id="today-input" autocomplete="off" placeholder="Ask anything, or describe what you want done…" maxlength="10000">
+          <button type="submit" class="primary" aria-label="Send"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></button>
+          <div class="chips" id="today-chips">
+            <button type="button" data-ask="What needs my attention?">What needs my attention?</button>
+            <button type="button" data-ask="Plan tomorrow">Plan tomorrow</button>
+            <button type="button" data-ask="Brief me">Brief me</button>
+            <button type="button" data-ask="What's on my calendar this week?">This week</button>
+          </div>
+        </form>
+        <div class="today-grid">
+          <section class="card day" aria-labelledby="day-title">
+            <div class="card-head">
+              <h2 id="day-title">Your day</h2>
+              <span id="day-count" class="mono faint"></span>
+              <button type="button" id="day-plan" class="secondary small">Plan my day</button>
+              <button type="button" id="day-apply" class="secondary small" hidden>Add to calendar</button>
+            </div>
+            <ol id="day-list" class="day-list" aria-label="Today's schedule"></ol>
+            <p id="day-empty" class="empty" hidden></p>
+          </section>
+          <div class="side">
+            <section class="card" id="approvals-card" aria-labelledby="approvals-title" hidden>
+              <h2 id="approvals-title" class="label attention">Waiting for your OK</h2>
+              <ul id="approvals-list" class="plain"></ul>
+            </section>
+            <section class="card" aria-labelledby="inbox-title">
+              <div class="card-head"><h2 id="inbox-title" class="label">Inbox</h2><button type="button" id="inbox-refresh" class="link" hidden>Refresh</button></div>
+              <div id="inbox-body"></div>
+            </section>
+            <section class="card" id="waiting-card" aria-labelledby="waiting-title" hidden>
+              <h2 id="waiting-title" class="label">You're waiting on</h2>
+              <ul id="waiting-list" class="plain"></ul>
+            </section>
+          </div>
+        </div>
+        <dialog id="focus-dialog" class="sheet" aria-labelledby="focus-dialog-title">
+          <form method="dialog" id="focus-form">
+            <h2 id="focus-dialog-title">Start focus</h2>
+            <p>Bridge blocks your calendar, pauses Slack and plays focus music, then tells you what you missed.</p>
+            <fieldset class="segmented" aria-label="How long">
+              <label><input type="radio" name="focus-minutes" value="25"> 25 min</label>
+              <label><input type="radio" name="focus-minutes" value="50"> 50 min</label>
+              <label><input type="radio" name="focus-minutes" value="90" checked> 90 min</label>
+              <label><input type="radio" name="focus-minutes" value="120"> 2 h</label>
+            </fieldset>
+            <label for="focus-task">What are you working on? <span class="faint">(optional)</span></label>
+            <input id="focus-task" maxlength="80" placeholder="e.g. the API docs">
+            <div class="sheet-actions"><button type="button" id="focus-cancel" class="secondary">Cancel</button><button type="submit" class="primary" value="start">Start</button></div>
+          </form>
+        </dialog>
+      </section>
+      <section id="view-chat" class="view" hidden>
         <div class="page-heading"><div><p class="eyebrow">CONVERSATION</p><h1>What would you like to do?</h1><p>One request, or a few steps. You decide what happens.</p></div><button type="button" id="reset-chat" class="secondary">New conversation</button></div>
         <div id="conversation" role="log" aria-label="Conversation" aria-live="polite">
           <div id="empty-chat" class="empty-state"><span class="large-mark">↗</span><h2>Your next action starts here.</h2><p>Ask about your day, your apps, email, calendar, music — or put a plan in motion. Requests from the menu-bar panel, voice and schedules appear here too.</p>

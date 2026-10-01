@@ -1,6 +1,7 @@
 import asyncio
 import json
 import sqlite3
+import time
 from datetime import datetime
 from uuid import uuid4
 
@@ -51,6 +52,29 @@ class Agent:
             raise ValueError("A background request is already active.")
         context = AgentContext()
         return self._start_background(context, message=message)
+
+    def pending_approvals(self) -> list[dict]:
+        """Actions waiting for the owner's OK, with exactly the arguments that would run."""
+        now = time.monotonic()
+        items = []
+        for token, pending in self.confirmations.waiting():
+            try:
+                tool = self.executor.registry.get(pending.call.name)
+            except ValueError:
+                tool = None
+            items.append(
+                {
+                    "token": token,
+                    "action": pending.call.name,
+                    "message": pending.context.confirmation_message
+                    or (tool.confirmation_message if tool else None)
+                    or f"Allow {pending.call.name}?",
+                    "arguments": pending.call.arguments,
+                    "request_id": pending.context.request_id,
+                    "expires_in_seconds": max(0, int(pending.expires - now)),
+                }
+            )
+        return items
 
     def submit_confirmation(self, token: str, approved: bool) -> dict:
         # Check capacity before consuming the single-use approval.

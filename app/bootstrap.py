@@ -126,14 +126,10 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     proactive_store = ProactiveStore(settings.database_path)
     llm = llm or create_llm(settings)
     inbox = InboxTriage(gmail_service, llm) if gmail_service is not None else None
+    day_planner = DayPlanner(proactive_store, calendar_controller, reminders_controller, inbox, llm)
     planning.register(
         registry,
-        planning.PlanningController(
-            proactive_store,
-            DayPlanner(proactive_store, calendar_controller, reminders_controller, inbox, llm),
-            inbox,
-            people,
-        ),
+        planning.PlanningController(proactive_store, day_planner, inbox, people),
         gmail_available=gmail_service is not None,
     )
     focus_mode = FocusMode(
@@ -230,6 +226,10 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     agent.scheduler = Scheduler(agent, schedule_store, notify)
     focus_mode.notify = notify
     agent.focus = focus_mode
+    # For the Today screen.
+    agent.calendar = calendar_controller
+    agent.day_planner = day_planner
+    agent.inbox = inbox
     agent.proactive_store = proactive_store
     agent.proactive_controller = proactive_controller
     agent.proactive = Proactive(
