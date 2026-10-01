@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/ui/style.css">
   <script src="/ui/app.js" defer></script>
   <script src="/ui/today.js" defer></script>
+  <script src="/ui/inbox.js" defer></script>
 </head>
 <body>
   <aside class="sidebar">
@@ -17,6 +18,7 @@
     <nav aria-label="Main navigation">
       <button type="button" data-view="today" aria-current="page"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5a1.5 1.5 0 0 1 1.5-1.5h8a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5zM2.5 6.5h11M5.5 1.8v2.4M10.5 1.8v2.4"/></svg>Today</button>
       <button type="button" data-view="chat"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11v7.5H7.5L4.5 13.5V11h-2z"/></svg>Ask</button>
+      <button type="button" data-view="inbox"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 9.5 4 3h8l1.5 6.5v3.5h-11zM2.5 9.5h3l1 1.5h3l1-1.5h3"/></svg><span class="grow">Inbox</span><span id="inbox-badge" class="nav-badge" hidden></span></button>
       <button type="button" data-view="connections"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 9.5l3-3M5 8l-1.3 1.3a2.3 2.3 0 0 0 3.3 3.3L8.3 11.3M11 8l1.3-1.3a2.3 2.3 0 0 0-3.3-3.3L7.7 4.7"/></svg>Connections</button>
     </nav>
     <p class="nav-group">More</p>
@@ -141,6 +143,17 @@
             <div class="sheet-actions"><button type="button" id="focus-cancel" class="secondary">Cancel</button><button type="submit" class="primary" value="start">Start</button></div>
           </form>
         </dialog>
+      </section>
+      <section id="view-inbox" class="view inbox" hidden aria-labelledby="inbox-heading">
+        <header class="inbox-head">
+          <div><p id="inbox-when" class="label">Sorted by Bridge</p><h1 id="inbox-heading">Inbox</h1></div>
+          <button type="button" id="inbox-sort" class="secondary small">Refresh</button>
+        </header>
+        <div id="inbox-tabs" class="tabs" role="tablist" aria-label="Inbox groups"></div>
+        <div class="inbox-split">
+          <div id="inbox-list" class="mail-list" aria-label="Emails"></div>
+          <article id="inbox-detail" class="mail-detail" aria-live="polite"></article>
+        </div>
       </section>
       <section id="view-chat" class="view ask" hidden aria-labelledby="ask-title">
         <header class="ask-head">

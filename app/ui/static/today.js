@@ -47,6 +47,7 @@
       data = today;
       approvals = pending.approvals;
       render();
+      if (window.BridgeInbox) window.BridgeInbox.refresh();  // Keeps the sidebar count current.
     } catch (error) {
       ui().notify(error.message, true);
     } finally {
@@ -224,6 +225,7 @@
       const result = await ui().request("/api/v1/inbox/triage", "POST");
       data.inbox = result.summary;
       render();
+      if (window.BridgeInbox) window.BridgeInbox.refresh();
     } catch (error) {
       ui().notify(error.message, true);
       renderInbox();

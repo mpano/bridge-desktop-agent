@@ -21,6 +21,10 @@ def install_ui(app: FastAPI) -> None:
     async def today_script():
         return FileResponse(STATIC / "today.js", media_type="text/javascript")
 
+    @app.get("/ui/inbox.js", include_in_schema=False)
+    async def inbox_script():
+        return FileResponse(STATIC / "inbox.js", media_type="text/javascript")
+
     @app.get("/ui/style.css", include_in_schema=False)
     async def stylesheet():
         return FileResponse(STATIC / "style.css", media_type="text/css")

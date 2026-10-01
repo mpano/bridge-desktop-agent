@@ -62,6 +62,7 @@ class InboxTriage:
                     "reply_message_id": message.get("reply_message_id"),
                     "from": message["from"],
                     "subject": message["subject"],
+                    "date": message.get("date", ""),
                     "summary": str(entry.get("summary") or message["snippet"])[:200],
                     "action": str(entry.get("action") or "")[:100],
                 }
@@ -75,6 +76,7 @@ class InboxTriage:
                         "reply_message_id": message.get("reply_message_id"),
                         "from": message["from"],
                         "subject": message["subject"],
+                        "date": message.get("date", ""),
                         "summary": message["snippet"][:200],
                         "action": "",
                     }

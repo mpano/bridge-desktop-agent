@@ -10,6 +10,7 @@ from app.agent.proactive import Proactive
 from app.agent.scheduler import Scheduler
 from app.assistant.day_plan import DayPlanner
 from app.assistant.focus import FocusMode, FocusStore
+from app.assistant.replies import ReplyDrafter
 from app.assistant.triage import InboxTriage
 from app.integrations.accounts import AccountManager
 from app.integrations.activity import SQLiteActivity
@@ -230,6 +231,8 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     agent.calendar = calendar_controller
     agent.day_planner = day_planner
     agent.inbox = inbox
+    agent.gmail = gmail_service
+    agent.replies = ReplyDrafter(gmail_service, llm) if gmail_service is not None else None
     agent.screen = screen
     agent.proactive_store = proactive_store
     agent.proactive_controller = proactive_controller
