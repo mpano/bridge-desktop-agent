@@ -197,7 +197,8 @@ class TextPopup:
         )
         if not allowed:
             self._status(
-                "Turn on Bridge in Accessibility settings, then press ⌃⌥Space again — or paste text above.",
+                "Turn on Bridge in Accessibility settings, then press ⌃⌥Space again "
+                "— or paste text above.",
                 AMBER,
             )
             self.result_buttons["Ask Bridge"].setTitle_("Allow…")
