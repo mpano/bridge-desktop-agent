@@ -16,7 +16,27 @@ DEFAULTS = {
     "evening_summary": False,
     "evening_time": "18:00",
     "evening_schedule_id": 0,
+    "work_start": "09:00",
+    "work_end": "18:00",
+    "morning_plan": False,
+    "morning_time": "08:30",
+    "morning_schedule_id": 0,
 }
+
+
+ACTIVE = {"waiting", "overdue"}
+
+
+@dataclass(frozen=True)
+class Followup:
+    id: int
+    name: str
+    email: str
+    about: str
+    since: float
+    due: str  # ISO date-time with offset
+    status: str  # waiting, overdue, replied, cancelled, expired
+    last_checked: float | None
 
 
 @dataclass(frozen=True)
@@ -45,6 +65,14 @@ class ProactiveStore:
                     last_error TEXT, created_at REAL NOT NULL);
                 CREATE TABLE IF NOT EXISTS proactive_settings (key TEXT PRIMARY KEY, value TEXT);
                 CREATE TABLE IF NOT EXISTS proactive_notified (key TEXT PRIMARY KEY, at REAL);
+                CREATE TABLE IF NOT EXISTS followups (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
+                    email TEXT NOT NULL, about TEXT NOT NULL, since REAL NOT NULL,
+                    due TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'waiting',
+                    last_checked REAL, created_at REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS day_plans (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, day TEXT NOT NULL,
+                    blocks TEXT NOT NULL, created_at REAL NOT NULL);
                 """
             )
 
@@ -129,3 +157,52 @@ class ProactiveStore:
             except sqlite3.IntegrityError:
                 return False
         return True
+
+    # Follow-ups ("remind me if Olivier doesn't reply by Friday") ---------------------------
+
+    def add_followup(self, name: str, email: str, about: str, due: str) -> Followup:
+        active = [item for item in self.followups() if item.status in ACTIVE]
+        if len(active) >= MAX_WATCHES:
+            raise ValueError("You're tracking too many follow-ups. Cancel some first.")
+        now = time.time()
+        with self._db() as db:
+            cursor = db.execute(
+                "INSERT INTO followups (name, email, about, since, due, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (name, email, about, now, due, now),
+            )
+            new_id = cursor.lastrowid
+        return next(item for item in self.followups() if item.id == new_id)
+
+    def followups(self) -> list[Followup]:
+        with self._db() as db:
+            rows = db.execute(
+                "SELECT id, name, email, about, since, due, status, last_checked "
+                "FROM followups ORDER BY id"
+            ).fetchall()
+        return [Followup(*row) for row in rows]
+
+    def set_followup(self, followup_id: int, status: str) -> None:
+        with self._db() as db:
+            db.execute(
+                "UPDATE followups SET status = ?, last_checked = ? WHERE id = ?",
+                (status, time.time(), followup_id),
+            )
+
+    # Day plans ----------------------------------------------------------------------------
+
+    def save_plan(self, day: str, blocks: list[dict]) -> int:
+        with self._db() as db:
+            db.execute("DELETE FROM day_plans WHERE created_at < ?", (time.time() - 7 * 86400,))
+            cursor = db.execute(
+                "INSERT INTO day_plans (day, blocks, created_at) VALUES (?, ?, ?)",
+                (day, json.dumps(blocks), time.time()),
+            )
+            return cursor.lastrowid
+
+    def plan(self, plan_id: int) -> tuple[str, list[dict]] | None:
+        with self._db() as db:
+            row = db.execute(
+                "SELECT day, blocks FROM day_plans WHERE id = ?", (plan_id,)
+            ).fetchone()
+        return (row[0], json.loads(row[1])) if row else None

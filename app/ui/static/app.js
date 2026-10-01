@@ -461,6 +461,26 @@
     $("pro-lead").value = String(settings.lead_minutes);
     $("pro-evening").checked = settings.evening_summary;
     $("pro-evening-time").value = settings.evening_time;
+    $("pro-morning").checked = settings.morning_plan;
+    $("pro-morning-time").value = settings.morning_time;
+    $("pro-work-start").value = settings.work_start;
+    $("pro-work-end").value = settings.work_end;
+    const followups = $("followup-list");
+    followups.replaceChildren();
+    if (!data.followups.length) followups.append(node("p", "Nothing yet. Say “remind me if Olivier doesn't reply by Friday”.", "hint"));
+    for (const item of data.followups) {
+      const row = node("div", undefined, "method-row");
+      const text = node("div");
+      const due = new Date(item.due).toLocaleString([], {weekday: "short", hour: "2-digit", minute: "2-digit"});
+      const state = {waiting: "waiting", overdue: "no reply yet", replied: "replied ✓"}[item.status] || item.status;
+      text.append(node("strong", `${item.name} — ${item.about}`), node("span", `By ${due} · ${state}`, item.status === "overdue" ? "account-error" : "account-facts"));
+      row.append(node("span", item.status === "replied" ? "✓" : "◷", "method-icon"), text);
+      if (item.status !== "replied") row.append(action("Cancel", () => execute(async () => {
+        await request("/api/v1/followups/cancel", "POST", {id: item.id});
+        await refreshProactive();
+      }, {refresh: false})));
+      followups.append(row);
+    }
     const list = $("watch-list");
     list.replaceChildren();
     if (!data.watches.length) list.append(node("p", "Nothing yet. Add a Gmail or Slack search below.", "hint"));
@@ -483,12 +503,14 @@
       await request("/api/v1/proactive/settings", "POST", {
         meeting_prep: $("pro-meetings").checked, lead_minutes: Number($("pro-lead").value),
         evening_summary: $("pro-evening").checked, evening_time: $("pro-evening-time").value || "18:00",
+        morning_plan: $("pro-morning").checked, morning_time: $("pro-morning-time").value || "08:30",
+        work_start: $("pro-work-start").value || "09:00", work_end: $("pro-work-end").value || "18:00",
       });
       await refreshProactive();
       notify("Proactive settings saved.");
     }, {refresh: false});
   }
-  for (const id of ["pro-meetings", "pro-lead", "pro-evening", "pro-evening-time"]) $(id).addEventListener("change", saveProactive);
+  for (const id of ["pro-meetings", "pro-lead", "pro-evening", "pro-evening-time", "pro-morning", "pro-morning-time", "pro-work-start", "pro-work-end"]) $(id).addEventListener("change", saveProactive);
 
   $("watch-form").addEventListener("submit", (event) => {
     event.preventDefault();

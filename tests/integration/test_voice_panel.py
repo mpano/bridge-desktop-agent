@@ -228,7 +228,7 @@ def test_window_is_normal_minimizable_and_pin_is_remembered(panel, tmp_path, mon
 
 def test_quick_actions_and_history_render(panel):
     panel.quick_buttons[0].performClick_(None)
-    panel.controller.submit_text.assert_called_once_with("Brief me")
+    panel.controller.submit_text.assert_called_once_with("Plan my day")
     voice = panel.controller.voice
     voice._history = [
         {"at": 1.0, "request": "Brief me", "reply": "Here's your day", "status": "completed"}

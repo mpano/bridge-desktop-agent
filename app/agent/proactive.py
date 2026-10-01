@@ -50,6 +50,7 @@ class Proactive:
                 if loop.time() - self._last_watch_check >= WATCH_CHECK_SECONDS:
                     self._last_watch_check = loop.time()
                     await self.check_watches()
+                    await self.check_followups()
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -149,4 +150,41 @@ class Proactive:
                 if len(fresh) > 3:
                     await self.notify(f"{watch.label}", f"{len(fresh) - 3} more new matches.")
             self.store.checked(watch.id, [*watch.seen, *(item[0] for item in reversed(fresh))])
+        return sent
+
+    # Follow-ups ---------------------------------------------------------------------------
+
+    async def check_followups(self) -> int:
+        """Notify when the person replied, or once when the deadline passes without a reply."""
+        if self.gmail is None:
+            return 0
+        now = self.clock()
+        sent = 0
+        for item in self.store.followups():
+            if item.status not in {"waiting", "overdue"}:
+                continue
+            due = datetime.fromisoformat(item.due)
+            if now - due > timedelta(days=7):
+                self.store.set_followup(item.id, "expired")
+                continue
+            try:
+                found = await self.gmail.search(
+                    SimpleNamespace(
+                        account_id=None, query=f"from:{item.email} after:{int(item.since)}", limit=3
+                    )
+                )
+            except Exception:
+                continue
+            if found["messages"]:
+                self.store.set_followup(item.id, "replied")
+                subject = found["messages"][0]["subject"] or "(no subject)"
+                await self.notify(f"✓ {item.name} replied", subject)
+                sent += 1
+            elif item.status == "waiting" and now >= due:
+                self.store.set_followup(item.id, "overdue")
+                await self.notify(
+                    f"No reply from {item.name} yet",
+                    f"About: {item.about}. Ask Bridge to “draft a follow-up to {item.name}”.",
+                )
+                sent += 1
         return sent

@@ -13,6 +13,7 @@ from app.workflows.schedules import ScheduleStore
 from app.workflows.watches import ProactiveStore
 
 EVENING_REQUEST = "Brief me for tomorrow"
+MORNING_REQUEST = "Plan my day"
 
 
 class WatchInput(Input):
@@ -38,8 +39,12 @@ class SettingsInput(Input):
     lead_minutes: int | None = Field(default=None, ge=1, le=60)
     evening_summary: bool | None = None
     evening_time: str | None = Field(default=None, description="24-hour HH:MM")
+    morning_plan: bool | None = Field(default=None, description="Weekday 'Plan my day'")
+    morning_time: str | None = Field(default=None, description="24-hour HH:MM")
+    work_start: str | None = Field(default=None, description="Workday start, 24-hour HH:MM")
+    work_end: str | None = Field(default=None, description="Workday end, 24-hour HH:MM")
 
-    @field_validator("evening_time")
+    @field_validator("evening_time", "morning_time", "work_start", "work_end")
     @classmethod
     def clock(cls, value):
         if value is None:
@@ -110,17 +115,24 @@ class ProactiveController:
         return {"label": matches[0].label}
 
     def apply(self, **changes) -> dict:
-        """Update settings; keep the evening-summary schedule in step with them."""
+        """Update settings; keep the morning and evening schedules in step with them."""
+        proposed = {**self.store.settings(), **changes}
+        if proposed["work_end"] <= proposed["work_start"]:
+            raise ValueError("The workday must end after it starts.")
         settings = self.store.update_settings(**changes)
-        schedule_id = settings["evening_schedule_id"]
-        if schedule_id:
-            self.schedules.delete(schedule_id)
-            schedule_id = 0
-        if settings["evening_summary"]:
-            schedule_id = self.schedules.add(
-                EVENING_REQUEST, "weekdays", settings["evening_time"], None, self.clock()
-            ).id
-        return self.store.update_settings(evening_schedule_id=schedule_id)
+        ids = {}
+        for prefix, request in (("evening", EVENING_REQUEST), ("morning", MORNING_REQUEST)):
+            schedule_id = settings[f"{prefix}_schedule_id"]
+            if schedule_id:
+                self.schedules.delete(schedule_id)
+                schedule_id = 0
+            enabled = settings["evening_summary" if prefix == "evening" else "morning_plan"]
+            if enabled:
+                schedule_id = self.schedules.add(
+                    request, "weekdays", settings[f"{prefix}_time"], None, self.clock()
+                ).id
+            ids[f"{prefix}_schedule_id"] = schedule_id
+        return self.store.update_settings(**ids)
 
     async def configure(self, args):
         changes = {key: value for key, value in args.model_dump().items() if value is not None}
@@ -138,7 +150,13 @@ def describe(settings: dict) -> str:
         if settings["evening_summary"]
         else "evening summary off"
     )
-    return f"{meeting} · {evening}"
+    morning = (
+        f"plan my day weekdays at {settings['morning_time']}"
+        if settings["morning_plan"]
+        else "morning plan off"
+    )
+    hours = f"workday {settings['work_start']}–{settings['work_end']}"
+    return f"{meeting} · {evening} · {morning} · {hours}"
 
 
 def render_list(data: dict) -> str:
@@ -193,7 +211,8 @@ def register(registry, controller: ProactiveController):
         Tool(
             "proactive_settings",
             "Turn meeting heads-ups on/off or change how many minutes before; turn the weekday "
-            "evening summary of tomorrow on/off or change its time.",
+            "evening summary or the weekday morning 'plan my day' on/off or change their "
+            "times; set working hours used for planning.",
             SettingsInput,
             RiskLevel.SAFE,
             controller.configure,

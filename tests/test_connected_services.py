@@ -446,6 +446,24 @@ def test_keychain_uses_secret_values_only_in_explicit_storage(monkeypatch):
     assert store.load()[value.account_id].access_token.get_secret_value() == "access-secret"
 
 
+def test_keychain_migrates_from_the_entry_python_created(monkeypatch):
+    value = account()
+    legacy = json.dumps({value.account_id: value.credential_json()})
+    entries = {"accounts-v1": legacy}
+    backend = SimpleNamespace(
+        get_password=lambda service, user: entries.get(user),
+        set_password=lambda service, user, data: entries.__setitem__(user, data),
+    )
+    store = KeychainCredentials()
+    monkeypatch.setattr(store, "_backend", lambda: backend)
+    loaded = store.load()  # Falls back to the old entry once.
+    assert value.account_id in loaded
+    store.save(loaded)  # Writes Bridge's own entry; never touches the old one.
+    assert "accounts-v2" in entries and entries["accounts-v1"] == legacy
+    entries["accounts-v1"] = "{}"
+    assert value.account_id in store.load()  # Now read from Bridge's entry.
+
+
 def test_connection_routes_auth_csrf_and_callback_state():
     http = SimpleNamespace(request=AsyncMock())
     service = AccountManager(settings(), MemoryCredentials(), http)

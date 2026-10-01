@@ -35,10 +35,10 @@ from app.voice.paths import BRIDGE_SUPPORT_DIR
 
 PREFERENCES = BRIDGE_SUPPORT_DIR / "panel.json"
 QUICK_ACTIONS = [
+    ("Plan my day", "Plan my day"),
+    ("Inbox", "What needs my attention?"),
     ("Brief me", "Brief me"),
     ("Now playing", "What's playing on Spotify?"),
-    ("Unread email", "What are my unread emails?"),
-    ("Tomorrow", "What's on my calendar tomorrow?"),
 ]
 
 

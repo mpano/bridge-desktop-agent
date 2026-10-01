@@ -262,7 +262,18 @@ def create_app(
 
     @app.get("/api/v1/proactive", dependencies=[Depends(authorize)])
     async def proactive(request: Request):
-        return await request.app.state.agent.proactive_controller.list(None)
+        data = await request.app.state.agent.proactive_controller.list(None)
+        data["followups"] = [
+            {"id": f.id, "name": f.name, "about": f.about, "due": f.due, "status": f.status}
+            for f in request.app.state.agent.proactive_store.followups()
+            if f.status in {"waiting", "overdue", "replied"}
+        ][-20:]
+        return data
+
+    @app.post("/api/v1/followups/cancel", dependencies=[Depends(authorize)])
+    async def cancel_followup(payload: ForgetRequest, request: Request):
+        request.app.state.agent.proactive_store.set_followup(payload.id, "cancelled")
+        return {"cancelled": payload.id}
 
     @app.post("/api/v1/proactive/settings", dependencies=[Depends(authorize)])
     async def proactive_settings(payload: ProactiveSettings, request: Request):

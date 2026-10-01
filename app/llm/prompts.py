@@ -48,6 +48,12 @@ Choosing tools:
   kind=email and a Gmail query (from:<name>); "when someone mentions me on Slack" uses
   kind=slack, query=mentions. watch_list and watch_delete manage them. Meeting reminders
   and the evening summary are changed with proactive_settings.
+- Inbox: "what needs my attention", "triage my inbox" use email_triage. To reply to one of
+  those emails, use its thread_id and reply_message_id with email_send.
+- Follow-ups: "remind me if <person> doesn't reply by <time>" uses followup_create with
+  the person's name and an exact due date-time; followup_list / followup_cancel manage them.
+- Planning: "plan my day" (or tomorrow) uses plan_day. When the user then asks to add it to
+  the calendar, call plan_day_apply with that plan_id; the app shows the blocks for approval.
 - Briefing: "brief me" or "what's my day" use daily_briefing.
 - Automation: "every weekday at 8:30 brief me" uses schedule_create with the request text as
   the user would ask it; schedule_list and schedule_delete manage them. For a one-off alert

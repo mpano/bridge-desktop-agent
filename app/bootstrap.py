@@ -7,6 +7,8 @@ from app.agent.executor import Executor
 from app.agent.planner import Planner
 from app.agent.proactive import Proactive
 from app.agent.scheduler import Scheduler
+from app.assistant.day_plan import DayPlanner
+from app.assistant.triage import InboxTriage
 from app.integrations.accounts import AccountManager
 from app.integrations.activity import SQLiteActivity
 from app.integrations.email import GmailService
@@ -28,6 +30,7 @@ from app.tools.productivity import (
     contacts,
     messages,
     notes,
+    planning,
     reminders,
 )
 from app.tools.productivity import memory as memory_tools
@@ -116,6 +119,18 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
         ),
     )
     proactive_store = ProactiveStore(settings.database_path)
+    llm = llm or create_llm(settings)
+    inbox = InboxTriage(gmail_service, llm) if gmail_service is not None else None
+    planning.register(
+        registry,
+        planning.PlanningController(
+            proactive_store,
+            DayPlanner(proactive_store, calendar_controller, reminders_controller, inbox, llm),
+            inbox,
+            people,
+        ),
+        gmail_available=gmail_service is not None,
+    )
     proactive_controller = proactive_tools.ProactiveController(
         proactive_store, schedule_store, accounts if connected else None
     )
@@ -167,7 +182,7 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     retention.register(registry, workflows)
     agent = Agent(
         Planner(
-            llm or create_llm(settings),
+            llm,
             registry,
             privacy=ToolResultPrivacy(
                 mode=settings.remote_tool_results,
