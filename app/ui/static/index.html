@@ -11,6 +11,7 @@
   <script src="/ui/today.js" defer></script>
   <script src="/ui/inbox.js" defer></script>
   <script src="/ui/automations.js" defer></script>
+  <script src="/ui/settings.js" defer></script>
 </head>
 <body>
   <aside class="sidebar">
@@ -22,14 +23,8 @@
       <button type="button" data-view="inbox"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 9.5 4 3h8l1.5 6.5v3.5h-11zM2.5 9.5h3l1 1.5h3l1-1.5h3"/></svg><span class="grow">Inbox</span><span id="inbox-badge" class="nav-badge" hidden></span></button>
       <button type="button" data-view="automations"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.5 3.5 9H8l-1 5.5L12.5 7H8z"/></svg>Automations</button>
       <button type="button" data-view="connections"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 9.5l3-3M5 8l-1.3 1.3a2.3 2.3 0 0 0 3.3 3.3L8.3 11.3M11 8l1.3-1.3a2.3 2.3 0 0 0-3.3-3.3L7.7 4.7"/></svg>Connections</button>
-    </nav>
-    <p class="nav-group">More</p>
-    <nav aria-label="More" class="nav-more">
-      <button type="button" data-view="workflows">Workflows</button>
-      <button type="button" data-view="preferences">Preferences</button>
-      <button type="button" data-view="projects">Projects</button>
-      <button type="button" data-view="capabilities">Capabilities</button>
-      <button type="button" data-view="account">Account</button>
+      <button type="button" data-view="memory"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h8v11l-4-2.6-4 2.6z"/></svg>Memory</button>
+      <button type="button" data-view="settings"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h6.5M12 4.5h1.5M2.5 11.5H4M7 11.5h6.5M10.5 3v3M5.5 10v3"/></svg>Settings</button>
     </nav>
     <div class="sidebar-footer">
       <button id="account-chip" type="button" class="account-chip" hidden><span id="account-initials" aria-hidden="true"></span><span class="who"><span id="account-name"></span><span class="where"><span class="local-dot"></span><span id="provider-summary">Running on this Mac</span></span></span></button>
@@ -196,6 +191,83 @@
           </section>
         </div>
       </section>
+      <section id="view-memory" class="view memory" hidden aria-labelledby="memory-title">
+        <div class="memory-layout">
+          <div class="memory-main">
+            <header class="page-head">
+              <p id="memory-count" class="label">Memory</p>
+              <h1 id="memory-title">Memory</h1>
+              <p class="lede">What Bridge knows about you, so “text my brother” or “the usual playlist” just works.</p>
+            </header>
+            <form id="memory-form" class="ask-box auto-new"><label class="sr-only" for="memory-text">Something to remember</label><input id="memory-text" maxlength="300" required placeholder="Remember that…  e.g. my brother is Eric"><button type="submit" class="primary small-btn">Remember</button></form>
+            <ul id="memory-list" class="facts"></ul>
+          </div>
+          <aside class="card how" aria-labelledby="how-title">
+            <h2 id="how-title" class="label">How memory works</h2>
+            <p>Bridge only remembers what you ask it to — say “remember that…” anywhere, or add it here.</p>
+            <p>It never saves things it reads in emails, messages or web pages, and never passwords, codes or card numbers.</p>
+            <p id="memory-privacy">Stored on this Mac. Sent to OpenAI with each request, so Bridge can use it.</p>
+          </aside>
+        </div>
+      </section>
+      <section id="view-settings" class="view settings" hidden aria-labelledby="settings-title">
+        <div class="settings-layout">
+          <nav class="settings-nav" aria-label="Settings sections">
+            <h1 id="settings-title">Settings</h1>
+            <button type="button" data-section="general">General</button>
+            <button type="button" data-section="shortcuts">Shortcuts</button>
+            <button type="button" data-section="voice">Voice & dictation</button>
+            <button type="button" data-section="privacy">Privacy</button>
+            <button type="button" data-section="permissions">Mac permissions</button>
+            <button type="button" data-section="account">Account</button>
+            <button type="button" data-section="projects">Projects</button>
+            <button type="button" data-section="about">About & diagnostics</button>
+          </nav>
+          <div class="settings-body">
+            <div id="restart-banner" class="restart-banner" hidden><span>Saved. These changes apply after Bridge restarts.</span><button type="button" id="restart-now" class="primary small">Restart Bridge</button></div>
+            <section class="settings-section" data-panel="general" aria-label="General">
+              <h2>General</h2>
+              <form id="preferences-form" class="card settings-card"><h2>Default applications</h2><p>Use an installed application's name. Changes apply to new requests.</p><label for="default-browser">Browser</label><input id="default-browser" required maxlength="150" placeholder="Google Chrome"><label for="default-editor">Project editor</label><input id="default-editor" required maxlength="150" placeholder="Visual Studio Code"><button type="submit" class="primary">Review changes</button></form>
+              <p class="hint">Bridge follows your Mac's light or dark appearance.</p>
+            </section>
+            <section class="settings-section" data-panel="shortcuts" aria-label="Shortcuts" hidden><h2>Shortcuts</h2><div id="settings-shortcuts" class="card group"></div><p class="hint">⌘K finds Ask inside this window. Shortcut changes apply after Bridge restarts.</p></section>
+            <section class="settings-section" data-panel="voice" aria-label="Voice and dictation" hidden><h2>Voice &amp; dictation</h2><div id="settings-voice" class="card group"></div></section>
+            <section class="settings-section" data-panel="privacy" aria-label="Privacy" hidden><h2>Privacy</h2><p class="lede">Bridge runs on this Mac. It uses OpenAI to understand requests — here is exactly what that includes.</p><div id="settings-privacy" class="card group"></div><div id="settings-blocked" class="card group"></div></section>
+            <section class="settings-section" data-panel="permissions" aria-label="Mac permissions" hidden><h2>Mac permissions</h2><p class="lede">What macOS lets Bridge do. Each one is optional; Bridge tells you when something needs one.</p><div id="settings-permissions" class="card group"></div></section>
+            <section class="settings-section" data-panel="account" aria-label="Account" hidden><h2>Account</h2>
+        <div class="two-column">
+          <form id="profile-form" class="card"><h2>Profile</h2><label for="profile-name">Name</label><input id="profile-name" required maxlength="80"><label for="profile-email">Email</label><input id="profile-email" type="email" required maxlength="254"><button type="submit" class="primary">Save profile</button></form>
+          <form id="password-form" class="card"><h2 id="password-title">Password</h2><div id="password-current-row"><label for="password-current">Current password</label><input id="password-current" type="password" autocomplete="current-password" maxlength="200"></div><label for="password-new">New password</label><input id="password-new" type="password" autocomplete="new-password" minlength="10" maxlength="200" required><p class="hint">At least 10 characters.</p><button type="submit" class="primary">Save password</button></form>
+        </div>
+        <article class="card"><h2>Sign-in methods</h2><div id="sign-in-methods" class="method-list"></div><p class="hint">Keep at least one method. You can always get back in by choosing Open Dashboard from the Bridge menu bar.</p></article>
+        <article class="card"><div class="activity-head"><h2>Where you're signed in</h2><button id="end-other-sessions" type="button" class="secondary">Sign out everywhere else</button></div><div id="session-list" class="method-list"></div></article>
+      </section>
+            <section class="settings-section" data-panel="projects" aria-label="Projects" hidden><div class="section-top"><h2>Projects</h2><button type="button" id="refresh-projects" class="ghost small">Refresh</button></div><p class="lede">Save a folder once, then say “open the NLP project”.</p>
+          <form id="project-form" class="card"><h2>Save a project</h2><p class="hint">Using an existing name replaces its saved path after approval.</p><label for="project-name">Project name</label><input id="project-name" maxlength="80" required placeholder="NLP project"><label for="project-path">Folder path</label><input id="project-path" maxlength="4096" required placeholder="~/Projects/nlp-api-go"><button type="submit" class="primary">Review and save</button></form>
+        </div>
+      </section>
+            <section class="settings-section" data-panel="about" aria-label="About and diagnostics" hidden><h2>About &amp; diagnostics</h2>
+        <article class="card"><h2>Model and privacy</h2><div id="provider-details"></div><p class="hint">Configure LLM_PROVIDER and REMOTE_TOOL_RESULTS in .env, then restart Bridge. This panel is read-only. Tool approval and data sharing are separate controls.</p></article>
+        <article class="card"><h2>Local diagnostics</h2><p id="diagnostics-summary" role="status">Connect to check local readiness.</p><div id="diagnostics-list" class="item-list"></div><button type="button" id="refresh-diagnostics" class="secondary">Refresh diagnostics</button><p class="hint">These checks do not launch applications or test macOS permissions by performing actions.</p></article>
+        <div class="card"><label for="capability-search">Search capabilities</label><input id="capability-search" type="search" placeholder="Search by tool name or description"><p id="capability-count" role="status"></p><p class="hint">Risk labels show each tool's base policy. Arguments and security rules may require approval or block an action.</p></div>
+        <div id="capability-list" class="item-list"></div>
+      </section>
+            <div hidden><article class="card memory-card" hidden><h2>Proactive assistant</h2><p>Bridge tells you things before you ask, with Mac notifications, while it's open.</p>
+          <div class="method-list">
+            <div class="method-row"><span class="method-icon">▦</span><div><strong>Meeting heads-up</strong><span class="account-facts">A notification before each event on your Mac calendar.</span></div><label class="check"><input id="pro-meetings" type="checkbox"> <select id="pro-lead" aria-label="Minutes before"><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option></select></label></div>
+            <div class="method-row"><span class="method-icon">☾</span><div><strong>Evening summary</strong><span class="account-facts">Weekdays: tomorrow's meetings, reminders due and unread email.</span></div><label class="check"><input id="pro-evening" type="checkbox"> <input id="pro-evening-time" type="time" aria-label="Summary time"></label></div>
+            <div class="method-row"><span class="method-icon">☀</span><div><strong>Plan my day</strong><span class="account-facts">Weekdays: time blocks around your meetings, ready to add to your calendar.</span></div><label class="check"><input id="pro-morning" type="checkbox"> <input id="pro-morning-time" type="time" aria-label="Plan time"></label></div>
+            <div class="method-row"><span class="method-icon">⌚</span><div><strong>Working hours</strong><span class="account-facts">Used when planning your day.</span></div><label class="check"><input id="pro-work-start" type="time" aria-label="Workday start"> – <input id="pro-work-end" type="time" aria-label="Workday end"></label></div>
+          </div>
+          <h3 class="subhead">Waiting for replies</h3>
+          <div id="followup-list" class="method-list"></div>
+          <h3 class="subhead">Watching</h3>
+          <div id="watch-list" class="method-list"></div>
+          <form id="watch-form" class="watch-form"><label class="sr-only" for="watch-kind">Service</label><select id="watch-kind"><option value="email">Gmail</option><option value="slack">Slack</option></select><label class="sr-only" for="watch-query">Search</label><input id="watch-query" required maxlength="200" placeholder="from:olivier · subject:invoice · mentions"><button class="primary" type="submit">Watch</button></form>
+          <p class="hint">Or just say “tell me when Olivier emails me” or “tell me when someone mentions me on Slack”. Notifications show the sender and subject on this Mac only.</p></article></div>
+          </div>
+        </div>
+      </section>
       <section id="view-chat" class="view ask" hidden aria-labelledby="ask-title">
         <header class="ask-head">
           <div><p id="ask-when" class="label">Ask</p><h1 id="ask-title">New conversation</h1></div>
@@ -220,40 +292,12 @@
         </form>
         <p id="provider-privacy-hint" class="hint"></p>
       </section>
-      <section id="view-projects" class="view" hidden>
-        <div class="page-heading"><div><p class="eyebrow">PROJECTS</p><h1>A name for every workspace.</h1><p>Save a folder once. Open it by name next time.</p></div><button type="button" id="refresh-projects" class="secondary">Refresh</button></div>
-        <div class="two-column"><div><div id="project-list" class="item-list"></div></div>
-          <form id="project-form" class="card"><h2>Save a project</h2><p class="hint">Using an existing name replaces its saved path after approval.</p><label for="project-name">Project name</label><input id="project-name" maxlength="80" required placeholder="NLP project"><label for="project-path">Folder path</label><input id="project-path" maxlength="4096" required placeholder="~/Projects/nlp-api-go"><button type="submit" class="primary">Review and save</button></form>
-        </div>
-      </section>
       <section id="view-workflows" class="view" hidden>
         <article class="card"><h2>Tasks in this session</h2><p>Reconnect to running work or review a recent result. Approval still requires your review.</p><div id="task-list" class="item-list"></div></article>
         <div class="page-heading"><div><p class="eyebrow">WORKFLOWS</p><h1>Every step, accounted for.</h1><p>Review saved work before choosing what comes next.</p></div><button type="button" id="refresh-workflows" class="secondary">Refresh</button></div>
         <div class="workflow-toolbar"><div><label for="workflow-filter">Show workflows</label><select id="workflow-filter"><option value="">All states</option><option value="unfinished">Unfinished work</option><option value="completed">Completed</option><option value="failed">Failed</option><option value="cancelled">Cancelled</option></select></div><div class="pagination"><button id="workflow-prev" type="button" class="secondary">Previous page</button><span id="workflow-page" role="status"></span><button id="workflow-next" type="button" class="secondary">Next page</button></div></div>
         <div class="two-column"><div id="workflow-list" class="item-list"></div><article id="workflow-detail" class="card"><h2>Choose a workflow</h2><p>Select a record to inspect its completed steps and remaining actions.</p></article></div>
         <form id="retention-form" class="card retention-card"><h2>Keep your history manageable.</h2><p>Preview old completed, failed, and cancelled records for removal. Unfinished work is always kept.</p><div class="retention-fields"><div><label for="retention-days">Older than (days)</label><input id="retention-days" type="number" min="1" max="3650" value="30" required></div><div><label for="retention-keep">Keep newest terminal records</label><input id="retention-keep" type="number" min="0" max="10000" value="100" required></div></div><button type="submit" class="secondary">Preview cleanup</button><p class="hint">Review the exact record IDs before approving. Each approval removes at most 200 records. This only removes journal records, not project files or aliases.</p></form>
-      </section>
-      <section id="view-preferences" class="view" hidden>
-        <div class="page-heading"><div><p class="eyebrow">PREFERENCES</p><h1>Make yourself at home.</h1><p>Your preferred apps, remembered across restarts.</p></div></div>
-        <form id="preferences-form" class="card settings-card"><h2>Default applications</h2><p>Use an installed application's name. Changes apply to new requests.</p><label for="default-browser">Browser</label><input id="default-browser" required maxlength="150" placeholder="Google Chrome"><label for="default-editor">Project editor</label><input id="default-editor" required maxlength="150" placeholder="Visual Studio Code"><button type="submit" class="primary">Review changes</button></form>
-        <article class="card memory-card" hidden><h2>Proactive assistant</h2><p>Bridge tells you things before you ask, with Mac notifications, while it's open.</p>
-          <div class="method-list">
-            <div class="method-row"><span class="method-icon">▦</span><div><strong>Meeting heads-up</strong><span class="account-facts">A notification before each event on your Mac calendar.</span></div><label class="check"><input id="pro-meetings" type="checkbox"> <select id="pro-lead" aria-label="Minutes before"><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option></select></label></div>
-            <div class="method-row"><span class="method-icon">☾</span><div><strong>Evening summary</strong><span class="account-facts">Weekdays: tomorrow's meetings, reminders due and unread email.</span></div><label class="check"><input id="pro-evening" type="checkbox"> <input id="pro-evening-time" type="time" aria-label="Summary time"></label></div>
-            <div class="method-row"><span class="method-icon">☀</span><div><strong>Plan my day</strong><span class="account-facts">Weekdays: time blocks around your meetings, ready to add to your calendar.</span></div><label class="check"><input id="pro-morning" type="checkbox"> <input id="pro-morning-time" type="time" aria-label="Plan time"></label></div>
-            <div class="method-row"><span class="method-icon">⌚</span><div><strong>Working hours</strong><span class="account-facts">Used when planning your day.</span></div><label class="check"><input id="pro-work-start" type="time" aria-label="Workday start"> – <input id="pro-work-end" type="time" aria-label="Workday end"></label></div>
-          </div>
-          <h3 class="subhead">Waiting for replies</h3>
-          <div id="followup-list" class="method-list"></div>
-          <h3 class="subhead">Watching</h3>
-          <div id="watch-list" class="method-list"></div>
-          <form id="watch-form" class="watch-form"><label class="sr-only" for="watch-kind">Service</label><select id="watch-kind"><option value="email">Gmail</option><option value="slack">Slack</option></select><label class="sr-only" for="watch-query">Search</label><input id="watch-query" required maxlength="200" placeholder="from:olivier · subject:invoice · mentions"><button class="primary" type="submit">Watch</button></form>
-          <p class="hint">Or just say “tell me when Olivier emails me” or “tell me when someone mentions me on Slack”. Notifications show the sender and subject on this Mac only.</p></article>
-        <article class="card memory-card"><h2>What Bridge remembers</h2><p>Facts you asked Bridge to remember, like “Olivier Mupenzi is my brother”. They're used with every request, so “text my brother” just works.</p>
-          <form id="memory-form" class="inline"><label class="sr-only" for="memory-text">Something to remember</label><input id="memory-text" maxlength="300" required placeholder="e.g. My boss is Sarah Kim"><button class="primary" type="submit">Remember</button></form>
-          <div id="memory-list" class="method-list"></div>
-          <p id="memory-privacy" class="hint">Bridge won't store passwords, codes or card numbers. You can also say “remember that …” or “forget …” in the conversation.</p></article>
-        <div class="settings-note"><h2>Credentials stay out of this panel.</h2><p>Manage your OpenAI API key and local API token in your .env file. This page cannot display or change them.</p></div>
       </section>
       <section id="view-connections" class="view connections" hidden aria-labelledby="conn-title">
         <div class="conn-split">
@@ -278,22 +322,6 @@
           </div>
           <aside id="service-detail" class="svc-detail" aria-live="polite"></aside>
         </div>
-      </section>
-      <section id="view-account" class="view" hidden>
-        <div class="page-heading"><div><p class="eyebrow">ACCOUNT</p><h1>Your Bridge account.</h1><p>How you sign in to this dashboard, and where you're signed in.</p></div></div>
-        <div class="two-column">
-          <form id="profile-form" class="card"><h2>Profile</h2><label for="profile-name">Name</label><input id="profile-name" required maxlength="80"><label for="profile-email">Email</label><input id="profile-email" type="email" required maxlength="254"><button type="submit" class="primary">Save profile</button></form>
-          <form id="password-form" class="card"><h2 id="password-title">Password</h2><div id="password-current-row"><label for="password-current">Current password</label><input id="password-current" type="password" autocomplete="current-password" maxlength="200"></div><label for="password-new">New password</label><input id="password-new" type="password" autocomplete="new-password" minlength="10" maxlength="200" required><p class="hint">At least 10 characters.</p><button type="submit" class="primary">Save password</button></form>
-        </div>
-        <article class="card"><h2>Sign-in methods</h2><div id="sign-in-methods" class="method-list"></div><p class="hint">Keep at least one method. You can always get back in by choosing Open Dashboard from the Bridge menu bar.</p></article>
-        <article class="card"><div class="activity-head"><h2>Where you're signed in</h2><button id="end-other-sessions" type="button" class="secondary">Sign out everywhere else</button></div><div id="session-list" class="method-list"></div></article>
-      </section>
-      <section id="view-capabilities" class="view" hidden>
-        <div class="page-heading"><div><p class="eyebrow">CAPABILITIES</p><h1>Know what your assistant can do.</h1><p>Browse available tools and the checks applied before they run.</p></div></div>
-        <article class="card"><h2>Model and privacy</h2><div id="provider-details"></div><p class="hint">Configure LLM_PROVIDER and REMOTE_TOOL_RESULTS in .env, then restart Bridge. This panel is read-only. Tool approval and data sharing are separate controls.</p></article>
-        <article class="card"><h2>Local diagnostics</h2><p id="diagnostics-summary" role="status">Connect to check local readiness.</p><div id="diagnostics-list" class="item-list"></div><button type="button" id="refresh-diagnostics" class="secondary">Refresh diagnostics</button><p class="hint">These checks do not launch applications or test macOS permissions by performing actions.</p></article>
-        <div class="card"><label for="capability-search">Search capabilities</label><input id="capability-search" type="search" placeholder="Search by tool name or description"><p id="capability-count" role="status"></p><p class="hint">Risk labels show each tool's base policy. Arguments and security rules may require approval or block an action.</p></div>
-        <div id="capability-list" class="item-list"></div>
       </section>
     </fieldset>
 

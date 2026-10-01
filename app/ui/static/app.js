@@ -68,8 +68,10 @@
     return data;
   }
 
-  function view(name) {
-    if (name === "account" && signedIn) setTimeout(() => execute(refreshAccount, {refresh: false}));
+  function view(name, section) {
+    if (name === "account") { name = "settings"; section = "account"; }
+    if (name === "settings" && window.BridgeSettings) window.BridgeSettings.show(section || window.BridgeSettings.current());
+    if (name === "memory" && signedIn) setTimeout(() => execute(refreshMemories, {refresh: false}));
     if (name === "today" && signedIn && window.BridgeToday) window.BridgeToday.refresh();
     if (name === "inbox" && signedIn && window.BridgeInbox) window.BridgeInbox.refresh();
     if (name === "automations" && signedIn && window.BridgeAutomations) window.BridgeAutomations.refresh();
@@ -678,20 +680,17 @@
     const data = await request("/api/v1/memories");
     const list = $("memory-list");
     list.replaceChildren();
-    if (!data.memories.length) list.append(node("p", "Nothing yet. Add a fact above or say “remember that …”.", "hint"));
+    $("memory-count").textContent = data.memories.length ? `${data.memories.length} thing${data.memories.length === 1 ? "" : "s"}` : "Nothing yet";
+    if (!data.memories.length) list.append(node("li", "Nothing yet. Add something above, or say “remember that …” anywhere.", "line-empty"));
     for (const fact of [...data.memories].reverse()) {
-      const row = node("div", undefined, "method-row");
-      const text = node("div");
-      text.append(node("strong", fact.text), node("span", `Remembered ${ago(fact.created_at)}`, "account-facts"));
-      row.append(node("span", "✦", "method-icon"), text, action("Forget", () => execute(async () => {
-        await request("/api/v1/memories/forget", "POST", {id: fact.id});
-        await refreshMemories();
-      }, {refresh: false})));
+      const row = node("li", undefined, "fact");
+      row.append(node("span", fact.text, "fact-text"), node("time", ago(fact.created_at), "mono faint"),
+        action("Forget", () => execute(async () => {
+          await request("/api/v1/memories/forget", "POST", {id: fact.id});
+          await refreshMemories();
+        }, {refresh: false}), "ghost small"));
       list.append(row);
     }
-    const remote = authStatus && document.getElementById("provider-summary").textContent.includes("OpenAI");
-    $("memory-privacy").textContent = "Bridge won't store passwords, codes or card numbers. You can also say “remember that …” or “forget …” in the conversation." +
-      (remote ? " With OpenAI selected, memories are sent along with each request." : "");
   }
 
   $("memory-form").addEventListener("submit", (event) => {
@@ -1045,7 +1044,7 @@
     await refreshAccount();
     notify(`Signed out ${result.ended} other session${result.ended === 1 ? "" : "s"}.`);
   }, {refresh: false}));
-  $("account-chip").addEventListener("click", () => { view("account"); execute(refreshAccount, {refresh: false}); });
+  $("account-chip").addEventListener("click", () => view("settings", "account"));
 
   // ---- Start-up: menu-bar link, provider return, or existing session ----------------
 
@@ -1065,7 +1064,7 @@
     }
     await showAuth();
     if (hash.get("account-linked") && signedIn) {
-      view("account");
+      view("settings", "account");
       await refreshAccount();
       notify(`${PROVIDER_NAMES[hash.get("account-linked")] || "Account"} linked. You can now sign in with it.`);
     }
@@ -1202,6 +1201,7 @@
   // What other screens (today.js) may use. Same page, same session; nothing new is exposed.
   window.BridgeUI = {
     request, view, notify, ask, decideToken,
+    refreshAccount: () => execute(refreshAccount, {refresh: false}),
     run: (task) => execute(task, {refresh: false}),
     owner: () => (authStatus && authStatus.owner) || {name: "", email: ""},
     busy: () => busy || Boolean(pending),

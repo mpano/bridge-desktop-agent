@@ -16,6 +16,8 @@ import WebKit as WK
 from Foundation import NSURL, NSMakeRect, NSObject, NSURLRequest
 
 WIDTH, HEIGHT = 1280, 820
+# Links that leave Bridge: the web in the default browser, mail, and System Settings panes.
+EXTERNAL = ("https://", "http://", "mailto:", "x-apple.systempreferences:")
 # Sign in again when reopened after this long, well inside the dashboard session's life.
 FRESH_SECONDS = 4 * 3600
 STARTING = """<!doctype html><meta charset="utf-8"><style>
@@ -45,7 +47,7 @@ class WindowDelegate(NSObject):
             handler(WK.WKNavigationActionPolicyAllow)
             return
         handler(WK.WKNavigationActionPolicyCancel)
-        if text.startswith(("https://", "http://", "mailto:")):
+        if text.startswith(EXTERNAL):
             AK.NSWorkspace.sharedWorkspace().openURL_(url)
 
     # target="_blank" and window.open: open in the browser, never a second web view.
@@ -53,7 +55,7 @@ class WindowDelegate(NSObject):
         self, web, configuration, action, features
     ):
         url = action.request().URL()
-        if url is not None and str(url.scheme()) in {"https", "http", "mailto"}:
+        if url is not None and str(url.absoluteString()).startswith(EXTERNAL):
             AK.NSWorkspace.sharedWorkspace().openURL_(url)
         return None
 
