@@ -1,3 +1,4 @@
+import base64
 import json
 from typing import Protocol
 
@@ -44,6 +45,17 @@ class OpenAILLMClient:
             model=self.settings.openai_model,
             instructions=instructions,
             input=[{"role": "user", "content": text}],
+            store=False,
+        )
+        return response.output_text.strip()
+
+    async def describe_image(self, instructions: str, png: bytes) -> str:
+        """One plain text answer about a PNG image. Nothing is stored."""
+        image = "data:image/png;base64," + base64.b64encode(png).decode()
+        response = await self._openai().responses.create(
+            model=self.settings.openai_model,
+            instructions=instructions,
+            input=[{"role": "user", "content": [{"type": "input_image", "image_url": image}]}],
             store=False,
         )
         return response.output_text.strip()

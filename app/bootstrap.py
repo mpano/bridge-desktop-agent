@@ -1,4 +1,5 @@
 import logging
+import sys
 
 import structlog
 
@@ -35,6 +36,7 @@ from app.tools.productivity import (
 )
 from app.tools.productivity import memory as memory_tools
 from app.tools.registry import ToolRegistry
+from app.tools.screen import context as screen_context
 from app.tools.screen import screenshot
 from app.tools.spotify import spotify
 from app.tools.system import (
@@ -151,6 +153,18 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     screenshot.register(
         registry, screenshot.ScreenController(runner, settings.screenshot_directory)
     )
+    if sys.platform == "darwin":
+        from app.desktop.screen_reader import MacScreenReader
+
+        screen_context.register(
+            registry,
+            screen_context.ScreenContextController(
+                MacScreenReader(),
+                llm,
+                settings.screen_context_blocked_apps,
+                settings.integrations_callback_port,
+            ),
+        )
     # Explicit review list: future tools do not persist arguments by default.
     # URLs and web-search text can contain credentials and are intentionally excluded.
     for name in (

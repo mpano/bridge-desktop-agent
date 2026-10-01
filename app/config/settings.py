@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     github_client_secret: SecretStr = SecretStr("")
     auth_session_hours: float = Field(default=12, ge=0.25, le=72)
     auth_remember_days: float = Field(default=30, ge=1, le=90)
+    # Apps screen_context never reads, by name or bundle id (password managers always).
+    screen_context_blocked_apps: list[str] = Field(default_factory=list)
     # Apple Shortcuts that may run without an approval prompt, by exact name.
     shortcuts_trusted: list[str] = Field(default_factory=list)
     voice_stt_provider: Literal["local", "openai"] = "local"
