@@ -95,43 +95,39 @@ class Surface(AK.NSView):
         path.stroke()
 
 
+def _line(points, width, alpha=1.0):
+    path = AK.NSBezierPath.bezierPath()
+    path.moveToPoint_(NSMakePoint(*points[0]))
+    for point in points[1:]:
+        path.lineToPoint_(NSMakePoint(*point))
+    path.setLineWidth_(width)
+    path.setLineCapStyle_(AK.NSRoundLineCapStyle)
+    color("FFFFFF", alpha).setStroke()
+    path.stroke()
+
+
 def draw_brand_mark():
-    """Draw the Bridge monogram in a flipped 64×64 space; callers scale it for icons."""
-    tile = rounded(NSMakeRect(1, 1, 62, 62), 17)
-    gradient(tile, color("124577"), color("151A40"), 55)
-    color("4B79C0", 0.7).setStroke()
-    tile.setLineWidth_(1)
-    tile.stroke()
-    mark = AK.NSBezierPath.bezierPath()
-    mark.moveToPoint_(NSMakePoint(18, 12))
-    mark.lineToPoint_(NSMakePoint(34, 12))
-    mark.curveToPoint_controlPoint1_controlPoint2_(
-        NSMakePoint(49, 25), NSMakePoint(45, 12), NSMakePoint(49, 17)
+    """Draw the Bridge mark in a flipped 64×64 space; callers scale it for icons.
+
+    A suspension bridge on a blue tile: deck, two towers, the main cable and its hangers.
+    """
+    tile = rounded(NSMakeRect(0, 0, 64, 64), 14.4)
+    # Flipped space: 90° runs top to bottom, lighter at the top.
+    gradient(tile, color("3B53F1"), color("2537C4"), 90)
+    for x, top in ((26.67, 20.2), (32, 19.4), (37.33, 20.2)):
+        _line([(x, top), (x, 40)], 1.33, 0.55)
+    cable = AK.NSBezierPath.bezierPath()
+    cable.moveToPoint_(NSMakePoint(11.73, 32))
+    cable.curveToPoint_controlPoint1_controlPoint2_(
+        NSMakePoint(52.27, 32), NSMakePoint(22.4, 13.33), NSMakePoint(41.6, 13.33)
     )
-    mark.curveToPoint_controlPoint1_controlPoint2_(
-        NSMakePoint(42, 33), NSMakePoint(49, 30), NSMakePoint(46, 32)
-    )
-    mark.curveToPoint_controlPoint1_controlPoint2_(
-        NSMakePoint(51, 44), NSMakePoint(49, 35), NSMakePoint(51, 39)
-    )
-    mark.curveToPoint_controlPoint1_controlPoint2_(
-        NSMakePoint(36, 55), NSMakePoint(51, 52), NSMakePoint(45, 55)
-    )
-    mark.lineToPoint_(NSMakePoint(18, 55))
-    mark.closePath()
-    mark.appendBezierPath_(rounded(NSMakeRect(28, 21, 11, 8), 4))
-    mark.appendBezierPath_(rounded(NSMakeRect(28, 38, 13, 8), 4))
-    mark.setWindingRule_(AK.NSEvenOddWindingRule)
-    gradient(mark, color("13E4EE"), color("A33EFF"), 45)
-    bridge = AK.NSBezierPath.bezierPath()
-    bridge.moveToPoint_(NSMakePoint(10, 53))
-    bridge.curveToPoint_controlPoint1_controlPoint2_(
-        NSMakePoint(42, 27), NSMakePoint(18, 38), NSMakePoint(32, 23)
-    )
-    bridge.setLineWidth_(5)
-    bridge.setLineCapStyle_(AK.NSRoundLineCapStyle)
-    color("31CFFF").setStroke()
-    bridge.stroke()
+    cable.setLineWidth_(3.47)
+    cable.setLineCapStyle_(AK.NSRoundLineCapStyle)
+    color("FFFFFF").setStroke()
+    cable.stroke()
+    _line([(20.27, 22.4), (20.27, 45.33)], 3.47)
+    _line([(43.73, 22.4), (43.73, 45.33)], 3.47)
+    _line([(9.6, 40), (54.4, 40)], 3.47)
 
 
 class BrandMark(AK.NSView):

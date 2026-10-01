@@ -18,6 +18,7 @@ menubar = [
     "pyobjc-framework-Contacts>=11; sys_platform == 'darwin'",
     "pyobjc-framework-Quartz>=11; sys_platform == 'darwin'",
     "pyobjc-framework-ApplicationServices>=11; sys_platform == 'darwin'",
+    "pyobjc-framework-WebKit>=11; sys_platform == 'darwin'",
 ]
 voice = ["numpy>=2,<3", "sounddevice>=0.5,<1", "faster-whisper>=1.1,<2"]
 wakeword = ["openwakeword>=0.6,<1"]

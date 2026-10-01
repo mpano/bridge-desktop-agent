@@ -185,13 +185,13 @@ def test_menu_bar_shows_the_countdown(tmp_path):
     session = {"end": __import__("time").time() + 95 * 60 - 5}
     menu = MenuBarController(service, native, Mock(), focus_reader=lambda: session)
     menu.refresh()
-    assert menu.app.title == "🎯 1h 35m"
+    assert menu.app.title == "1h 35m"
     assert menu.focus_item.title == "Stop Focus (1h 35m left)"
     assert menu.focus_item.callback == menu.stop_focus
     session["end"] = 0
     menu._focus_checked = 0
     menu.refresh()
-    assert menu.app.title == "Bridge" and menu.focus_item.callback is None
+    assert menu.app.title is None and menu.focus_item.callback is None
 
 
 async def test_music_prefers_your_playlists_and_falls_back_to_deep_focus(tmp_path):

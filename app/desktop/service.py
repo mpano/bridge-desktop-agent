@@ -49,6 +49,7 @@ class LocalService:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._status = ServiceStatus(ServiceState.STOPPED, "Service stopped")
+        self.app: FastAPI | None = None  # The running app, for in-process status reads.
 
     @property
     def status(self) -> ServiceStatus:
@@ -60,6 +61,14 @@ class LocalService:
             if state == ServiceState.RUNNING and self._stop.is_set():
                 return
             self._status = ServiceStatus(state, message, url)
+
+    def pending_approvals(self) -> int:
+        """Actions waiting for the user's OK, read in-process (no HTTP round trip)."""
+        agent = getattr(getattr(self.app, "state", None), "agent", None)
+        try:
+            return agent.confirmations.count() if agent is not None else 0
+        except Exception:
+            return 0
 
     def dashboard_url(self) -> str | None:
         """A signed-in dashboard link: a single-use ticket in the fragment, never the token."""
@@ -127,9 +136,10 @@ class LocalService:
             listener.listen(128)
             listener.setblocking(False)
             url = f"http://127.0.0.1:{listener.getsockname()[1]}"
+            self.app = self._factory()
             server = uvicorn.Server(
                 uvicorn.Config(
-                    self._factory(),
+                    self.app,
                     host="127.0.0.1",
                     port=self.port,
                     access_log=False,

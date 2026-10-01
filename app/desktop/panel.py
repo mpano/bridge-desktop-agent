@@ -30,7 +30,7 @@ from app.desktop.panel_style import (
     symbol,
 )
 from app.desktop.service import ServiceState
-from app.desktop.voice import IDLE_STATES, VoiceState
+from app.desktop.voice import VoiceState
 from app.voice.paths import BRIDGE_SUPPORT_DIR
 
 PREFERENCES = BRIDGE_SUPPORT_DIR / "panel.json"
@@ -62,7 +62,7 @@ class PanelActions(NSObject):
 
     def windowWillClose_(self, notification):
         # The red close button: Bridge keeps running in the menu bar, without a Dock icon.
-        self.owner.set_dock_visible(False)
+        self.owner.dock_off()
 
     def about_(self, sender):
         from app.desktop.bundle import VERSION
@@ -82,8 +82,12 @@ class PanelActions(NSObject):
 
     @objc.typedSelector(b"v@:@@")
     def handleReopen_withReplyEvent_(self, event, reply):
-        # Opening Bridge.app again (Finder, Spotlight, Dock) while it runs shows the panel.
-        self.owner.show()
+        # Opening Bridge.app again (Finder, Spotlight, Dock) while it runs shows the window.
+        open_window = getattr(self.owner.controller, "open_dashboard", None)
+        if getattr(self.owner.controller, "window", None) is not None and open_window:
+            open_window()
+        else:
+            self.owner.show()
 
     def listenForReopen(self):
         AK.NSAppleEventManager.sharedAppleEventManager().setEventHandler_andSelector_forEventClass_andEventID_(  # noqa: E501
@@ -560,9 +564,17 @@ class VoicePanel:
                 self.dock_icon = app_icon_image(512)
             app.setApplicationIconImage_(self.dock_icon)
 
+    def dock_off(self):
+        """The panel is going away: keep the Dock icon only if the Bridge window is open."""
+        update = getattr(self.controller, "update_dock", None)
+        if update is not None:
+            update(closing=self)
+        else:
+            self.set_dock_visible(False)
+
     def hide(self):
         self.window.orderOut_(None)
-        self.set_dock_visible(False)
+        self.dock_off()
 
     def show(self):
         if self.controller.quitting:
@@ -753,10 +765,8 @@ class VoicePanel:
             and not self.controller.quitting
         )
         if self.status_item is not None:
+            # The menu bar icon shows state; the title belongs to the focus countdown.
             self.status_item.button().setToolTip_("Bridge · " + self.TITLES[status.state])
-            self.status_item.button().setTitle_(
-                "Bridge ●" if busy and status.state not in IDLE_STATES else "Bridge"
-            )
 
     @staticmethod
     def _preview(text, limit):

@@ -40,6 +40,7 @@ class MenuBarController:
         self.login = login
         self.quitting = False
         self.panel = None
+        self.window = None
         self.shortcut = None
         self.text_shortcut = None
         self.text_popup = None
@@ -50,7 +51,7 @@ class MenuBarController:
         # macOS constrains status-item image height. Keep the Bridge wordmark visible
         # by pairing the template symbol with the product name instead of relying on
         # image pixels alone.
-        app_kwargs = {"title": "Bridge", "quit_button": None}
+        app_kwargs = {"title": None, "quit_button": None}
         if icon.is_file():
             app_kwargs.update(icon=str(icon), template=True)
         self.app = native.App("Bridge", **app_kwargs)
@@ -59,7 +60,7 @@ class MenuBarController:
         self.voice_status_item = native.MenuItem("Voice: Off")
         self.panel_item = native.MenuItem("Show Bridge Panel", callback=self.show_panel)
         self.speak_item = native.MenuItem("Speak Now", callback=self.shortcut_action)
-        self.open_item = native.MenuItem("Open Dashboard", callback=self.open_dashboard)
+        self.open_item = native.MenuItem("Open Bridge", callback=self.open_dashboard)
         self.start_item = native.MenuItem("Start Bridge Service", callback=self.start)
         self.stop_item = native.MenuItem("Stop Bridge Service", callback=self.stop)
         self.voice_start_item = native.MenuItem(
@@ -221,6 +222,9 @@ class MenuBarController:
         )
 
     def open_dashboard(self, _=None) -> None:
+        if self.window is not None:
+            self.window.show()
+            return
         status = self.service.status
         if status.state == ServiceState.RUNNING and status.url:
             try:
@@ -229,6 +233,17 @@ class MenuBarController:
                 opened = False
             if not opened:
                 self.native.alert(title="Bridge", message=f"Open {status.url} in your browser.")
+
+    def update_dock(self, closing=None) -> None:
+        """A Dock icon while any Bridge window is open or minimized; menu bar only otherwise."""
+        if self.panel is None:
+            return
+        surfaces = [item for item in (self.panel, self.window) if item is not None]
+        visible = any(
+            item is not closing and (item.window.isVisible() or item.window.isMiniaturized())
+            for item in surfaces
+        )
+        self.panel.set_dock_visible(visible)
 
     def details(self, _=None) -> None:
         status = self.service.status
@@ -310,6 +325,9 @@ class MenuBarController:
             self.show_panel if self.panel is not None and not self.quitting else None
         )
         self._refresh_focus()
+        self._refresh_status_icon()
+        if self.window is not None and status.state == ServiceState.RUNNING:
+            self.window.retry()
 
         if self.login is not None:
             self.login_item.state = int(self.login.enabled)
@@ -341,13 +359,38 @@ class MenuBarController:
         if session and session["end"] > time.time():
             left = max(1, round((session["end"] - time.time()) / 60))
             countdown = f"{left // 60}h {left % 60:02d}m" if left >= 60 else f"{left}m"
-            self.app.title = f"🎯 {countdown}"
+            self.app.title = countdown
             self.focus_item.title = f"Stop Focus ({countdown} left)"
             self.focus_item.set_callback(None if self.quitting else self.stop_focus)
         else:
-            self.app.title = "Bridge"
+            self.app.title = None  # The icon alone.
             self.focus_item.title = "Not focusing"
             self.focus_item.set_callback(None)
+
+    def status_state(self) -> str:
+        from app.desktop.status_icon import LISTENING, NEEDS_YOU, READY
+
+        voice = self.voice.status.state if self.voice is not None else None
+        dictating = getattr(getattr(self, "dictation", None), "state", "idle")
+        if voice in {VoiceState.RECORDING, VoiceState.TRANSCRIBING} or dictating == "listening":
+            return LISTENING
+        pending = getattr(self.service, "pending_approvals", None)
+        waiting = voice == VoiceState.APPROVAL or (callable(pending) and pending() > 0)
+        return NEEDS_YOU if waiting else READY
+
+    def _refresh_status_icon(self) -> None:
+        item = getattr(getattr(self.app, "_nsapp", None), "nsstatusitem", None)
+        if item is None:
+            return
+        state = self.status_state()
+        if state != getattr(self, "_icon_state", None):
+            import AppKit as AK
+
+            from app.desktop.status_icon import status_image
+
+            item.button().setImage_(status_image(state))
+            item.button().setImagePosition_(AK.NSImageLeft)
+            self._icon_state = state
 
     def stop_focus(self, _=None) -> None:
         status = self.service.status
@@ -438,8 +481,10 @@ def run_menubar(settings: Settings) -> None:
             NSApplicationActivationPolicyAccessory
         )
         from app.desktop.panel import VoicePanel, install_main_menu
+        from app.desktop.window import BridgeWindow
 
         controller.panel = VoicePanel(controller, settings)
+        controller.window = BridgeWindow(controller, local_service)
         install_main_menu(controller.panel.actions)
 
         def should_terminate(delegate, sender):
