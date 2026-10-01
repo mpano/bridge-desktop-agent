@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     voice_shortcut_enabled: bool = True
     # ⌃⌥Space: act on the text selected in any app.
     text_actions_shortcut_enabled: bool = True
+    # ⌃⌥D: dictate into any app. Cleanup sends the transcript (never audio) to OpenAI;
+    # turn it off to type exactly what speech-to-text heard.
+    dictation_shortcut_enabled: bool = True
+    dictation_cleanup: bool = True
+    dictation_max_seconds: float = Field(default=120, ge=10, le=300)
+    dictation_pause_seconds: float = Field(default=2.5, ge=1, le=10)
     voice_tts_voice: str | None = None
     voice_tts_rate: int | None = Field(default=None, ge=80, le=500)
     voice_background_enabled: bool = False

@@ -15,6 +15,7 @@ class HotKeyID(ct.Structure):
 
 COMMAND, SHIFT, OPTION, CONTROL = 256, 512, 2048, 4096
 SPACE = 49
+KEY_D = 2
 
 
 class GlobalVoiceShortcut:

@@ -10,7 +10,7 @@ from app.voice.cue import StartCue
 from app.voice.endpointing import EndpointingRecorder, NoSpeechDetected
 from app.voice.errors import VoiceError
 from app.voice.paths import wake_word_model_path
-from app.voice.stt import LocalWhisperSTT, OpenAIWhisperSTT, SpeechToText
+from app.voice.stt import SpeechToText, build_stt
 from app.voice.tts import MacOSSayTTS, TextToSpeech
 from app.voice.wakeword import OpenWakeWordDetector
 
@@ -60,17 +60,7 @@ class VoiceService:
             self.on_event(VoiceEvent(phase, message, transcript))
 
     def _build_stt(self) -> SpeechToText:
-        if self.settings.voice_stt_provider == "openai":
-            return OpenAIWhisperSTT(
-                self.settings.openai_api_key.get_secret_value(),
-                model=self.settings.voice_openai_stt_model,
-                language=self.settings.voice_language,
-            )
-        return LocalWhisperSTT(
-            model=self.settings.voice_local_whisper_model,
-            language=self.settings.voice_language,
-            allow_download=self.settings.voice_allow_model_download,
-        )
+        return build_stt(self.settings)
 
     async def listen_once(self) -> dict:
         if self.stop_event.is_set():

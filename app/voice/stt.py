@@ -7,6 +7,20 @@ from typing import Protocol
 from app.voice.errors import VoiceError
 
 
+def build_stt(settings) -> SpeechToText:
+    if settings.voice_stt_provider == "openai":
+        return OpenAIWhisperSTT(
+            settings.openai_api_key.get_secret_value(),
+            model=settings.voice_openai_stt_model,
+            language=settings.voice_language,
+        )
+    return LocalWhisperSTT(
+        model=settings.voice_local_whisper_model,
+        language=settings.voice_language,
+        allow_download=settings.voice_allow_model_download,
+    )
+
+
 class SpeechToText(Protocol):
     async def transcribe(self, audio_path: Path) -> str: ...
 

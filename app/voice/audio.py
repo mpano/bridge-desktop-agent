@@ -20,12 +20,16 @@ class AudioConfig:
 class MicrophoneRecorder:
     """Small optional sounddevice boundary. Imports audio dependencies only when used."""
 
+    max_seconds = 30.0
+
     def __init__(self, config: AudioConfig | None = None):
         self.config = config or AudioConfig()
 
     async def record_wav(self, seconds: float) -> Path:
-        if not math.isfinite(seconds) or not 0 < seconds <= 30:
-            raise ValueError("Recording duration must be between 0 and 30 seconds.")
+        if not math.isfinite(seconds) or not 0 < seconds <= self.max_seconds:
+            raise ValueError(
+                f"Recording duration must be between 0 and {self.max_seconds:g} seconds."
+            )
         worker = asyncio.create_task(asyncio.to_thread(self._record_wav, seconds))
         try:
             return await asyncio.shield(worker)

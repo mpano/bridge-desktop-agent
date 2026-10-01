@@ -21,7 +21,12 @@ from app.config.settings import Settings
 from app.diagnostics import collect_diagnostics
 from app.integrations.routes import install_connections
 from app.preferences.service import ApplicationPreferencesInput
-from app.text_actions import TextActionRequest, run_text_action
+from app.text_actions import (
+    DictationRequest,
+    TextActionRequest,
+    clean_dictation,
+    run_text_action,
+)
 from app.tools.files.projects import ProjectAlias, RememberProject
 from app.tools.system.proactive import SettingsInput as ProactiveSettings
 from app.tools.system.proactive import WatchInput as WatchRequest
@@ -309,6 +314,14 @@ def create_app(
             raise HTTPException(
                 503, "OpenAI didn't answer. Check your connection and API key."
             ) from None
+        return {"result": result}
+
+    @app.post("/api/v1/text/dictation", dependencies=[Depends(authorize)])
+    async def clean_up_dictation(payload: DictationRequest, request: Request):
+        try:
+            result = await clean_dictation(request.app.state.agent.planner.llm, payload)
+        except Exception:
+            result = payload.text.strip()  # Typing the raw words beats losing them.
         return {"result": result}
 
     @app.get("/api/v1/conversation", dependencies=[Depends(authorize)])

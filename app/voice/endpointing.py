@@ -46,10 +46,20 @@ class SilenceEndpoint:
 
 class EndpointingRecorder(MicrophoneRecorder):
     def __init__(
-        self, stop: threading.Event, *, silence_seconds=1.0, wait_seconds=5.0, threshold=0.012
+        self,
+        stop: threading.Event,
+        *,
+        silence_seconds=1.0,
+        wait_seconds=5.0,
+        threshold=0.012,
+        finish: threading.Event | None = None,
+        max_seconds: float = 30.0,
     ):
         super().__init__()
         self.stop = stop
+        # finish ends the recording early but keeps what was said; stop discards it.
+        self.finish = finish or threading.Event()
+        self.max_seconds = max_seconds
         self.silence_seconds = silence_seconds
         self.wait_seconds = wait_seconds
         self.threshold = threshold
@@ -74,7 +84,11 @@ class EndpointingRecorder(MicrophoneRecorder):
             with sd.InputStream(
                 samplerate=16000, channels=1, dtype="int16", blocksize=block
             ) as stream:
-                while not self.stop.is_set() and time.monotonic() < deadline:
+                while (
+                    not self.stop.is_set()
+                    and not self.finish.is_set()
+                    and time.monotonic() < deadline
+                ):
                     if stream.read_available < block:
                         self.stop.wait(0.01)
                         continue

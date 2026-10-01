@@ -35,6 +35,8 @@ class MenuBarController:
         self.shortcut = None
         self.text_shortcut = None
         self.text_popup = None
+        self.dictation = None
+        self.dictation_shortcut = None
         self.shortcut_status = "Shortcut off"
         icon = Path(__file__).with_name("assets") / "bridge-menubar.png"
         # macOS constrains status-item image height. Keep the Bridge wordmark visible
@@ -228,9 +230,11 @@ class MenuBarController:
 
     def quit(self, _=None) -> None:
         self.quitting = True
-        for shortcut in (self.shortcut, self.text_shortcut):
+        for shortcut in (self.shortcut, self.text_shortcut, self.dictation_shortcut):
             if shortcut is not None:
                 shortcut.close()
+        if self.dictation is not None:
+            self.dictation.stop()
         if self.voice is not None:
             self.voice.stop()
         self.service.stop()
@@ -421,6 +425,22 @@ def run_menubar(settings: Settings) -> None:
                 fallback="shortcut in use",
             )
             controller.text_shortcut.start()
+        if settings.dictation_shortcut_enabled:
+            from app.desktop.dictation import Dictation, DictationHud
+            from app.desktop.hotkey import CONTROL, KEY_D, OPTION, GlobalVoiceShortcut
+
+            controller.dictation = Dictation(settings, local_service)
+            controller.dictation.hud = DictationHud(controller.dictation.stop)
+            controller.dictation_shortcut = GlobalVoiceShortcut(
+                controller.dictation.toggle,
+                key=KEY_D,
+                modifiers=CONTROL | OPTION,
+                identifier=3,
+                label="⌃⌥D",
+                purpose="to dictate",
+                fallback="shortcut in use",
+            )
+            controller.dictation_shortcut.start()
         for signum in (signal.SIGINT, signal.SIGTERM):
             MachSignals.signal(signum, lambda _: controller.quit())
 
