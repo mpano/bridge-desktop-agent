@@ -109,7 +109,7 @@ def _read(app) -> dict:
     if focused is not None and _text(_get(focused, "AXRole")) != "AXSecureTextField":
         selection = str(_get(focused, "AXSelectedText") or "")
     found = _walk(window)
-    deadline = time.monotonic() + 1.5
+    deadline = time.monotonic() + 4  # Chrome needs ~2s to build a page the first time.
     while not found["text"] and time.monotonic() < deadline:
         time.sleep(0.25)  # The web tree is built in the background the first time.
         found = _walk(window)
