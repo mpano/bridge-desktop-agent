@@ -9,11 +9,13 @@ from app.agent.planner import Planner
 from app.agent.proactive import Proactive
 from app.agent.scheduler import Scheduler
 from app.assistant.day_plan import DayPlanner
+from app.assistant.focus import FocusMode, FocusStore
 from app.assistant.triage import InboxTriage
 from app.integrations.accounts import AccountManager
 from app.integrations.activity import SQLiteActivity
 from app.integrations.email import GmailService
 from app.integrations.slack import SlackService
+from app.integrations.spotify import SpotifyWebService
 from app.llm import prompts
 from app.llm.factory import create_llm
 from app.memory.facts import FactStore
@@ -29,6 +31,7 @@ from app.tools.productivity import (
     briefing,
     calendar_mac,
     contacts,
+    focus,
     messages,
     notes,
     planning,
@@ -133,6 +136,16 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
         ),
         gmail_available=gmail_service is not None,
     )
+    focus_mode = FocusMode(
+        FocusStore(settings.database_path),
+        calendar=calendar_controller,
+        accounts=accounts if connected else None,
+        spotify_web=SpotifyWebService(accounts) if connected else None,
+        spotify_desktop=spotify_app,
+        gmail=gmail_service,
+        slack=SlackService(accounts) if connected else None,
+    )
+    focus.register(registry, focus.FocusController(focus_mode))
     proactive_controller = proactive_tools.ProactiveController(
         proactive_store, schedule_store, accounts if connected else None
     )
@@ -215,6 +228,8 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
         await notifications.post_notification(runner, title, message)
 
     agent.scheduler = Scheduler(agent, schedule_store, notify)
+    focus_mode.notify = notify
+    agent.focus = focus_mode
     agent.proactive_store = proactive_store
     agent.proactive_controller = proactive_controller
     agent.proactive = Proactive(
@@ -224,5 +239,6 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
         gmail=gmail_service,
         slack=SlackService(accounts) if connected else None,
         accounts=accounts if connected else None,
+        focus=focus_mode,
     )
     return agent

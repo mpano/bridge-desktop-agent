@@ -324,6 +324,19 @@ def create_app(
             result = payload.text.strip()  # Typing the raw words beats losing them.
         return {"result": result}
 
+    @app.get("/api/v1/focus", dependencies=[Depends(authorize)])
+    async def focus_status(request: Request):
+        focus = getattr(request.app.state.agent, "focus", None)
+        return focus.status() if focus is not None else {"active": False}
+
+    @app.post("/api/v1/focus/stop", dependencies=[Depends(authorize)])
+    async def focus_stop(request: Request):
+        focus = getattr(request.app.state.agent, "focus", None)
+        try:
+            return await focus.stop()
+        except (ValueError, AttributeError):
+            raise HTTPException(409, "You're not in focus mode.") from None
+
     @app.get("/api/v1/conversation", dependencies=[Depends(authorize)])
     async def conversation(request: Request):
         return {"messages": request.app.state.agent.conversation()}

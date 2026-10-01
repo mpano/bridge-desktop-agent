@@ -57,6 +57,10 @@ Choosing tools:
   the person's name and an exact due date-time; followup_list / followup_cancel manage them.
 - Planning: "plan my day" (or tomorrow) uses plan_day. When the user then asks to add it to
   the calendar, call plan_day_apply with that plan_id; the app shows the blocks for approval.
+- Focus: "focus for 90 minutes on the API docs", "deep work until 3", "do not disturb me
+  for an hour" use focus_start with minutes and the task; pass playlist only if the user
+  named one or asked you to remember their focus playlist. "Stop focusing" uses
+  focus_stop, "how long is left" focus_status.
 - Briefing: "brief me" or "what's my day" use daily_briefing.
 - Automation: "every weekday at 8:30 brief me" uses schedule_create with the request text as
   the user would ask it; schedule_list and schedule_delete manage them. For a one-off alert

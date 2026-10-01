@@ -1,13 +1,16 @@
 """Native Bridge menu bar: AppKit on the main thread, owned services on workers."""
 
+import contextlib
 import os
 import signal
 import sys
 import threading
+import time
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
 
+from app.assistant.focus import FocusStore
 from app.config.settings import Settings
 from app.desktop.login import LoginItem, running_app_bundle
 from app.desktop.service import LocalService, ServiceState
@@ -24,8 +27,13 @@ class MenuBarController:
         open_browser: Callable[[str], bool] = webbrowser.open,
         voice: MenuVoiceService | None = None,
         login: LoginItem | None = None,
+        focus_reader: Callable[[], dict | None] | None = None,
     ):
         self.service = service
+        # Reads the active focus session (if any) for the menu bar countdown.
+        self.focus_reader = focus_reader
+        self._focus: dict | None = None
+        self._focus_checked = 0.0
         self.voice = voice
         self.native = native
         self.open_browser = open_browser
@@ -60,6 +68,7 @@ class MenuBarController:
         self.voice_stop_item = native.MenuItem("Stop Voice Listening", callback=self.stop_voice)
         self.login_item = native.MenuItem("Open at Login", callback=self.toggle_login)
         self.details_item = native.MenuItem("Bridge Details…", callback=self.details)
+        self.focus_item = native.MenuItem("Stop Focus")
         self.quit_item = native.MenuItem("Quit Bridge", callback=self.quit)
 
         # Right-click menu once the panel owns left-click; the whole menu before that.
@@ -67,6 +76,8 @@ class MenuBarController:
         if self.voice is not None:
             menu.append(self.voice_status_item)
         menu += [None, self.panel_item]
+        if self.focus_reader is not None:
+            menu.append(self.focus_item)
         if self.voice is not None:
             menu.append(self.speak_item)
         menu += [self.open_item, None, self.start_item, self.stop_item]
@@ -298,6 +309,8 @@ class MenuBarController:
         self.panel_item.set_callback(
             self.show_panel if self.panel is not None and not self.quitting else None
         )
+        self._refresh_focus()
+
         if self.login is not None:
             self.login_item.state = int(self.login.enabled)
             self.login_item.set_callback(
@@ -313,6 +326,46 @@ class MenuBarController:
             if self.service.wait(timeout=0) and self._voice_finished():
                 self.timer.stop()
                 self.native.quit_application()
+
+    def _refresh_focus(self) -> None:
+        if self.focus_reader is None:
+            return
+        now = time.monotonic()
+        if now - self._focus_checked >= 5:  # The timer ticks 4×/s; the database needn't.
+            self._focus_checked = now
+            try:
+                self._focus = self.focus_reader()
+            except Exception:
+                self._focus = None
+        session = self._focus
+        if session and session["end"] > time.time():
+            left = max(1, round((session["end"] - time.time()) / 60))
+            countdown = f"{left // 60}h {left % 60:02d}m" if left >= 60 else f"{left}m"
+            self.app.title = f"🎯 {countdown}"
+            self.focus_item.title = f"Stop Focus ({countdown} left)"
+            self.focus_item.set_callback(None if self.quitting else self.stop_focus)
+        else:
+            self.app.title = "Bridge"
+            self.focus_item.title = "Not focusing"
+            self.focus_item.set_callback(None)
+
+    def stop_focus(self, _=None) -> None:
+        status = self.service.status
+        if status.state != ServiceState.RUNNING or not status.url:
+            return
+        token = self.service.settings.api_token.get_secret_value()
+
+        def work():
+            import httpx
+
+            with contextlib.suppress(Exception), httpx.Client(timeout=60, trust_env=False) as c:
+                c.post(
+                    status.url + "/api/v1/focus/stop",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+            self._focus_checked = 0.0  # Show the change on the next tick.
+
+        threading.Thread(target=work, name="bridge-stop-focus", daemon=True).start()
 
     def run(self) -> None:
         previous = {}
@@ -373,7 +426,11 @@ def run_menubar(settings: Settings) -> None:
 
     voice_service.notifier = notify
     controller = MenuBarController(
-        local_service, rumps, voice=voice_service, login=LoginItem(running_app_bundle())
+        local_service,
+        rumps,
+        voice=voice_service,
+        login=LoginItem(running_app_bundle()),
+        focus_reader=FocusStore(settings.database_path).active,
     )
 
     def prepare_native():

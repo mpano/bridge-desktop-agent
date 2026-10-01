@@ -32,6 +32,10 @@ ACTIONS = {
         "conversations.open": "Opened a direct message",
         "users.list": "Looked up people",
         "chat.postMessage": "Sent a message",
+        "users.profile.get": "Read your status",
+        "users.profile.set": "Set your status",
+        "dnd.setSnooze": "Paused notifications",
+        "dnd.endSnooze": "Resumed notifications",
     },
     "spotify": {
         "search": "Searched Spotify",

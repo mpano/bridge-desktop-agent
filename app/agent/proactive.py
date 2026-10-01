@@ -35,17 +35,21 @@ class Proactive:
         gmail=None,
         slack=None,
         accounts=None,
+        focus=None,
         clock: Callable[[], datetime] = lambda: datetime.now().astimezone(),
     ):
         self.store, self.notify = store, notify
         self.calendar, self.gmail, self.slack, self.accounts = calendar, gmail, slack, accounts
         self.clock = clock
+        self.focus = focus
         self._last_watch_check = 0.0
 
     async def run(self) -> None:
         loop = asyncio.get_running_loop()
         while True:
             try:
+                if self.focus is not None:
+                    await self.focus.check()  # Ends a focus session whose time passed.
                 await self.check_meetings()
                 if loop.time() - self._last_watch_check >= WATCH_CHECK_SECONDS:
                     self._last_watch_check = loop.time()

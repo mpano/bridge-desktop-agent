@@ -50,8 +50,9 @@ PROVIDERS = {
             "im:history",
             "mpim:history",
             "users:read",
+            "users.profile:read",
         ),
-        ("chat:write", "im:write"),
+        ("chat:write", "im:write", "users.profile:write", "dnd:write"),
     ),
     "spotify": ProviderSpec(
         "Spotify",
