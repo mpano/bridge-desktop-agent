@@ -165,15 +165,15 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     if sys.platform == "darwin":
         from app.desktop.screen_reader import MacScreenReader
 
-        screen_context.register(
-            registry,
-            screen_context.ScreenContextController(
-                MacScreenReader(),
-                llm,
-                settings.screen_context_blocked_apps,
-                settings.integrations_callback_port,
-            ),
+        screen = screen_context.ScreenContextController(
+            MacScreenReader(),
+            llm,
+            settings.screen_context_blocked_apps,
+            settings.integrations_callback_port,
         )
+        screen_context.register(registry, screen)
+    else:
+        screen = None
     # Explicit review list: future tools do not persist arguments by default.
     # URLs and web-search text can contain credentials and are intentionally excluded.
     for name in (
@@ -230,6 +230,7 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     agent.calendar = calendar_controller
     agent.day_planner = day_planner
     agent.inbox = inbox
+    agent.screen = screen
     agent.proactive_store = proactive_store
     agent.proactive_controller = proactive_controller
     agent.proactive = Proactive(

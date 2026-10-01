@@ -142,15 +142,29 @@
           </form>
         </dialog>
       </section>
-      <section id="view-chat" class="view" hidden>
-        <div class="page-heading"><div><p class="eyebrow">CONVERSATION</p><h1>What would you like to do?</h1><p>One request, or a few steps. You decide what happens.</p></div><button type="button" id="reset-chat" class="secondary">New conversation</button></div>
-        <div id="conversation" role="log" aria-label="Conversation" aria-live="polite">
-          <div id="empty-chat" class="empty-state"><span class="large-mark">↗</span><h2>Your next action starts here.</h2><p>Ask about your day, your apps, email, calendar, music — or put a plan in motion. Requests from the menu-bar panel, voice and schedules appear here too.</p>
-            <div class="suggestions"><button type="button" data-example="Plan my day">Plan my day ↗</button><button type="button" data-example="What needs my attention?">Inbox triage ↗</button><button type="button" data-example="Brief me">Brief me ↗</button><button type="button" data-example="What reminders do I have?">My reminders ↗</button><button type="button" data-example="What's playing on Spotify?">Now playing ↗</button><button type="button" data-example="How's my battery?">Battery ↗</button></div>
+      <section id="view-chat" class="view ask" hidden aria-labelledby="ask-title">
+        <header class="ask-head">
+          <div><p id="ask-when" class="label">Ask</p><h1 id="ask-title">New conversation</h1></div>
+          <button type="button" id="ask-history" class="secondary small">History</button>
+          <button type="button" id="reset-chat" class="secondary small">New</button>
+        </header>
+        <div id="conversation" class="thread" role="log" aria-label="Conversation" aria-live="polite">
+          <div id="empty-chat" class="ask-empty">
+            <h2>What can Bridge do for you?</h2>
+            <p>Ask in your own words. Anything that sends or changes something waits for your OK, right here.</p>
+            <div class="chips"><button type="button" data-example="Plan my day">Plan my day</button><button type="button" data-example="What needs my attention?">What needs my attention?</button><button type="button" data-example="Summarize this">Summarize this</button><button type="button" data-example="Focus for 90 minutes">Focus for 90 minutes</button><button type="button" data-example="Brief me">Brief me</button></div>
           </div>
         </div>
-        <form id="message-form" class="composer"><label for="message" class="sr-only">Your request</label><textarea id="message" rows="2" maxlength="10000" required placeholder="Ask Bridge to do something…"></textarea><div><span>Changes that need approval will pause for your review.</span><button type="submit" class="primary">Send request ↗</button></div></form>
-        <p id="provider-privacy-hint" class="hint">Connect to review your model provider and tool-result sharing policy.</p>
+        <section id="live-task" class="live-task" hidden><div><p id="task-progress" role="status" aria-live="polite"></p><ol id="task-steps" class="timeline" aria-label="Steps"></ol></div><button id="stop-task" type="button" class="secondary">Stop remaining work</button></section>
+        <form id="message-form" class="composer ask-composer">
+          <span id="screen-chip" class="screen-chip" hidden><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3h11a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM5.5 14h5"/></svg><span id="screen-chip-text"></span></span>
+          <div class="composer-row">
+            <label for="message" class="sr-only">Your request</label>
+            <textarea id="message" rows="1" maxlength="10000" required placeholder="Ask anything, or describe what you want done…"></textarea>
+            <button type="submit" id="send-message" class="primary" aria-label="Send"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></button>
+          </div>
+        </form>
+        <p id="provider-privacy-hint" class="hint"></p>
       </section>
       <section id="view-projects" class="view" hidden>
         <div class="page-heading"><div><p class="eyebrow">PROJECTS</p><h1>A name for every workspace.</h1><p>Save a folder once. Open it by name next time.</p></div><button type="button" id="refresh-projects" class="secondary">Refresh</button></div>
@@ -215,12 +229,8 @@
         <div id="capability-list" class="item-list"></div>
       </section>
     </fieldset>
-    <section id="live-task" class="card" hidden><div><p id="task-progress" role="status" aria-live="polite"></p><ol id="task-steps" class="timeline" aria-label="Steps"></ol></div><button id="stop-task" type="button" class="secondary">Stop remaining work</button></section>
+
     <p id="busy-status" role="status" aria-live="polite" hidden>Working on your request…</p>
   </main>
-  <dialog id="confirmation-dialog" aria-labelledby="confirmation-title">
-    <p class="eyebrow">YOUR APPROVAL</p><h2 id="confirmation-title">Review this action</h2><p id="confirmation-message"></p><pre id="confirmation-arguments"></pre><p class="hint">Approve only if the action and arguments match your intent. Approvals expire after five minutes.</p><div class="dialog-actions"><button id="decline" type="button" class="secondary">Decline</button><button id="approve" type="button" class="primary">Approve action</button></div><p id="confirmation-error" role="alert"></p>
-    <button id="review-workflows" type="button" class="secondary" hidden>Leave review and inspect workflows</button>
-  </dialog>
 </body>
 </html>

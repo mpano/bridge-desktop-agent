@@ -152,6 +152,17 @@ def _walk(window) -> dict:
     return {"text": text[:MAX_CHARS], "url": url, "truncated": truncated}
 
 
+def window_title(pid: int) -> str:
+    """Just the focused window's title (no content), without asking for permission."""
+    import ApplicationServices as AS
+
+    if not AS.AXIsProcessTrusted():
+        return ""
+    app = AS.AXUIElementCreateApplication(pid)
+    window = _get(app, "AXFocusedWindow") or _get(app, "AXMainWindow")
+    return _text(_get(window, "AXTitle")) if window is not None else ""
+
+
 def screen_recording_allowed() -> bool:
     import Quartz as Q
 
@@ -186,5 +197,6 @@ class MacScreenReader:
     front_windows = staticmethod(front_windows)
     app_info = staticmethod(app_info)
     read_window = staticmethod(read_window)
+    window_title = staticmethod(window_title)
     screen_recording_allowed = staticmethod(screen_recording_allowed)
     capture_window = staticmethod(capture_window)

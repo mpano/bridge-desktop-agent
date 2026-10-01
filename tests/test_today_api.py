@@ -172,3 +172,15 @@ def test_today_screen_is_served(today):
     page = client.get("/").text
     assert 'id="view-today"' in page and "/ui/today.js" in page
     assert client.get("/ui/today.js").status_code == 200
+
+
+def test_screen_peek_is_quiet_when_unavailable(today):
+    client, agent = today
+    agent.screen = None
+    assert client.get("/api/v1/screen/peek", headers=headers()).json() == {"window": None}
+    agent.screen = Mock(
+        peek=AsyncMock(return_value={"app": "Slack", "window": "general", "private": False})
+    )
+    assert client.get("/api/v1/screen/peek", headers=headers()).json()["window"]["app"] == "Slack"
+    agent.screen = Mock(peek=AsyncMock(side_effect=RuntimeError("AX")))
+    assert client.get("/api/v1/screen/peek", headers=headers()).json() == {"window": None}

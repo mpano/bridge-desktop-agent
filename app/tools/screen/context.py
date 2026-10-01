@@ -53,6 +53,18 @@ class ScreenContextController:
     def _is_dashboard(self, url: str) -> bool:
         return urlsplit(url).netloc in self.dashboard
 
+    async def peek(self) -> dict | None:
+        """Which window "this" means right now: app and title only, for the Ask screen."""
+        windows = await asyncio.to_thread(self.reader.front_windows)
+        for window in windows:
+            app = await asyncio.to_thread(self.reader.app_info, window["pid"])
+            name = app["name"] or window["owner"]
+            if self._is_blocked(app):
+                return {"app": name, "window": "", "private": True}
+            title = await asyncio.to_thread(self.reader.window_title, window["pid"])
+            return {"app": name, "window": title[:80], "private": False}
+        return None
+
     async def context(self, _):
         if not await asyncio.to_thread(self.reader.accessibility_allowed):
             raise ValueError(

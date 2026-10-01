@@ -13,7 +13,6 @@
   let workflowTotal = 0;
   let capabilities = [];
   const workflowLimit = 25;
-  const dialog = $("confirmation-dialog");
 
   function node(tag, text, className) {
     const element = document.createElement(tag);
@@ -22,18 +21,24 @@
     return element;
   }
 
+  // A floating toast: it never pushes the screen around. Good news fades; errors stay.
+  let noticeTimer = null;
   function notify(message, error = false) {
     $("notice").textContent = message;
     $("notice").className = error ? "error" : "";
     $("notice").hidden = !message;
+    clearTimeout(noticeTimer);
+    if (message && !error) noticeTimer = setTimeout(() => { $("notice").hidden = true; }, 6000);
   }
+  $("notice").addEventListener("click", () => { $("notice").hidden = true; });
 
   function syncControls() {
-    $("workspace").disabled = busy || !signedIn || Boolean(pending);
+    $("workspace").disabled = busy || !signedIn;
     $("disconnect").disabled = busy || Boolean(pending);
-    $("approve").disabled = busy;
-    $("decline").disabled = busy;
-    $("review-workflows").disabled = busy;
+    // While an approval waits, the composer waits too: answer the card first.
+    $("message").disabled = Boolean(pending);
+    $("send-message").disabled = busy || Boolean(pending);
+    $("message").placeholder = pending ? "Answer the card above first…" : "Ask anything, or describe what you want done…";
     $("busy-status").hidden = !busy;
     $("workspace").setAttribute("aria-busy", String(busy));
   }
@@ -66,6 +71,9 @@
   function view(name) {
     if (name === "account" && signedIn) setTimeout(() => execute(refreshAccount, {refresh: false}));
     if (name === "today" && signedIn && window.BridgeToday) window.BridgeToday.refresh();
+    if (name === "chat" && signedIn) {
+      setTimeout(() => { peekScreen(); scrollThread(); if (!pending) $("message").focus(); });
+    }
     document.querySelectorAll(".view").forEach((panel) => { panel.hidden = panel.id !== `view-${name}`; });
     document.querySelectorAll("[data-view]").forEach((button) => {
       if (button.dataset.view === name) button.setAttribute("aria-current", "page");
@@ -273,30 +281,120 @@
     return list;
   }
 
+  const MARK = '<svg viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="7" fill="currentColor"/><path d="M6 18v-5M20 18v-5M4.5 13c4-5.5 13-5.5 17 0" fill="none" stroke="var(--accent-ink)" stroke-width="2" stroke-linecap="round"/></svg>';
+
+  function stepList(steps) {
+    const list = node("ol", undefined, "steps");
+    for (const step of steps) {
+      const state = step.success ? "done" : step.status === "confirmation_required" ? "waiting" : "failed";
+      const item = node("li", undefined, state);
+      item.append(node("span", state === "done" ? "✓" : state === "waiting" ? "◷" : "✕", "step-icon"), node("span", toolLabel(step.tool)));
+      list.append(item);
+    }
+    return list;
+  }
+
   function chatMessage(author, text, steps, meta = {}) {
     const empty = $("empty-chat");
     if (empty) empty.remove();
-    const card = node("article", undefined, `message ${author === "You" ? "user" : "assistant"}`);
-    const header = node("div", undefined, "author");
-    header.append(node("span", author.toUpperCase()));
-    if (meta.at) {
-      const time = new Date(meta.at);
-      header.append(node("time", time.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})));
-    }
-    card.append(header, node("p", text));
-    if (steps && steps.length) {
-      card.append(stepChips(steps));
-      if (steps.some((step) => "result" in step || "error" in step)) {
-        const details = node("details");
+    const mine = author === "You";
+    const card = node("article", undefined, `message ${mine ? "user" : "assistant"}`);
+    if (meta.request_id) card.dataset.request = meta.request_id;
+    if (mine) {
+      card.append(node("p", text, "bubble"));
+    } else {
+      const avatar = node("span", undefined, "avatar");
+      avatar.innerHTML = MARK;  // A fixed, local SVG; never user content.
+      const body = node("div", undefined, "body");
+      if (steps && steps.length) body.append(stepList(steps));
+      body.append(node("p", text, "reply"));
+      if (steps && steps.some((step) => "result" in step || "error" in step)) {
+        const details = node("details", undefined, "tech");
         details.append(node("summary", "Technical details"), node("pre", JSON.stringify(steps, null, 2)));
-        card.append(details);
+        body.append(details);
       }
+      card.append(avatar, body);
+    }
+    if (meta.at) {
+      const time = node("time", new Date(meta.at).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}));
+      time.dateTime = meta.at;
+      card.append(time);
     }
     $("conversation").append(card);
-    $("conversation").scrollTop = $("conversation").scrollHeight;
+    scrollThread();
+  }
+
+  function scrollThread() {
+    const thread = $("conversation");
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  // The approval card: exactly what will happen, with Send / Don't send. ---------------------
+
+  function describeAction(item) {
+    const a = item.arguments || {};
+    const list = (value) => (Array.isArray(value) ? value.join(", ") : String(value ?? ""));
+    switch (item.action) {
+      case "email_send": return {title: "Send this email?", go: "Send", fields: [["To", list(a.to)], ["Subject", a.subject]], body: a.body};
+      case "email_create_draft": return {title: "Save this draft in Gmail?", go: "Save draft", fields: [["To", list(a.to)], ["Subject", a.subject]], body: a.body};
+      case "slack_send_message": return {title: "Send this Slack message?", go: "Send", fields: [["To", a.channel]], body: a.text};
+      case "messages_send": return {title: "Send this text?", go: "Send", fields: [["To", a.to]], body: a.text};
+      case "focus_start": return {title: "Start focus?", go: "Start", fields: [["For", `${a.minutes} minutes`], ["On", a.task || "—"]]};
+      default: {
+        const fields = Object.entries(a)
+          .filter(([key, value]) => key !== "account_id" && value !== null && value !== undefined && value !== "")
+          .slice(0, 6)
+          .map(([key, value]) => [key.replaceAll("_", " "), typeof value === "object" ? JSON.stringify(value) : String(value)]);
+        return {title: item.message || `Allow ${toolLabel(item.action)}?`, go: "Approve", fields};
+      }
+    }
+  }
+
+  function approvalCard(item) {
+    const info = describeAction(item);
+    const card = node("section", undefined, "approval-card");
+    card.setAttribute("aria-label", info.title);
+    const head = node("div", undefined, "approval-head");
+    head.append(node("h3", info.title), node("span", "needs your OK", "badge warm"));
+    card.append(head);
+    if (info.fields.length) {
+      const fields = node("dl");
+      for (const [label, value] of info.fields) fields.append(node("dt", label), node("dd", value));
+      card.append(fields);
+    }
+    if (info.body) card.append(node("div", info.body, "approval-body"));
+    const actions = node("div", undefined, "approval-actions");
+    const go = node("button", undefined, "primary");
+    go.type = "button";
+    go.append(node("span", info.go), node("kbd", "⌘↵"));
+    go.addEventListener("click", () => decide(true));
+    const no = node("button", item.action.includes("send") ? "Don't send" : "Don't", "ghost");
+    no.type = "button";
+    no.addEventListener("click", () => decide(false));
+    actions.append(go, no, node("span", "Nothing happens until you press it.", "faint note"));
+    card.append(actions, node("p", "", "approval-error"));
+    return card;
+  }
+
+  function showApproval() {
+    document.querySelectorAll(".approval-card").forEach((card) => card.remove());
+    if (!pending) return;
+    const target = document.querySelector(`.message.assistant[data-request="${CSS.escape(pending.request_id || "")}"] .body`)
+      || [...document.querySelectorAll(".message.assistant .body")].pop();
+    if (!target) return;
+    target.append(approvalCard(pending));
+    scrollThread();
+  }
+
+  function approvalError(message) {
+    const box = document.querySelector(".approval-card .approval-error");
+    if (box) box.textContent = message;
   }
 
   function renderConversation(messages) {
+    const first = messages.find((entry) => entry.role === "user");
+    $("ask-title").textContent = first ? first.text.replace(/\s+/g, " ").slice(0, 70) : "New conversation";
+    $("ask-when").textContent = first ? `Ask · started ${new Date(first.at).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}` : "Ask";
     $("conversation").replaceChildren();
     loggedRequests.clear();
     if (!messages.length) $("conversation").append(emptyChat.cloneNode(true));
@@ -308,7 +406,17 @@
   }
 
   async function loadConversation() {
-    renderConversation((await request("/api/v1/conversation")).messages);
+    const [conversation, waiting] = await Promise.all([
+      request("/api/v1/conversation"),
+      request("/api/v1/approvals").catch(() => ({approvals: []})),
+    ]);
+    // An approval from this conversation (typed, spoken or scheduled) comes back after a reload.
+    const asked = new Set(conversation.messages.map((entry) => entry.request_id));
+    if (!pending) pending = waiting.approvals.find((item) => asked.has(item.request_id)) || null;
+    else if (!waiting.approvals.some((item) => item.token === pending.token)) pending = null;
+    renderConversation(conversation.messages);
+    showApproval();
+    syncControls();
   }
 
   function showResult(result) {
@@ -318,13 +426,9 @@
     // Chat replies are already on screen; only repeat them in the banner when something failed.
     if (!logged || result.status === "failed") notify(result.message, result.status === "failed");
     if (result.status === "confirmation_required") {
-      pending = result.confirmation;
-      $("confirmation-title").textContent = pending.action.replaceAll("_", " ");
-      $("confirmation-message").textContent = result.message;
-      $("confirmation-arguments").textContent = JSON.stringify(pending.arguments, null, 2);
-      $("confirmation-error").textContent = "";
-      $("review-workflows").hidden = true;
-      if (!dialog.open) dialog.showModal();
+      pending = {...result.confirmation, request_id: result.request_id, message: result.message};
+      view("chat");
+      showApproval();
     }
   }
 
@@ -339,10 +443,7 @@
       if (refresh && signedIn) await refreshAll();
     } catch (error) {
       notify(error.message, true);
-      if (pending) {
-        $("confirmation-error").textContent = `${error.message} You can leave this review and inspect workflows.`;
-        $("review-workflows").hidden = false;
-      }
+      if (pending) approvalError(`${error.message} You can check Workflows for what already ran.`);
     } finally {
       busy = false;
       syncControls();
@@ -607,7 +708,7 @@
     } else {
       policy = "Messages go to OpenAI. Tool results share only whether they succeeded; their contents stay on this Mac.";
     }
-    $("provider-privacy-hint").textContent = `${policy} Screenshot images are not uploaded.`;
+    $("provider-privacy-hint").textContent = "Requests go to OpenAI. Anything that sends or changes something waits for your OK.";
     const panel = $("provider-details");
     panel.replaceChildren(node("h3", name), node("p", `Model: ${provider.model}`), node("p", policy));
     panel.append(node("p", `Tool-result sharing: ${provider.remote_tool_results}`));
@@ -929,6 +1030,17 @@
     fetch("/api/v1/auth/logout", {method: "POST", credentials: "same-origin"}).finally(() => window.location.reload());
   });
 
+  $("message").addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      $("message-form").requestSubmit();
+    }
+  });
+  $("message").addEventListener("input", () => {
+    $("message").style.height = "auto";
+    $("message").style.height = `${Math.min($("message").scrollHeight, 200)}px`;
+  });
+
   $("message-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const message = $("message").value.trim();
@@ -1004,7 +1116,7 @@
     execute(async () => {
       const progress = await request("/api/v1/tasks/confirm", "POST", {token: pending.token, approved});
       pending = null;
-      dialog.close();
+      showApproval();
       const result = await watchTask(progress);
       await loadConversation();
       return result;
@@ -1047,15 +1159,29 @@
     busy: () => busy || Boolean(pending),
   };
 
-  $("approve").addEventListener("click", () => decide(true));
-  $("decline").addEventListener("click", () => decide(false));
-  dialog.addEventListener("cancel", (event) => { event.preventDefault(); decide(false); });
-  $("review-workflows").addEventListener("click", () => {
-    pending = null;
-    dialog.close();
-    view("workflows");
-    execute(async () => {});
+  document.addEventListener("keydown", (event) => {
+    if (pending && (event.metaKey || event.ctrlKey) && event.key === "Enter" && !$("view-chat").hidden) {
+      event.preventDefault();
+      decide(true);
+    }
   });
+  $("ask-history").addEventListener("click", () => view("workflows"));
+
+  // Which window "this" means: app and title only, refreshed when you come to Ask.
+  async function peekScreen() {
+    try {
+      const {window: seen} = await request("/api/v1/screen/peek");
+      $("screen-chip").hidden = !seen;
+      if (seen) {
+        $("screen-chip-text").textContent = seen.private ? `${seen.app} is private — Bridge won't read it`
+          : `Can see: ${seen.app}${seen.window ? ` — ${seen.window}` : ""}`;
+      }
+    } catch {
+      $("screen-chip").hidden = true;
+    }
+  }
+  window.addEventListener("focus", () => { if (signedIn && !$("view-chat").hidden) peekScreen(); });
+
   $("reset-chat").addEventListener("click", () => execute(async () => {
     await request("/api/v1/conversation/reset", "POST");
     renderConversation([]);

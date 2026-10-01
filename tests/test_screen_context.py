@@ -123,3 +123,22 @@ def test_bridge_registers_screen_context(tmp_path):
     settings = Settings(_env_file=None, database_path=tmp_path / "db", api_token="t")
     agent = build_agent(settings, llm=AsyncMock(), runner=AsyncMock())
     assert "screen_context" in [tool["name"] for tool in agent.executor.registry.catalog()]
+
+
+async def test_peek_names_the_window_without_reading_it():
+    reader = Reader([window(1)], {1: app("Google Chrome")}, {})
+    reader.window_title = lambda pid: "Inbox - Gmail"
+    reader.read_window = None  # Peek must never read the window's content.
+    controller = screen.ScreenContextController(reader)
+    assert await controller.peek() == {
+        "app": "Google Chrome",
+        "window": "Inbox - Gmail",
+        "private": False,
+    }
+    locked = Reader([window(1)], {1: app("1Password", "com.1password.1password")}, {})
+    assert await screen.ScreenContextController(locked).peek() == {
+        "app": "1Password",
+        "window": "",
+        "private": True,
+    }
+    assert await screen.ScreenContextController(Reader([], {}, {})).peek() is None

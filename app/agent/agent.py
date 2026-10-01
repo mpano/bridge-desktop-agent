@@ -246,7 +246,7 @@ class Agent:
                 return self._cancelled(context)
             if not approved:
                 return self.response(
-                    context, "cancelled", "Action declined; remaining steps cancelled."
+                    context, "cancelled", "Okay, I didn't do it. Nothing was changed."
                 )
             result = await self._execute(context, pending.call, approved=True)
             self._record(context, pending.call, result)

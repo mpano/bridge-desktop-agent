@@ -145,6 +145,16 @@ def install(app: FastAPI, authorize) -> None:
             raise HTTPException(502, str(exc) or "Couldn't read your inbox.") from None
         return {"gmail": True, "summary": inbox_summary(inbox)}
 
+    @app.get("/api/v1/screen/peek", dependencies=[Depends(authorize)])
+    async def peek(request: Request):
+        screen = getattr(agent(request), "screen", None)
+        if screen is None:
+            return {"window": None}
+        try:
+            return {"window": await asyncio.wait_for(screen.peek(), timeout=3)}
+        except Exception:
+            return {"window": None}
+
     @app.get("/api/v1/approvals", dependencies=[Depends(authorize)])
     async def approvals(request: Request):
         return {"approvals": agent(request).pending_approvals()}
