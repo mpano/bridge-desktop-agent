@@ -222,7 +222,7 @@ def test_bundle_quotes_paths_and_does_not_copy_secrets(tmp_path):
     python = project / ".venv/bin/python"
     python.parent.mkdir(parents=True)
     python.symlink_to(sys.executable)
-    target = build_launcher(project, python, tmp_path / "Bridge.app")
+    target = build_launcher(project, python, tmp_path / "Bridge.app", native=False)
     info = plistlib.loads((target / "Contents/Info.plist").read_bytes())
     assert info["LSUIElement"] is True
     assert info["CFBundleName"] == "Bridge"
@@ -244,11 +244,11 @@ def test_bundle_force_replaces_only_bridge_builds(tmp_path):
     project = tmp_path / "project"
     (project / "app").mkdir(parents=True)
     (project / "app/main.py").touch()
-    target = build_launcher(project, Path(sys.executable), tmp_path / "Bridge.app")
+    target = build_launcher(project, Path(sys.executable), tmp_path / "Bridge.app", native=False)
     text = (target / "Contents/MacOS/Bridge").read_text()
     assert "BRIDGE_APP_BUNDLE" in text
     assert "Library/Logs/Bridge" in text
-    rebuilt = build_launcher(project, Path(sys.executable), target, replace=True)
+    rebuilt = build_launcher(project, Path(sys.executable), target, replace=True, native=False)
     assert (rebuilt / "Contents/Info.plist").is_file()
 
     stranger = tmp_path / "Other.app"
@@ -392,3 +392,21 @@ def test_package_bundles_resources_and_skips_unused_heavy_modules(tmp_path):
     assert "app/ui/static" in joined and ".env.example" in joined
     assert "--osx-bundle-identifier=app.bridge.desktop-agent" in args
     assert ".env:" not in joined  # Never ship the real settings file.
+
+
+@pytest.mark.skipif(
+    sys.platform != "darwin" or not __import__("shutil").which("clang"),
+    reason="Needs macOS and the Xcode command-line tools",
+)
+def test_native_launcher_gives_bridge_its_own_executable(tmp_path):
+    project = tmp_path / "project with spaces"
+    (project / "app").mkdir(parents=True)
+    (project / "app/main.py").touch()
+    (project / ".env").write_text("OPENAI_API_KEY=do-not-copy")
+    target = build_launcher(project, Path(sys.executable), tmp_path / "Bridge.app", native=True)
+    executable = target / "Contents/MacOS/Bridge"
+    binary = executable.read_bytes()
+    assert binary[:4] in {b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe"}  # Mach-O, not a script.
+    assert str(project).encode() in binary
+    assert b"do-not-copy" not in binary
+    assert executable.stat().st_mode & 0o111

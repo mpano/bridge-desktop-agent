@@ -122,6 +122,9 @@ class MenuBarController:
         frontmost = AK.NSWorkspace.sharedWorkspace().frontmostApplication()
         name = str(frontmost.localizedName()) if frontmost is not None else ""
         allowed = accessibility_allowed()
+        if not allowed:
+            # macOS shows its own "Open System Settings" prompt for Bridge (only once).
+            accessibility_allowed(prompt=True)
         text = ""
         if allowed:
             try:

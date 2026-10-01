@@ -34,7 +34,7 @@ include = ["app*"]
 
 [tool.setuptools.package-data]
 "app.ui" = ["static/*.html", "static/*.css", "static/*.js", "static/*.png", "static/*.svg"]
-"app.desktop" = ["assets/*.png"]
+"app.desktop" = ["assets/*.png", "launcher.c"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

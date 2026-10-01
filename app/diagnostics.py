@@ -93,6 +93,18 @@ def collect_diagnostics(settings: Settings) -> DiagnosticsReport:
             f"Native {executable} executable is available.",
             f"Native {executable} executable is unavailable.",
         )
+    trusted, owner = accessibility_status()
+    if trusted is not None:
+        checks.append(
+            DiagnosticCheck(
+                name="accessibility",
+                status="ok" if trusted else "warning",
+                message="Accessibility is allowed; ⌃⌥Space can read selected text."
+                if trusted
+                else f"Accessibility is off for this process ({owner}). Turn it on in System "
+                "Settings > Privacy & Security > Accessibility to use ⌃⌥Space.",
+            )
+        )
     checks.append(
         DiagnosticCheck(
             name="macos_permissions",
@@ -111,3 +123,17 @@ def collect_diagnostics(settings: Settings) -> DiagnosticsReport:
             remote_tool_result_allowlist=list(settings.remote_tool_result_allowlist),
         ),
     )
+
+
+def accessibility_status() -> tuple[bool | None, str]:
+    """Whether this process may read other apps' selections, and the app macOS sees."""
+    if sys.platform != "darwin":
+        return None, ""
+    try:
+        import AppKit as AK
+        import ApplicationServices as AS
+    except ImportError:
+        return None, ""
+    app = AK.NSRunningApplication.currentApplication()
+    bundle = app.bundleURL().path() if app.bundleURL() else sys.executable
+    return bool(AS.AXIsProcessTrusted()), str(bundle)

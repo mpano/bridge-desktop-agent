@@ -2,12 +2,15 @@
 
 import argparse
 import importlib.util
+import json
 import os
 import plistlib
 import shlex
 import shutil
 import subprocess
 import sys
+import sysconfig
+import tempfile
 from pathlib import Path
 
 BUNDLE_ID = "app.bridge.desktop-agent"
@@ -39,6 +42,49 @@ def _launcher_script(project: Path, python: Path) -> str:
         'cd "$PROJECT" || exit 1\n'
         'exec "$PYTHON" -m app.main --menubar >>"$LOG" 2>&1\n'
     )
+
+
+def _c_string(value: str) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _compile_launcher(project: Path, python: Path, output: Path) -> bool:
+    """Build launcher.c against this framework Python. False if that isn't possible."""
+    clang = shutil.which("clang")
+    if clang is None or not sysconfig.get_config_var("PYTHONFRAMEWORK"):
+        return False
+    home = Path(sys.base_prefix)  # …/Frameworks/Python.framework/Versions/3.x
+    version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    include = home / "include" / f"python{version}"
+    frameworks = home.parents[2]
+    if not (include / "Python.h").is_file() or not (frameworks / "Python.framework").is_dir():
+        return False
+    with tempfile.TemporaryDirectory() as scratch:
+        header = Path(scratch) / "bridge_paths.h"
+        header.write_text(
+            f"#define BRIDGE_PROJECT {_c_string(str(project))}\n"
+            f"#define BRIDGE_VENV_PYTHON {_c_string(str(python))}\n",
+            encoding="utf-8",
+        )
+        result = subprocess.run(
+            [
+                clang,
+                "-O2",
+                "-Wall",
+                f"-I{include}",
+                f"-I{scratch}",
+                str(Path(__file__).with_name("launcher.c")),
+                f"-F{frameworks}",
+                "-framework",
+                "Python",
+                f"-Wl,-rpath,{frameworks}",
+                "-o",
+                str(output),
+            ],
+            capture_output=True,
+            check=False,
+        )
+    return result.returncode == 0 and output.is_file()
 
 
 def _write_icon(resources: Path) -> str:
@@ -106,7 +152,10 @@ def build_launcher(
     *,
     replace: bool = False,
     sign: bool = False,
+    native: bool | None = None,
 ) -> Path:
+    """native: compile a small launcher so macOS sees "Bridge" (not Python.app) for
+    permissions and the Dock. None tries it and falls back to a shell launcher."""
     project = project.expanduser().resolve()
     python = Path(os.path.abspath(python.expanduser()))
     destination = destination.expanduser().absolute()
@@ -137,7 +186,13 @@ def build_launcher(
         (contents / "PkgInfo").write_text("APPL????", encoding="ascii")
 
         launcher = executable_directory / "Bridge"
-        launcher.write_text(_launcher_script(project, python), encoding="utf-8")
+        compiled = False
+        if native is not False:
+            compiled = _compile_launcher(project, python, launcher)
+            if native and not compiled:
+                raise ValueError("Couldn't compile the native launcher (needs Xcode tools).")
+        if not compiled:
+            launcher.write_text(_launcher_script(project, python), encoding="utf-8")
         launcher.chmod(0o755)
     except BaseException:
         shutil.rmtree(destination, ignore_errors=True)
