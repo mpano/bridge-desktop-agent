@@ -261,3 +261,32 @@ def test_text_popup_explains_missing_permission_and_needs_text():
     controller.submit_text.assert_called_once()
     assert "Create a reminder" in controller.submit_text.call_args.args[0]
     popup.close()
+
+
+def test_text_popup_acts_on_the_whole_window_when_nothing_is_selected():
+    import AppKit as AK
+
+    from app.desktop.text_popup import TextPopup
+
+    AK.NSApplication.sharedApplication()
+    controller = SimpleNamespace(
+        service=SimpleNamespace(status=None), submit_text=Mock(return_value=True), show_panel=Mock()
+    )
+    popup = TextPopup(controller, SimpleNamespace(api_token=SimpleNamespace(get_secret_value=str)))
+    popup.open_window("Google Chrome")
+    assert popup.source_label.stringValue() == "Whole window in Google Chrome"
+    assert "reading" in popup.status.stringValue() and popup.busy
+    popup.fill_window({"text": "Article text", "window": "News", "url": "https://n.example/a"})
+    assert popup.input.string() == "Article text" and not popup.busy
+    popup.output.setString_("A summary")
+    popup._refresh_buttons()
+    assert not popup.result_buttons["Replace"].isEnabled()  # No selection to replace.
+    assert popup.result_buttons["Copy"].isEnabled()
+    popup.run("remind")
+    assert controller.submit_text.call_args.args[0] == "Remind me about “News” https://n.example/a"
+    popup.open_window("1Password")
+    popup.window_failed("🔒 1Password is private, so Bridge won't read it.")
+    assert "private" in popup.status.stringValue() and not popup.busy
+    popup.close()
+    popup.fill_window({"text": "late"})  # A read that finishes after closing is ignored.
+    assert popup.input.string() == ""

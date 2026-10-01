@@ -35,14 +35,20 @@ VISION_INSTRUCTIONS = (
 )
 
 
+def is_blocked(name: str, bundle_id: str, extra=()) -> bool:
+    """Password managers (and apps the user listed) are never read."""
+    blocked = BLOCKED_BY_DEFAULT | {item.casefold() for item in extra}
+    return bool({name.casefold(), bundle_id.casefold()} & blocked)
+
+
 class ScreenContextController:
     def __init__(self, reader, llm=None, blocked=(), dashboard_port: int = 8000):
         self.reader, self.llm = reader, llm
-        self.blocked = BLOCKED_BY_DEFAULT | {name.casefold() for name in blocked}
+        self.blocked = list(blocked)
         self.dashboard = {f"localhost:{dashboard_port}", f"127.0.0.1:{dashboard_port}"}
 
     def _is_blocked(self, app: dict) -> bool:
-        return bool({app["name"].casefold(), app["bundle_id"].casefold()} & self.blocked)
+        return is_blocked(app["name"], app["bundle_id"], self.blocked)
 
     def _is_dashboard(self, url: str) -> bool:
         return urlsplit(url).netloc in self.dashboard

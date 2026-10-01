@@ -131,7 +131,39 @@ class MenuBarController:
                 text = read_selection()
             except Exception:
                 text = ""
+        if allowed and not text.strip() and frontmost is not None:
+            # Nothing selected: offer the same actions on the whole window.
+            self.text_popup.open_window(name)
+            target = (int(frontmost.processIdentifier()), str(frontmost.bundleIdentifier() or ""))
+            threading.Thread(
+                target=self._read_window, args=(*target, name), name="bridge-read-window"
+            ).start()
+            return
         self.text_popup.open(text, name, allowed)
+
+    def _read_window(self, pid: int, bundle_id: str, name: str) -> None:
+        from PyObjCTools import AppHelper
+
+        from app.desktop import screen_reader
+        from app.tools.screen.context import is_blocked
+
+        popup = self.text_popup
+        if is_blocked(name, bundle_id, popup.settings.screen_context_blocked_apps):
+            AppHelper.callAfter(
+                popup.window_failed, f"🔒 {name} is private, so Bridge won't read it."
+            )
+            return
+        try:
+            info = screen_reader.read_window(pid, bundle_id)
+        except Exception:
+            info = {}
+        if not info.get("text", "").strip():
+            AppHelper.callAfter(
+                popup.window_failed,
+                "No readable text in this window. Select some text, or type or paste it above.",
+            )
+            return
+        AppHelper.callAfter(popup.fill_window, info)
 
     def submit_text(self, text: str) -> bool:
         if self.voice is None or self.quitting:

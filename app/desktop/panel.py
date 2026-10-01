@@ -38,7 +38,7 @@ QUICK_ACTIONS = [
     ("Plan my day", "Plan my day"),
     ("Inbox", "What needs my attention?"),
     ("Brief me", "Brief me"),
-    ("Now playing", "What's playing on Spotify?"),
+    ("Summarize", "Summarize this"),
 ]
 
 

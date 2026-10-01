@@ -60,6 +60,8 @@ class TextPopup:
         self.actions.owner = self
         self.busy = False
         self.last_instruction = ""
+        self.mode = "selection"  # Or "window": nothing was selected, so the whole window.
+        self.page = {}
         self.window = AK.NSPanel.alloc().initWithContentRect_styleMask_backing_defer_(
             NSMakeRect(0, 0, WIDTH, HEIGHT),
             AK.NSWindowStyleMaskTitled
@@ -189,6 +191,7 @@ class TextPopup:
     # Behaviour ----------------------------------------------------------------------------
 
     def open(self, text: str, app_name: str, allowed: bool) -> None:
+        self.mode, self.page = "selection", {}
         self.input.setString_(text)
         self.output.setString_("")
         self.instruction.setStringValue_("")
@@ -207,6 +210,41 @@ class TextPopup:
         else:
             self._status("Choose an action, or type what to do.", MUTED)
         self._refresh_buttons()
+        self._show()
+        self.window.makeFirstResponder_(self.instruction if text.strip() else self.input)
+
+    def open_window(self, app_name: str) -> None:
+        """Nothing was selected: the actions apply to the whole window, read in the
+        background (Chrome takes a moment to expose a page)."""
+        self.mode, self.page, self.busy = "window", {}, True
+        self.input.setString_("")
+        self.output.setString_("")
+        self.instruction.setStringValue_("")
+        self.source_label.setStringValue_(f"Whole window in {app_name}" if app_name else "Window")
+        self._status(f"Nothing selected — reading the {app_name or 'front'} window…", MUTED)
+        self._refresh_buttons()
+        self._show()
+        self.window.makeFirstResponder_(self.instruction)
+
+    def fill_window(self, page: dict) -> None:
+        if self.mode != "window" or not self.window.isVisible():
+            return
+        self.page, self.busy = page, False
+        self.input.setString_(page["text"])
+        self.input.scrollRangeToVisible_((0, 0))
+        title = page.get("window") or "this window"
+        self._status(f"Choose an action for “{title[:60]}”, or type what to do.", MUTED)
+        self._refresh_buttons()
+
+    def window_failed(self, message: str) -> None:
+        if self.mode != "window":
+            return
+        self.busy = False
+        self._status(message, AMBER)
+        self._refresh_buttons()
+        self.window.makeFirstResponder_(self.input)
+
+    def _show(self) -> None:
         mouse = AK.NSEvent.mouseLocation()
         screen = next(
             (s for s in AK.NSScreen.screens() if AK.NSMouseInRect(mouse, s.frame(), False)),
@@ -222,7 +260,6 @@ class TextPopup:
         )
         self.window.setFrameOrigin_(NSMakePoint(x, y))
         self.window.makeKeyAndOrderFront_(None)
-        self.window.makeFirstResponder_(self.instruction if text.strip() else self.input)
 
     def close(self):
         self.window.orderOut_(None)
@@ -236,7 +273,8 @@ class TextPopup:
         has_result = bool(self.output.string().strip())
         for button in self.action_buttons:
             button.setEnabled_(not self.busy)
-        self.result_buttons["Replace"].setEnabled_(has_result and not self.busy)
+        replaceable = has_result and not self.busy and self.mode == "selection"
+        self.result_buttons["Replace"].setEnabled_(replaceable)
         self.result_buttons["Copy"].setEnabled_(has_result and not self.busy)
         for button in self.result_buttons.values():
             button.setNeedsDisplay_(True)
@@ -249,7 +287,12 @@ class TextPopup:
             self._status("There's no text yet. Type or paste some above.", AMBER)
             return
         if action == "remind":
-            self._send_to_agent(f"Create a reminder from this text:\n\n{text}")
+            if self.mode == "window":
+                where = self.page.get("url") or self.page.get("file") or ""
+                title = self.page.get("window") or "this window"
+                self._send_to_agent(f"Remind me about “{title}” {where}".strip())
+            else:
+                self._send_to_agent(f"Create a reminder from this text:\n\n{text}")
             return
         instruction = self.instruction.stringValue().strip()
         if action == "custom" and not instruction:
@@ -314,6 +357,10 @@ class TextPopup:
             return
         text = self.input.string().strip()
         instruction = self.instruction.stringValue().strip() or "Help me with this text"
+        if self.mode == "window":
+            # Bridge's screen_context reads the same window (it skips Bridge's own panel).
+            self._send_to_agent(f"{instruction} (about the window I'm looking at)")
+            return
         self._send_to_agent(f"{instruction}:\n\n{text}")
 
     def _send_to_agent(self, request: str) -> None:
