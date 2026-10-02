@@ -339,6 +339,7 @@ class MenuBarController:
         self._refresh_status_icon()
         if self.window is not None and status.state == ServiceState.RUNNING:
             self.window.retry()
+            self.window.push_voice(self.voice)
         if self.command_bar is not None and status.state == ServiceState.RUNNING:
             self.command_bar.preload()
 

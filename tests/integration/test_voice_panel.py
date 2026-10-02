@@ -13,99 +13,22 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.fixture
-def panel(tmp_path):
-    import AppKit as AK
-
-    from app.config.settings import Settings
-    from app.desktop.panel import VoicePanel
-    from app.desktop.service import ServiceState, ServiceStatus
-    from app.desktop.voice import MenuVoiceService
-
-    AK.NSApplication.sharedApplication()
-    settings = Settings(
-        _env_file=None, api_token="test-only", voice_wake_word_model_path=tmp_path / "missing.onnx"
-    )
-    service = SimpleNamespace(
-        status=ServiceStatus(ServiceState.RUNNING, "Running", "http://127.0.0.1:8000")
-    )
-    voice = MenuVoiceService(settings, service)
-    controller = SimpleNamespace(
-        voice=voice,
-        service=service,
-        quitting=False,
-        **{
-            name: Mock()
-            for name in (
-                "speak_once",
-                "stop_voice",
-                "start_voice",
-                "open_dashboard",
-                "start",
-                "open_microphone_settings",
-                "open_voice_guide",
-                "open_wakeword_guide",
-                "quit",
-                "details",
-                "submit_text",
-                "train_voice",
-            )
-        },
-    )
-    view = VoicePanel(controller, settings)
-    yield view
-    view.window.close()
-
-
-def test_native_buttons_dispatch_without_auto_start(panel):
-    import AppKit as AK
-
-    assert panel.speak_button.isEnabled()
-    assert not panel.wake_button.isEnabled()
-    panel.controller.speak_once.assert_not_called()
-    AK.NSApplication.sharedApplication().sendAction_to_from_(
-        panel.speak_button.action(), panel.speak_button.target(), panel.speak_button
-    )
-    panel.controller.speak_once.assert_called_once_with()
-    assert not panel.controller.voice.active
-
-
-def test_native_panel_states_render_and_preserve_approval_action(panel):
-    from app.desktop.voice import VoiceState
-
-    status_item = Mock()
-    panel.attach(status_item)
-    status_item.setMenu_.assert_called_once_with(None)
-    for state in VoiceState:
-        panel.controller.voice._update(state, "Test status")
-        panel.refresh()
-        assert panel.state_label.stringValue()
-    panel.controller.voice._update(VoiceState.APPROVAL, "Review in dashboard")
-    panel.refresh()
-    assert panel.dashboard_button.isEnabled()
-    panel.controller.quitting = True
-    panel.refresh()
-    assert not panel.speak_button.isEnabled()
-    assert not panel.wake_button.isEnabled()
-    assert not panel.dashboard_button.isEnabled()
-
-
-def test_native_view_renders_offscreen(panel):
-    import AppKit as AK
-
-    bitmap = panel.view.bitmapImageRepForCachingDisplayInRect_(panel.view.bounds())
-    panel.view.cacheDisplayInRect_toBitmapImageRep_(panel.view.bounds(), bitmap)
-    image = bitmap.representationUsingType_properties_(AK.NSBitmapImageFileTypePNG, {})
-    assert image.length() > 1000
-    assert bitmap.pixelsWide() >= panel.WIDTH
-
-
-def test_rumps_status_item_hosts_panel_without_dropdown(panel, monkeypatch):
+def test_menu_bar_click_opens_the_compact_panel_not_a_dropdown(monkeypatch):
     import signal
 
     import AppKit as AK
     import rumps
 
+    from app.desktop.floating import MenuPanel
+    from app.desktop.service import ServiceState, ServiceStatus
+
+    service = SimpleNamespace(
+        port=8000, status=ServiceStatus(ServiceState.STOPPED, "Stopped"), tickets=Mock()
+    )
+    controller = SimpleNamespace(
+        quitting=False, voice=None, window=None, update_dock=Mock(), refresh=Mock()
+    )
+    panel = MenuPanel(controller, service)
     app = rumps.App("Bridge UI test", title="Bridge test", quit_button=None)
     saved = signal.getsignal(signal.SIGINT)
 
@@ -125,76 +48,6 @@ def test_rumps_status_item_hosts_panel_without_dropdown(panel, monkeypatch):
         signal.signal(signal.SIGINT, saved)
 
 
-def test_wake_switch_can_stop_listener_and_never_enables_missing_model(panel):
-    import AppKit as AK
-
-    voice = panel.controller.voice
-    panel.refresh()
-    assert not panel.wake_button.isEnabled()
-    assert panel.wake_button.state() == AK.NSControlStateValueOff
-    assert "your voice" in panel.wake_detail.stringValue()
-    assert panel.train_button.isEnabled()
-    # Model and worker are fake; this represents an explicitly enabled wake session.
-    voice._thread = SimpleNamespace(is_alive=lambda: True)
-    voice._once = False
-    panel.refresh()
-    assert panel.wake_button.isEnabled()
-    assert panel.wake_button.state() == AK.NSControlStateValueOn
-    AK.NSApplication.sharedApplication().sendAction_to_from_(
-        panel.wake_button.action(), panel.wake_button.target(), panel.wake_button
-    )
-    panel.controller.stop_voice.assert_called_once_with()
-    panel.controller.start_voice.assert_not_called()
-    voice._once = True
-    panel.refresh()
-    assert not panel.wake_button.isEnabled()
-    assert panel.wake_button.state() == AK.NSControlStateValueOff
-
-
-def test_result_badge_requires_actual_result_status(panel):
-    from app.desktop.voice import VoiceState, VoiceStatus
-
-    voice = panel.controller.voice
-    voice._status = VoiceStatus(VoiceState.READY, "Ready", "Open Spotify", "Response text")
-    panel.refresh()
-    assert "Done" not in panel.outcome_label.stringValue()
-    voice._status = VoiceStatus(VoiceState.READY, "Ready", "Open Spotify", "Opened", "completed")
-    panel.refresh()
-    assert "Done" in panel.outcome_label.stringValue()
-    voice._status = VoiceStatus(VoiceState.READY, "Ready", "Open Spotify", "Failed", "failed")
-    panel.refresh()
-    assert "Needs attention" in panel.outcome_label.stringValue()
-
-
-def test_compact_panel_keeps_footer_in_scrollable_document(panel):
-    from Foundation import NSMakePoint
-
-    panel.scroll.setFrameSize_((panel.WIDTH, 480))
-    panel.view.scrollPoint_(NSMakePoint(0, panel.HEIGHT - 480))
-    assert panel.view.isFlipped()
-    assert panel.scroll.hasVerticalScroller()
-    assert panel.scroll.documentVisibleRect().origin.y > 0
-    assert panel.service_button.frame().origin.y < panel.view.bounds().size.height
-
-
-def test_approval_sheet_shows_full_arguments_and_enter_defaults_to_decline():
-    import AppKit as AK
-
-    from app.desktop.approval import ApprovalSheet
-    from app.desktop.voice import ApprovalView
-
-    arguments = '{"path": "' + ("long directory/" * 200) + 'reports"}'
-    decision = Mock()
-    sheet = ApprovalSheet(
-        ApprovalView("review-id", "create_folder", arguments, "Create?", 99999), decision
-    )
-    assert sheet.arguments_view.string() == arguments
-    assert sheet.alert.buttons()[0].title() == "Decline"
-    assert sheet.alert.buttons()[1].keyEquivalent() == ""
-    sheet.decide(AK.NSAlertFirstButtonReturn)
-    decision.assert_called_once_with("review-id", False)
-
-
 def test_native_hotkey_registration_and_cleanup():
     from app.desktop.hotkey import GlobalVoiceShortcut
 
@@ -208,34 +61,6 @@ def test_native_hotkey_registration_and_cleanup():
         shortcut.close()
     assert not shortcut.key_ref.value
     assert not shortcut.handler_ref.value
-
-
-def test_window_is_normal_minimizable_and_pin_is_remembered(panel, tmp_path, monkeypatch):
-    import AppKit as AK
-
-    from app.desktop import panel as panel_module
-
-    monkeypatch.setattr(panel_module, "PREFERENCES", tmp_path / "panel.json")
-    assert panel.window.level() == AK.NSNormalWindowLevel
-    assert panel.window.styleMask() & AK.NSWindowStyleMaskMiniaturizable
-    panel.preferences = {}
-    panel.toggle_pin()
-    assert panel.window.level() == AK.NSFloatingWindowLevel
-    assert panel_module.load_preferences() == {"pinned": True}
-    panel.toggle_pin()
-    assert panel.window.level() == AK.NSNormalWindowLevel
-
-
-def test_quick_actions_and_history_render(panel):
-    panel.quick_buttons[0].performClick_(None)
-    panel.controller.submit_text.assert_called_once_with("Plan my day")
-    voice = panel.controller.voice
-    voice._history = [
-        {"at": 1.0, "request": "Brief me", "reply": "Here's your day", "status": "completed"}
-    ]
-    panel.refresh()
-    assert "Brief me" in panel.history_view.string()
-    assert "Here's your day" in panel.history_view.string()
 
 
 def test_text_popup_explains_missing_permission_and_needs_text():

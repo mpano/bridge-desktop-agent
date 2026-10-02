@@ -8,6 +8,7 @@ Google and Slack allow sign-in. AppKit, main thread only.
 
 from __future__ import annotations
 
+import json
 import time
 from urllib.parse import urlsplit
 
@@ -117,6 +118,13 @@ class BridgeWindow:
 
         config = WK.WKWebViewConfiguration.alloc().init()
         config.setWebsiteDataStore_(WK.WKWebsiteDataStore.defaultDataStore())
+        # Settings asks the app for microphone things (the "Hey Bridge" switch, training).
+        from app.desktop.floating import PageMessages
+
+        self.messages = PageMessages.alloc().init()
+        self.messages.owner = self
+        config.userContentController().addScriptMessageHandler_name_(self.messages, "bridge")
+        self._voice_sent = None
         self.web = WK.WKWebView.alloc().initWithFrame_configuration_(
             self.window.contentView().bounds(), config
         )
@@ -167,6 +175,32 @@ class BridgeWindow:
 
     def closed(self) -> None:
         self.controller.update_dock(closing=self)
+
+    def on_message(self, message: dict) -> None:
+        """A fixed list of actions from the page; anything else is ignored."""
+        action = message.get("action")
+        if action == "wake_on":
+            self.controller.start_voice()
+        elif action == "wake_off":
+            self.controller.stop_voice()
+        elif action == "train_wake":
+            self.controller.train_voice()
+        self._voice_sent = None  # Send the new state on the next refresh.
+
+    def push_voice(self, voice) -> None:
+        """Called by the menu bar's refresh: tell the page about the microphone."""
+        if not self.loaded or voice is None:
+            return
+        status = voice.status
+        state = (status.state.value, status.message, voice.wake_enabled, voice.wake_model_ready)
+        if state != self._voice_sent:
+            self._voice_sent = state
+            payload = json.dumps(
+                {"state": state[0], "message": state[1], "listening": state[2], "ready": state[3]}
+            )
+            self.web.evaluateJavaScript_completionHandler_(
+                f"window.BridgeNative && window.BridgeNative.voice({payload})", None
+            )
 
     def alert(self, message: str, buttons=("OK",)) -> int:
         alert = AK.NSAlert.alloc().init()

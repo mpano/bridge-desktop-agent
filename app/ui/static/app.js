@@ -1204,6 +1204,18 @@
     }
   });
 
+  // The Mac app tells the page about the microphone ("Hey Bridge"); Settings shows it.
+  window.BridgeNative = {
+    state: null,
+    voice(status) {
+      this.state = status;
+      document.dispatchEvent(new CustomEvent("bridge-voice", {detail: status}));
+    },
+    send(message) {
+      try { window.webkit.messageHandlers.bridge.postMessage(message); } catch { /* in a browser */ }
+    },
+  };
+
   // What other screens (today.js) may use. Same page, same session; nothing new is exposed.
   window.BridgeUI = {
     request, view, notify, ask, decideToken,

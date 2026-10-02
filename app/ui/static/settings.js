@@ -124,7 +124,36 @@
       row("Tidy up dictation", "Removes “um”s and applies spoken corrections. Sends the text, never audio, to OpenAI.",
         toggle("Tidy up dictation", v.dictation_cleanup, (on) => save({dictation_cleanup: on}))),
       row("Stop dictating after a pause of", "", pause),
+      wakeRow(),
+      trainRow(),
     );
+  }
+
+  // "Hey Bridge" lives in the app (the microphone), which tells the page its state.
+  function wakeRow() {
+    const voice = window.BridgeNative && window.BridgeNative.state;
+    if (!voice) return row("Listen for “Hey Bridge”", "Available in the Bridge app on your Mac.", null);
+    const hint = !voice.ready ? "Train it with your voice first (below)."
+      : voice.listening ? "On: Bridge listens for its name on this Mac. Audio is never sent anywhere to listen."
+      : "Off. Use the shortcut or the panel's mic instead.";
+    const control = toggle("Listen for Hey Bridge", voice.listening, (on) => window.BridgeNative.send({action: on ? "wake_on" : "wake_off"}));
+    control.disabled = !voice.ready && !voice.listening;
+    return row("Listen for “Hey Bridge”", hint, control);
+  }
+
+  function trainRow() {
+    const voice = window.BridgeNative && window.BridgeNative.state;
+    if (!voice) return row("Your voice for “Hey Bridge”", "Available in the Bridge app on your Mac.", null);
+    // Training speaks through the voice status: "Say “Hey Bridge”…", "Learning your voice… 40%".
+    const training = ["recording", "processing", "starting"].includes(voice.state) && !voice.listening
+      && /hey bridge|say|quiet|learning your voice|louder|last one/i.test(voice.message || "");
+    const hint = training ? voice.message : voice.ready ? "Trained on your voice. Retrain if it misses you or wakes by mistake."
+      : "Record yourself saying “Hey Bridge” a few times so it recognises you.";
+    const button = node("button", voice.ready ? "Retrain" : "Train with my voice", "secondary small");
+    button.type = "button";
+    button.disabled = training;
+    button.addEventListener("click", () => window.BridgeNative.send({action: "train_wake"}));
+    return row("Your voice for “Hey Bridge”", hint, button);
   }
 
   function renderPrivacy() {
@@ -226,5 +255,6 @@
     }
   });
 
+  document.addEventListener("bridge-voice", () => { if (data && section === "voice") renderVoice(); });
   window.BridgeSettings = {show, refresh, current: () => section};
 })();
