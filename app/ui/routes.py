@@ -37,6 +37,30 @@ def install_ui(app: FastAPI) -> None:
     async def onboarding_script():
         return FileResponse(STATIC / "onboarding.js", media_type="text/javascript")
 
+    @app.get("/ui/mini.js", include_in_schema=False)
+    async def mini_js():
+        return FileResponse(STATIC / "mini.js", media_type="text/javascript")
+
+    @app.get("/ui/panel.js", include_in_schema=False)
+    async def panel_js():
+        return FileResponse(STATIC / "panel.js", media_type="text/javascript")
+
+    @app.get("/ui/command.js", include_in_schema=False)
+    async def command_js():
+        return FileResponse(STATIC / "command.js", media_type="text/javascript")
+
+    @app.get("/ui/mini.css", include_in_schema=False)
+    async def mini_css():
+        return FileResponse(STATIC / "mini.css", media_type="text/css")
+
+    @app.get("/ui/panel.html", include_in_schema=False)
+    async def panel_html():
+        return FileResponse(STATIC / "panel.html", media_type="text/html")
+
+    @app.get("/ui/command.html", include_in_schema=False)
+    async def command_html():
+        return FileResponse(STATIC / "command.html", media_type="text/html")
+
     @app.get("/ui/style.css", include_in_schema=False)
     async def stylesheet():
         return FileResponse(STATIC / "style.css", media_type="text/css")

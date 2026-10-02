@@ -62,6 +62,15 @@ class LocalService:
                 return
             self._status = ServiceStatus(state, message, url)
 
+    def approval_waiting(self, token: str) -> bool:
+        agent = getattr(getattr(self.app, "state", None), "agent", None)
+        if agent is None:
+            return True  # Can't tell yet; keep it.
+        try:
+            return any(item == token for item, _ in agent.confirmations.waiting())
+        except Exception:
+            return True
+
     def pending_approvals(self) -> int:
         """Actions waiting for the user's OK, read in-process (no HTTP round trip)."""
         agent = getattr(getattr(self.app, "state", None), "agent", None)

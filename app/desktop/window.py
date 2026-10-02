@@ -140,7 +140,7 @@ class BridgeWindow:
         self.loaded, self.loaded_at = True, time.monotonic()
         return True
 
-    def show(self) -> None:
+    def show(self, view: str | None = None) -> None:
         if self.controller.quitting:
             return
         stale = time.monotonic() - self.loaded_at > FRESH_SECONDS
@@ -151,6 +151,11 @@ class BridgeWindow:
         self.window.makeKeyAndOrderFront_(None)
         self.controller.update_dock()
         AK.NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+        if view and self.loaded:
+            # A screen named by the panel or command bar ("today", "chat", "inbox", …).
+            self.web.evaluateJavaScript_completionHandler_(
+                f"window.BridgeUI && window.BridgeUI.view({view!r})", None
+            )
 
     def retry(self) -> None:
         """Called by the menu bar's refresh: load once the service is up."""

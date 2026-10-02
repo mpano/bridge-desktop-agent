@@ -10,14 +10,16 @@ VOID = {"meta", "link", "img", "input", "br", "hr", "source", "path", "rect", "c
 
 
 def test_every_element_the_scripts_use_exists():
-    page = (STATIC / "index.html").read_text()
-    ids = set(re.findall(r'id="([^"]+)"', page))
-    for script in STATIC.glob("*.js"):
-        wanted = set(re.findall(r'\$\("([a-z0-9-]+)"\)', script.read_text()))
-        assert not wanted - ids, f"{script.name} uses missing elements: {sorted(wanted - ids)}"
+    for page_file in STATIC.glob("*.html"):
+        page = page_file.read_text()
+        ids = set(re.findall(r'id="([^"]+)"', page))
+        for name in re.findall(r'<script src="/ui/([a-z]+\.js)"', page):
+            wanted = set(re.findall(r'\$\("([a-z0-9-]+)"\)', (STATIC / name).read_text()))
+            missing = sorted(wanted - ids)
+            assert not missing, f"{name} on {page_file.name} uses missing elements: {missing}"
 
 
-def test_page_tags_are_balanced():
+def test_pages_tags_are_balanced():
     class Check(HTMLParser):
         def __init__(self):
             super().__init__()
@@ -35,6 +37,7 @@ def test_page_tags_are_balanced():
             else:
                 self.stack.pop()
 
-    check = Check()
-    check.feed((STATIC / "index.html").read_text())
-    assert check.problems == [] and check.stack == []
+    for page_file in STATIC.glob("*.html"):
+        check = Check()
+        check.feed(page_file.read_text())
+        assert check.problems == [] and check.stack == [], page_file.name

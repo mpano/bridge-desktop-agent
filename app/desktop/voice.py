@@ -168,6 +168,11 @@ class MenuVoiceService:
     def pending_review(self) -> ApprovalView | None:
         with self._guard:
             if self._approval is not None and self._approval.view.expires_at > time.monotonic():
+                # Approved or declined elsewhere (the panel, Today, Ask): let it go.
+                waiting = getattr(self.local_service, "approval_waiting", None)
+                if waiting is not None and not waiting(self._approval.token):
+                    self._approval = None
+                    return None
                 return self._approval.view
             return None
 

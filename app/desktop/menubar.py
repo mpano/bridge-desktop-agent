@@ -45,6 +45,8 @@ class MenuBarController:
         self.text_shortcut = None
         self.text_popup = None
         self.dictation = None
+        self.command_bar = None
+        self.command_shortcut = None
         self.dictation_shortcut = None
         self.shortcut_status = "Shortcut off"
         icon = Path(__file__).with_name("assets") / "bridge-menubar.png"
@@ -238,7 +240,11 @@ class MenuBarController:
         """A Dock icon while any Bridge window is open or minimized; menu bar only otherwise."""
         if self.panel is None:
             return
-        surfaces = [item for item in (self.panel, self.window) if item is not None]
+        surfaces = [
+            item
+            for item in (self.panel, self.window)
+            if item is not None and getattr(item, "counts_for_dock", True)
+        ]
         visible = any(
             item is not closing and (item.window.isVisible() or item.window.isMiniaturized())
             for item in surfaces
@@ -256,7 +262,12 @@ class MenuBarController:
 
     def quit(self, _=None) -> None:
         self.quitting = True
-        for shortcut in (self.shortcut, self.text_shortcut, self.dictation_shortcut):
+        for shortcut in (
+            self.shortcut,
+            self.text_shortcut,
+            self.dictation_shortcut,
+            self.command_shortcut,
+        ):
             if shortcut is not None:
                 shortcut.close()
         if self.dictation is not None:
@@ -328,6 +339,8 @@ class MenuBarController:
         self._refresh_status_icon()
         if self.window is not None and status.state == ServiceState.RUNNING:
             self.window.retry()
+        if self.command_bar is not None and status.state == ServiceState.RUNNING:
+            self.command_bar.preload()
 
         if self.login is not None:
             self.login_item.state = int(self.login.enabled)
@@ -482,10 +495,12 @@ def run_menubar(settings: Settings) -> None:
         NSApplication.sharedApplication().setActivationPolicy_(
             NSApplicationActivationPolicyAccessory
         )
-        from app.desktop.panel import VoicePanel, install_main_menu
+        from app.desktop.floating import CommandBar, MenuPanel
+        from app.desktop.panel import install_main_menu
         from app.desktop.window import BridgeWindow
 
-        controller.panel = VoicePanel(controller, settings)
+        controller.panel = MenuPanel(controller, local_service)
+        controller.command_bar = CommandBar(controller, local_service)
         controller.window = BridgeWindow(controller, local_service)
         install_main_menu(controller.panel.actions)
 
@@ -529,6 +544,18 @@ def run_menubar(settings: Settings) -> None:
                 fallback="shortcut in use",
             )
             controller.text_shortcut.start()
+        if settings.command_bar_shortcut_enabled:
+            from app.desktop.hotkey import OPTION, GlobalVoiceShortcut
+
+            controller.command_shortcut = GlobalVoiceShortcut(
+                controller.command_bar.toggle,
+                modifiers=OPTION,
+                identifier=4,
+                label="⌥Space",
+                purpose="to ask Bridge",
+                fallback="shortcut in use",
+            )
+            controller.command_shortcut.start()
         if settings.dictation_shortcut_enabled:
             from app.desktop.dictation import Dictation, DictationHud
             from app.desktop.hotkey import CONTROL, KEY_D, OPTION, GlobalVoiceShortcut
@@ -551,10 +578,10 @@ def run_menubar(settings: Settings) -> None:
         def after_launch():
             # AppKit installs its own Apple event handlers while finishing launch; ours go after.
             controller.panel.actions.listenForReopen()
-            # A menu-bar app has no window, so a deliberate launch shows the panel right away.
-            # The icon may also be hidden behind the notch on a crowded menu bar.
+            # A deliberate launch opens the Bridge window (it says "Starting…" until the
+            # service is up). The menu bar icon may be hidden behind the notch.
             if os.environ.get("BRIDGE_LAUNCHED_AT_LOGIN") != "1":
-                controller.panel.show()
+                controller.open_dashboard()
 
         NSOperationQueue.mainQueue().addOperationWithBlock_(after_launch)
 

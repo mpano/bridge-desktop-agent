@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <title>Ask Bridge</title>
+  <link rel="stylesheet" href="/ui/style.css">
+  <link rel="stylesheet" href="/ui/mini.css">
+  <script src="/ui/mini.js" defer></script>
+  <script src="/ui/command.js" defer></script>
+</head>
+<body class="mini">
+  <main id="c-card" class="cmd">
+    <div class="cmd-row">
+      <img src="/ui/bridge-mark.png" width="24" height="24" alt="">
+      <label for="c-input" class="sr-only">Ask Bridge</label>
+      <input id="c-input" autocomplete="off" maxlength="10000" placeholder="Ask Bridge, or pick an action…">
+      <span id="c-chip" class="screen-chip" hidden></span>
+    </div>
+    <ul id="c-list" class="cmd-list" role="listbox" aria-label="Suggestions"></ul>
+    <div id="c-reply" class="mini-reply cmd-reply" hidden></div>
+    <footer class="cmd-foot"><span><kbd>↵</kbd> run</span><span><kbd>⌘↵</kbd> open in Bridge</span><span class="grow"></span><span><kbd>esc</kbd> close</span></footer>
+  </main>
+</body>
+</html>

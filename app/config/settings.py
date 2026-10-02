@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     # ⌃⌥D: dictate into any app. Cleanup sends the transcript (never audio) to OpenAI;
     # turn it off to type exactly what speech-to-text heard.
     dictation_shortcut_enabled: bool = True
+    # ⌥Space: the command bar, to ask Bridge from any app.
+    command_bar_shortcut_enabled: bool = True
     dictation_cleanup: bool = True
     dictation_max_seconds: float = Field(default=120, ge=10, le=300)
     dictation_pause_seconds: float = Field(default=2.5, ge=1, le=10)

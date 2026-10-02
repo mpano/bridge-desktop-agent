@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <title>Bridge</title>
+  <link rel="stylesheet" href="/ui/style.css">
+  <link rel="stylesheet" href="/ui/mini.css">
+  <script src="/ui/mini.js" defer></script>
+  <script src="/ui/panel.js" defer></script>
+</head>
+<body class="mini">
+  <main class="mini-panel">
+    <header class="mini-head">
+      <img src="/ui/bridge-mark.png" width="22" height="22" alt="">
+      <strong>Bridge</strong>
+      <span id="p-status" class="faint grow"></span>
+      <button type="button" id="p-open" class="ghost icon-btn" aria-label="Open the Bridge window"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3h10a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM2 6h12"/></svg></button>
+    </header>
+    <form id="p-ask" class="mini-ask">
+      <label for="p-input" class="sr-only">Ask Bridge</label>
+      <input id="p-input" autocomplete="off" maxlength="10000" placeholder="Ask Bridge…">
+      <button type="button" id="p-mic" class="primary icon-btn" aria-label="Speak"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8a2 2 0 0 1 2 2v3.5a2 2 0 0 1-4 0V3.8a2 2 0 0 1 2-2zM3.5 8a4.5 4.5 0 0 0 9 0M8 12.5v1.8"/></svg></button>
+    </form>
+    <div id="p-listen" class="mini-listen" hidden>
+      <span class="wave" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></span>
+      <span id="p-listen-text" class="grow">Listening…</span>
+      <button type="button" id="p-stop" class="on-accent small">Done</button>
+    </div>
+    <div id="p-now"></div>
+    <div id="p-reply" class="mini-reply" hidden></div>
+    <div class="mini-quick">
+      <button type="button" data-ask="Plan my day">Plan my day</button>
+      <button type="button" data-ask="What needs my attention?">What needs me?</button>
+      <button type="button" data-ask="Summarize this">Summarize this</button>
+      <button type="button" id="p-focus">Focus 90 min</button>
+    </div>
+    <footer class="mini-foot"><span class="grow">Ask from anywhere</span><kbd>⌥Space</kbd></footer>
+  </main>
+</body>
+</html>

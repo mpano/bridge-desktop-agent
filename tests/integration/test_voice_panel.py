@@ -290,3 +290,30 @@ def test_text_popup_acts_on_the_whole_window_when_nothing_is_selected():
     popup.close()
     popup.fill_window({"text": "late"})  # A read that finishes after closing is ignored.
     assert popup.input.string() == ""
+
+
+def test_floating_panel_and_command_bar_follow_their_page():
+    import AppKit as AK
+
+    from app.desktop.floating import CommandBar, MenuPanel
+    from app.desktop.service import ServiceState, ServiceStatus
+
+    AK.NSApplication.sharedApplication()
+    service = SimpleNamespace(
+        port=8000, status=ServiceStatus(ServiceState.STOPPED, "Stopped"), tickets=Mock()
+    )
+    controller = SimpleNamespace(
+        quitting=False, voice=None, window=None, update_dock=Mock(), open_dashboard=Mock()
+    )
+    panel = MenuPanel(controller, service)
+    assert not panel.load() and not panel.loaded  # Waits for the service.
+    panel.on_message({"action": "open", "view": "today"})
+    controller.open_dashboard.assert_called_once()
+    bar = CommandBar(controller, service)
+    bar.on_message({"action": "size", "height": 300})
+    assert bar.window.frame().size.height == 300
+    bar.on_message({"action": "size", "height": 99999})
+    assert bar.window.frame().size.height == 560  # Never taller than the screen allows.
+    bar.on_message({"action": "unknown"})  # Ignored.
+    panel.dock_off()
+    controller.update_dock.assert_called_with(closing=panel)
