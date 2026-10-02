@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import threading
 from enum import StrEnum
 
@@ -19,12 +20,14 @@ from Foundation import NSMakePoint, NSMakeRect, NSObject
 from PyObjCTools import AppHelper
 
 from app.desktop.panel_style import AMBER, GREEN, TEXT, color, rounded
-from app.desktop.selection import copy_text, paste_text
+from app.desktop.selection import accessibility_allowed, copy_text, paste_text
 from app.desktop.service import ServiceState
 from app.voice.cue import play_native_sound
 from app.voice.endpointing import EndpointingRecorder, NoSpeechDetected
 from app.voice.errors import VoiceError
 from app.voice.stt import build_stt
+
+log = logging.getLogger(__name__)
 
 
 class DictationState(StrEnum):
@@ -57,6 +60,7 @@ class Dictation:
         front=front_app,
         paste=paste_text,
         copy=copy_text,
+        can_type=accessibility_allowed,
         call=AppHelper.callAfter,
         cue=play_native_sound,
         clean=None,
@@ -65,6 +69,7 @@ class Dictation:
         self._stt = stt
         self.recorder_factory = recorder_factory or self._recorder
         self.front, self.paste, self.copy, self.call, self.cue = front, paste, copy, call, cue
+        self.can_type = can_type
         self.clean = clean or self._clean
         self.state = DictationState.IDLE
         self.finish, self.cancel = threading.Event(), threading.Event()
@@ -153,7 +158,14 @@ class Dictation:
         finally:
             with contextlib.suppress(OSError):
                 path.unlink()
+        heard = getattr(recorder, "last", {}) or {}
+        log.info("Dictation transcript: %d characters", len(text))  # Never the words.
         if not text:
+            if heard.get("voiced", 0) >= 0.5:
+                raise NoSpeechDetected(
+                    "I heard you but couldn't make out the words. "
+                    "Try again, a little closer to the mic."
+                )
             raise NoSpeechDetected("I didn't hear anything.")
         return text
 
@@ -177,7 +189,13 @@ class Dictation:
 
     def _deliver(self, text: str) -> None:
         name = self.target.get("name") or "the app"
-        if self.front().get("pid") == self.target.get("pid"):
+        if not self.can_type():
+            # macOS drops the ⌘V Bridge would send; never claim it typed. Keep the words.
+            self.copy(text)
+            self._hud("error", "Copied — allow Bridge in Accessibility so it can type for you.")
+            with contextlib.suppress(Exception):
+                self.can_type(prompt=True)
+        elif self.front().get("pid") == self.target.get("pid"):
             self.paste(text)
             self._hud("done", f"✓ Typed into {name}")
         else:

@@ -90,8 +90,14 @@ class VoiceService:
             return {"status": "cancelled", "message": "Voice service stopped."}
         transcript = transcript.strip()
         if not transcript:
-            self._emit("ready", "I did not hear a command. Try speaking again.", "")
-            return {"status": "empty", "transcript": "", "message": "I did not hear a command."}
+            heard = getattr(self.recorder, "last", {}) or {}
+            message = (
+                "I heard you but couldn't make out the words. Try again, a little closer."
+                if heard.get("voiced", 0) >= 0.5
+                else "I did not hear a command. Try speaking again."
+            )
+            self._emit("ready", message, "")
+            return {"status": "empty", "transcript": "", "message": message}
         if len(transcript) > 10000:
             raise VoiceError("Voice transcript exceeds the command length limit.")
         self._emit("processing", "Working on your command…", transcript)

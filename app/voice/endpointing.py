@@ -2,21 +2,31 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from app.voice.audio import MicrophoneRecorder
 from app.voice.errors import VoiceError
+
+log = logging.getLogger(__name__)
 
 
 class NoSpeechDetected(VoiceError):
     """No sustained audio activity; do not send silence to a transcription provider."""
 
 
+CALIBRATION_SECONDS = 0.3
+QUIETEST_SPEECH, LOUDEST_THRESHOLD = 0.004, 0.05
+
+
 @dataclass
 class SilenceEndpoint:
+    """Decides when a recording ends. The first 0.3 s measure the room (and the mic's
+    level), so speech counts as speech on a quiet mic and noise doesn't on a loud one."""
+
     silence_seconds: float = 1.0
     wait_seconds: float = 5.0
     threshold: float = 0.012
@@ -24,13 +34,30 @@ class SilenceEndpoint:
     voiced: float = 0.0
     quiet: float = 0.0
     heard_speech: bool = False
+    peak: float = 0.0
+    noise: float | None = None
+    total_voiced: float = 0.0
+    adapt: bool = True
+    _samples: list = field(default_factory=list)
+
+    def _calibrate(self, rms: float) -> None:
+        self._samples.append(rms)
+        if self.elapsed >= CALIBRATION_SECONDS:
+            # The quieter end of the window, in case you started talking straight away.
+            ordered = sorted(self._samples)
+            self.noise = ordered[len(ordered) // 5]
+            self.threshold = min(max(self.noise * 3.0, QUIETEST_SPEECH), LOUDEST_THRESHOLD)
 
     def feed(self, rms: float, seconds: float) -> bool:
         """True ends the clip. Short clicks do not count as a spoken command."""
         if not math.isfinite(rms) or not math.isfinite(seconds) or seconds <= 0:
             raise ValueError("Invalid audio activity sample.")
         self.elapsed += seconds
+        self.peak = max(self.peak, rms)
+        if self.adapt and self.noise is None:
+            self._calibrate(rms)
         if rms >= self.threshold:
+            self.total_voiced += seconds
             self.voiced += seconds
             self.quiet = 0
             if self.voiced >= 0.2:
@@ -63,6 +90,7 @@ class EndpointingRecorder(MicrophoneRecorder):
         self.silence_seconds = silence_seconds
         self.wait_seconds = wait_seconds
         self.threshold = threshold
+        self.last: dict = {}  # What the last recording looked like (levels, never audio).
 
     def cancel_recording(self) -> None:
         self.stop.set()
@@ -78,6 +106,7 @@ class EndpointingRecorder(MicrophoneRecorder):
         endpoint = SilenceEndpoint(self.silence_seconds, self.wait_seconds, self.threshold)
         chunks = []
         samples = 0
+        overflows = 0
         block = 320  # 20 ms at 16 kHz; all audio stays local until transcription.
         deadline = time.monotonic() + seconds
         try:
@@ -93,8 +122,7 @@ class EndpointingRecorder(MicrophoneRecorder):
                         self.stop.wait(0.01)
                         continue
                     data, overflowed = stream.read(block)
-                    if overflowed:
-                        raise VoiceError("Microphone audio was interrupted. Try recording again.")
+                    overflows += bool(overflowed)  # A busy Mac drops a little audio; keep going.
                     audio = np.asarray(data, dtype=np.int16).reshape(-1).copy()
                     chunks.append(audio)
                     samples += len(audio)
@@ -108,8 +136,22 @@ class EndpointingRecorder(MicrophoneRecorder):
             raise VoiceError(
                 "Microphone capture failed. Check Microphone permission and your input device."
             ) from exc
+        self.last = {
+            "seconds": round(samples / 16000, 2),
+            "noise": round(endpoint.noise or 0.0, 4),
+            "threshold": round(endpoint.threshold, 4),
+            "peak": round(endpoint.peak, 4),
+            "voiced": round(endpoint.total_voiced, 2),
+            "overflows": overflows,
+        }
+        log.info("Recording: %s", self.last)
         if self.stop.is_set():
             raise NoSpeechDetected("Recording stopped.")
+        if samples and endpoint.peak < 0.0005:
+            raise NoSpeechDetected(
+                "The microphone is silent. Check the input device in System Settings › Sound, "
+                "and that Bridge is allowed to use the Microphone."
+            )
         if not endpoint.heard_speech:
             raise NoSpeechDetected(
                 "I did not hear a command. Try speaking again after the start sound."

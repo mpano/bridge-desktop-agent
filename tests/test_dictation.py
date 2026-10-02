@@ -64,7 +64,15 @@ class Recorder:
         return path
 
 
-def make(tmp_path, *, heard=True, cleanup=True, apps=None, transcript="um hello there team"):
+def make(
+    tmp_path,
+    *,
+    heard=True,
+    cleanup=True,
+    apps=None,
+    transcript="um hello there team",
+    can_type=True,
+):
     from app.desktop.dictation import Dictation
 
     hud = Mock()
@@ -90,6 +98,7 @@ def make(tmp_path, *, heard=True, cleanup=True, apps=None, transcript="um hello 
         front=lambda: apps.pop(0) if len(apps) > 1 else apps[0],
         paste=Mock(),
         copy=Mock(),
+        can_type=lambda prompt=False: can_type,
         call=lambda fn, *args: fn(*args),
         clean=AsyncMock(return_value="Hello there, team."),
     )
@@ -159,3 +168,30 @@ def test_second_press_finishes_early(tmp_path):
     dictation.toggle()
     assert dictation.finish.is_set()
     assert hud.show.call_args.args == ("working", "Finishing…")
+
+
+@pytestmark_mac
+def test_without_accessibility_it_copies_and_says_so(tmp_path):
+    dictation, hud = make(tmp_path, can_type=False)
+    dictation.toggle()
+    wait_idle(dictation)
+    dictation.paste.assert_not_called()  # macOS would drop the keystroke anyway.
+    dictation.copy.assert_called_once_with("Hello there, team.")
+    look, message = hud.show.call_args.args
+    assert look == "error" and "Accessibility" in message and "Typed" not in message
+
+
+def test_silence_detection_adapts_to_a_quiet_microphone():
+    from app.voice.endpointing import SilenceEndpoint
+
+    quiet_room = SilenceEndpoint(silence_seconds=1.0, wait_seconds=5.0, threshold=0.012)
+    for _ in range(15):  # 0.3 s of a quiet room
+        quiet_room.feed(0.0008, 0.02)
+    assert quiet_room.threshold < 0.012
+    for _ in range(20):  # Soft speech that the old fixed level (0.012) would miss.
+        quiet_room.feed(0.006, 0.02)
+    assert quiet_room.heard_speech and quiet_room.peak == 0.006
+    noisy_room = SilenceEndpoint(threshold=0.012)
+    for _ in range(15):
+        noisy_room.feed(0.01, 0.02)
+    assert noisy_room.threshold > 0.012  # Background noise alone doesn't count as speech.
