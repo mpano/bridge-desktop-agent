@@ -12,6 +12,7 @@
   <script src="/ui/inbox.js" defer></script>
   <script src="/ui/automations.js" defer></script>
   <script src="/ui/settings.js" defer></script>
+  <script src="/ui/onboarding.js" defer></script>
 </head>
 <body>
   <aside class="sidebar">
@@ -229,6 +230,7 @@
               <h2>General</h2>
               <form id="preferences-form" class="card settings-card"><h2>Default applications</h2><p>Use an installed application's name. Changes apply to new requests.</p><label for="default-browser">Browser</label><input id="default-browser" required maxlength="150" placeholder="Google Chrome"><label for="default-editor">Project editor</label><input id="default-editor" required maxlength="150" placeholder="Visual Studio Code"><button type="submit" class="primary">Review changes</button></form>
               <p class="hint">Bridge follows your Mac's light or dark appearance.</p>
+              <div class="card group"><div class="set"><div class="set-words"><span class="set-name">Setup</span><span class="set-hint">Go through the first-launch steps again: model, permissions, apps, shortcuts.</span></div><button type="button" id="rerun-setup" class="secondary small">Run setup again</button></div></div>
             </section>
             <section class="settings-section" data-panel="shortcuts" aria-label="Shortcuts" hidden><h2>Shortcuts</h2><div id="settings-shortcuts" class="card group"></div><p class="hint">⌘K finds Ask inside this window. Shortcut changes apply after Bridge restarts.</p></section>
             <section class="settings-section" data-panel="voice" aria-label="Voice and dictation" hidden><h2>Voice &amp; dictation</h2><div id="settings-voice" class="card group"></div></section>
@@ -242,10 +244,13 @@
         <article class="card"><h2>Sign-in methods</h2><div id="sign-in-methods" class="method-list"></div><p class="hint">Keep at least one method. You can always get back in by choosing Open Dashboard from the Bridge menu bar.</p></article>
         <article class="card"><div class="activity-head"><h2>Where you're signed in</h2><button id="end-other-sessions" type="button" class="secondary">Sign out everywhere else</button></div><div id="session-list" class="method-list"></div></article>
       </section>
-            <section class="settings-section" data-panel="projects" aria-label="Projects" hidden><div class="section-top"><h2>Projects</h2><button type="button" id="refresh-projects" class="ghost small">Refresh</button></div><p class="lede">Save a folder once, then say “open the NLP project”.</p>
-          <form id="project-form" class="card"><h2>Save a project</h2><p class="hint">Using an existing name replaces its saved path after approval.</p><label for="project-name">Project name</label><input id="project-name" maxlength="80" required placeholder="NLP project"><label for="project-path">Folder path</label><input id="project-path" maxlength="4096" required placeholder="~/Projects/nlp-api-go"><button type="submit" class="primary">Review and save</button></form>
-        </div>
-      </section>
+            <section class="settings-section" data-panel="projects" aria-label="Projects" hidden>
+              <div class="section-top"><h2>Projects</h2><button type="button" id="refresh-projects" class="ghost small">Refresh</button></div>
+              <p class="lede">Save a folder once, then say “open the NLP project”.</p>
+              <div class="two-up"><div id="project-list" class="item-list"></div>
+              <form id="project-form" class="card"><h2>Save a project</h2><p class="hint">Using an existing name replaces its saved path after approval.</p><label for="project-name">Project name</label><input id="project-name" maxlength="80" required placeholder="NLP project"><label for="project-path">Folder path</label><input id="project-path" maxlength="4096" required placeholder="~/Projects/nlp-api-go"><button type="submit" class="primary">Review and save</button></form>
+              </div>
+            </section>
             <section class="settings-section" data-panel="about" aria-label="About and diagnostics" hidden><h2>About &amp; diagnostics</h2>
         <article class="card"><h2>Model and privacy</h2><div id="provider-details"></div><p class="hint">Configure LLM_PROVIDER and REMOTE_TOOL_RESULTS in .env, then restart Bridge. This panel is read-only. Tool approval and data sharing are separate controls.</p></article>
         <article class="card"><h2>Local diagnostics</h2><p id="diagnostics-summary" role="status">Connect to check local readiness.</p><div id="diagnostics-list" class="item-list"></div><button type="button" id="refresh-diagnostics" class="secondary">Refresh diagnostics</button><p class="hint">These checks do not launch applications or test macOS permissions by performing actions.</p></article>
@@ -265,6 +270,25 @@
           <div id="watch-list" class="method-list"></div>
           <form id="watch-form" class="watch-form"><label class="sr-only" for="watch-kind">Service</label><select id="watch-kind"><option value="email">Gmail</option><option value="slack">Slack</option></select><label class="sr-only" for="watch-query">Search</label><input id="watch-query" required maxlength="200" placeholder="from:olivier · subject:invoice · mentions"><button class="primary" type="submit">Watch</button></form>
           <p class="hint">Or just say “tell me when Olivier emails me” or “tell me when someone mentions me on Slack”. Notifications show the sender and subject on this Mac only.</p></article></div>
+          </div>
+        </div>
+      </section>
+      <section id="view-onboarding" class="view onboarding" hidden aria-labelledby="ob-title">
+        <div class="ob-layout">
+          <aside class="ob-rail">
+            <div class="brand"><img class="brand-mark" src="/ui/bridge-mark.png" alt="" width="26" height="26"><strong>Bridge</strong></div>
+            <ol id="ob-steps" class="ob-steps" aria-label="Setup steps"></ol>
+            <p class="hint">About three minutes. You can change everything later in Settings.</p>
+          </aside>
+          <div class="ob-main">
+            <button type="button" id="ob-skip" class="ghost small ob-skip">Skip setup</button>
+            <div class="ob-center"><div id="ob-body" class="ob-body" aria-live="polite"></div></div>
+            <footer class="ob-foot">
+              <button type="button" id="ob-back" class="ghost">Back</button>
+              <span class="grow"></span>
+              <button type="button" id="ob-later" class="ghost">Skip for now</button>
+              <button type="button" id="ob-next" class="primary">Continue</button>
+            </footer>
           </div>
         </div>
       </section>

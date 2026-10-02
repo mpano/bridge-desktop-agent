@@ -457,9 +457,11 @@ def run_menubar(settings: Settings) -> None:
     except (TypeError, AttributeError):
         pass
 
+    from app.llm.keychain import load_into
     from app.tools.macos.applescript import NativeRunner
     from app.tools.system.notifications import post_notification
 
+    load_into(settings)  # An OpenAI key saved in setup lives in the Keychain, not .env.
     local_service = LocalService(settings)
     voice_service = MenuVoiceService(settings, local_service)
     runner = NativeRunner()

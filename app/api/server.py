@@ -1,6 +1,7 @@
 import asyncio
 import inspect
 import secrets
+import time
 from contextlib import asynccontextmanager, suppress
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
@@ -11,6 +12,7 @@ from app.api.app_settings import install as install_app_settings
 from app.api.automations import install as install_automations
 from app.api.inbox import install as install_inbox
 from app.api.launch import LaunchTickets
+from app.api.onboarding import install as install_onboarding
 from app.api.schemas import (
     AgentResponse,
     ConfirmationRequest,
@@ -49,6 +51,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app):
         app.state.agent = agent or build_agent(settings)
+        app.state.usage = {}  # When each shortcut was last used, for onboarding.
         # Scheduled requests and proactive heads-ups run only while this service is up.
         loops = [
             asyncio.create_task(worker.run())
@@ -146,6 +149,7 @@ def create_app(
     install_inbox(app, authorize)
     install_automations(app, authorize)
     install_app_settings(app, authorize, settings)
+    install_onboarding(app, authorize, settings)
 
     @app.get("/health")
     async def health():
@@ -176,6 +180,8 @@ def create_app(
 
     @app.post("/api/v1/tasks", status_code=202, dependencies=[Depends(authorize)])
     async def submit_task(payload: MessageRequest, request: Request):
+        if request.headers.get("x-bridge-source") == "voice":
+            request.app.state.usage["talk"] = time.time()
         try:
             return request.app.state.agent.submit(payload.message)
         except ValueError as exc:
@@ -313,6 +319,7 @@ def create_app(
         from app.llm.models import LLMProviderError
 
         try:
+            request.app.state.usage["act"] = time.time()
             result = await run_text_action(request.app.state.agent.planner.llm, payload)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
@@ -327,6 +334,7 @@ def create_app(
     @app.post("/api/v1/text/dictation", dependencies=[Depends(authorize)])
     async def clean_up_dictation(payload: DictationRequest, request: Request):
         try:
+            request.app.state.usage["dictate"] = time.time()
             result = await clean_dictation(request.app.state.agent.planner.llm, payload)
         except Exception:
             result = payload.text.strip()  # Typing the raw words beats losing them.

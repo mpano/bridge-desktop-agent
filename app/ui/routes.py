@@ -33,6 +33,10 @@ def install_ui(app: FastAPI) -> None:
     async def settings_script():
         return FileResponse(STATIC / "settings.js", media_type="text/javascript")
 
+    @app.get("/ui/onboarding.js", include_in_schema=False)
+    async def onboarding_script():
+        return FileResponse(STATIC / "onboarding.js", media_type="text/javascript")
+
     @app.get("/ui/style.css", include_in_schema=False)
     async def stylesheet():
         return FileResponse(STATIC / "style.css", media_type="text/css")

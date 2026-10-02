@@ -68,6 +68,7 @@ class LocalAPIAgent:
         self.service = service
         self.token = token
         self.stop = stop or threading.Event()
+        self.source = "panel"
 
     async def message(self, text: str) -> dict:
         return await self._submit("/api/v1/tasks", {"message": text})
@@ -79,7 +80,7 @@ class LocalAPIAgent:
         status = self.service.status
         if status.state != ServiceState.RUNNING or not status.url:
             raise VoiceError("Bridge local service is not ready for voice commands.")
-        headers = {"Authorization": f"Bearer {self.token}"}
+        headers = {"Authorization": f"Bearer {self.token}", "X-Bridge-Source": self.source}
         async with httpx.AsyncClient(
             base_url=status.url,
             headers=headers,
@@ -480,6 +481,7 @@ class MenuVoiceService:
         agent = LocalAPIAgent(
             self.local_service, self.settings.api_token.get_secret_value(), self._stop
         )
+        agent.source = "voice"
         voice = VoiceService(
             agent, voice_settings, on_event=self._on_event, on_result=self._on_result
         )

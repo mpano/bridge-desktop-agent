@@ -69,6 +69,7 @@
   }
 
   function view(name, section) {
+    document.body.classList.toggle("onboarding-mode", name === "onboarding");
     if (name === "account") { name = "settings"; section = "account"; }
     if (name === "settings" && window.BridgeSettings) window.BridgeSettings.show(section || window.BridgeSettings.current());
     if (name === "memory" && signedIn) setTimeout(() => execute(refreshMemories, {refresh: false}));
@@ -866,7 +867,9 @@
     $("connection-status").classList.add("online");
     syncControls();
     await refreshAll();
-    view("today");
+    // First launch (or setup never finished): the guided setup; otherwise Today.
+    if (window.BridgeOnboarding) await window.BridgeOnboarding.startIfNeeded();
+    else view("today");
   }
 
   $("signup-form").addEventListener("submit", (event) => {

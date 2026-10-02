@@ -1257,3 +1257,47 @@ dialog.sheet p { margin: 0 0 16px; font-size: 14px; }
 .inline-add input { padding: 7px 11px; font-size: 13.5px; }
 .settings-section .card { box-shadow: none; }
 .settings-section #preferences-form h2 { display: none; }
+
+/* Onboarding ----------------------------------------------------------------------------------- */
+body.onboarding-mode .sidebar { display: none; }
+body.onboarding-mode main { max-width: none; padding: 0; }
+.onboarding:not([hidden]) { padding-top: 0; }
+.ob-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: 100vh; }
+.ob-rail { display: flex; flex-direction: column; gap: 26px; padding: 46px 18px 24px; background: var(--sidebar); border-right: 1px solid var(--line); }
+.ob-rail .hint { margin-top: auto; padding: 0 8px; font-size: 12.5px; }
+.ob-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.ob-step { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 10px; border-radius: 9px; font-size: 14px; color: var(--faint); }
+.ob-step .dot { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--line-strong); font: 500 11px ui-monospace, "SF Mono", Menlo, monospace; }
+.ob-step.done { color: var(--muted); }
+.ob-step.done .dot { background: var(--text); border-color: var(--text); color: var(--bg); }
+.ob-step.now { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 0 0 1px var(--line); }
+.ob-step.now .dot { border-color: var(--accent); color: var(--accent); }
+.ob-main { position: relative; display: flex; flex-direction: column; min-height: 100vh; }
+.ob-skip { position: absolute; top: 18px; right: 22px; }
+.ob-center { flex: 1; display: flex; align-items: center; justify-content: center; padding: 64px 56px 24px; }
+.ob-body { width: 100%; max-width: 580px; display: flex; flex-direction: column; gap: 22px; }
+.ob-hero { margin: 0; font-size: 54px; font-weight: 800; letter-spacing: -.045em; line-height: 1; }
+.ob-title { margin: 0; font-size: 38px; font-weight: 750; letter-spacing: -.035em; line-height: 1.05; }
+.ob-lede { margin: 0; font-size: 16.5px; line-height: 1.55; color: var(--muted); text-wrap: pretty; }
+.ob-points { display: flex; flex-direction: column; gap: 14px; }
+.ob-point { display: flex; gap: 14px; align-items: flex-start; }
+.ob-point p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--muted); }
+.ob-point strong { color: var(--text); font-weight: 600; }
+.ob-num { display: inline-grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font: 600 12px ui-monospace, "SF Mono", Menlo, monospace; }
+.ob-field { display: flex; flex-direction: column; gap: 8px; margin: 0; font-size: 13.5px; font-weight: 600; }
+.ob-field input { font: 15px ui-monospace, "SF Mono", Menlo, monospace; padding: 12px 14px; background: var(--surface); }
+.ob-row { display: flex; align-items: center; gap: 14px; }
+.ob-link { font-size: 13.5px; font-weight: 500; }
+.ob-note { margin: 0; font-size: 13.5px; color: var(--muted); }
+.ob-ok { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 15px; font-weight: 600; color: var(--green); }
+.tick { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--green-soft); color: var(--green); font-weight: 700; font-size: 12px; }
+.tick.big { width: 28px; height: 28px; font-size: 14px; }
+.ob-apps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ob-app { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; }
+.ob-try { display: flex; align-items: center; gap: 16px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.ob-try.tried { border-color: color-mix(in srgb, var(--green) 40%, var(--line)); }
+.ob-combo { min-width: 92px; padding: 8px 10px; border-radius: 9px; background: var(--text); color: var(--bg); text-align: center; font: 600 14px ui-monospace, "SF Mono", Menlo, monospace; }
+.ob-foot { display: flex; align-items: center; gap: 10px; padding: 18px 56px 28px; }
+.ob-foot .grow { flex: 1; }
+.ob-foot .primary { padding: 12px 22px; }
+.ob-body .chips button { padding: 8px 14px; font-size: 13.5px; }
