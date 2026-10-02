@@ -209,6 +209,14 @@
   document.querySelectorAll(".settings-nav [data-section]").forEach((button) => {
     button.addEventListener("click", () => show(button.dataset.section));
   });
+  $("test-notification").addEventListener("click", async () => {
+    try {
+      await ui().request("/api/v1/notifications/test", "POST");
+      ui().notify("Sent. If nothing appears, allow Bridge in System Settings › Notifications.");
+    } catch (error) {
+      ui().notify(error.message, true);
+    }
+  });
   $("restart-now").addEventListener("click", async () => {
     try {
       await ui().request("/api/v1/app/restart", "POST");

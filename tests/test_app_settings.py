@@ -115,3 +115,31 @@ def test_new_screens_are_served(app_settings):
     ):
         assert f'id="{element}"' in page  # Old features live on inside the new screens.
     assert client.get("/ui/settings.js").status_code == 200
+
+
+async def test_notifications_go_through_the_native_poster(monkeypatch):
+    from app.tools.system import notifications
+
+    posted = []
+    monkeypatch.setattr(
+        notifications, "native", lambda title, message, view: posted.append((title, message, view))
+    )
+    runner = AsyncMock()
+    await notifications.post_notification(runner, "Focus done ✓", "15 min.\n Nothing new.", "today")
+    assert posted == [("Focus done ✓", "15 min. Nothing new.", "today")]
+    runner.run.assert_not_awaited()  # No AppleScript when Bridge can post itself.
+
+    def broken(*args):
+        raise RuntimeError("not allowed")
+
+    monkeypatch.setattr(notifications, "native", broken)
+    await notifications.post_notification(runner, "Bridge", "Hi")
+    runner.run.assert_awaited_once()  # Falls back to the script notification.
+
+
+def test_test_notification_button(app_settings):
+    client, _ = app_settings
+    agent = client.app.state.agent
+    agent.scheduler.notify = AsyncMock()
+    assert client.post("/api/v1/notifications/test", headers=headers()).json() == {"sent": True}
+    assert agent.scheduler.notify.await_args.kwargs == {"view": "today"}

@@ -147,12 +147,15 @@ class Proactive:
             seen = set(watch.seen)
             fresh = [item for item in matches if item[0] not in seen]
             # The first check only records what's already there; no flood of old items.
+            place = "inbox" if watch.kind == "email" else "today"
             if watch.baseline_done:
                 for _key, title, detail in reversed(fresh[:3]):
-                    await self.notify(f"{title} · {watch.label}", detail)
+                    await self.notify(f"{title} · {watch.label}", detail, view=place)
                     sent += 1
                 if len(fresh) > 3:
-                    await self.notify(f"{watch.label}", f"{len(fresh) - 3} more new matches.")
+                    await self.notify(
+                        f"{watch.label}", f"{len(fresh) - 3} more new matches.", view=place
+                    )
             self.store.checked(watch.id, [*watch.seen, *(item[0] for item in reversed(fresh))])
         return sent
 
@@ -182,13 +185,14 @@ class Proactive:
             if found["messages"]:
                 self.store.set_followup(item.id, "replied")
                 subject = found["messages"][0]["subject"] or "(no subject)"
-                await self.notify(f"✓ {item.name} replied", subject)
+                await self.notify(f"✓ {item.name} replied", subject, view="inbox")
                 sent += 1
             elif item.status == "waiting" and now >= due:
                 self.store.set_followup(item.id, "overdue")
                 await self.notify(
                     f"No reply from {item.name} yet",
                     f"About: {item.about}. Ask Bridge to “draft a follow-up to {item.name}”.",
+                    view="inbox",
                 )
                 sent += 1
         return sent

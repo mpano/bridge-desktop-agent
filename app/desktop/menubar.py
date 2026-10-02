@@ -479,8 +479,8 @@ def run_menubar(settings: Settings) -> None:
     voice_service = MenuVoiceService(settings, local_service)
     runner = NativeRunner()
 
-    async def notify(title: str, message: str) -> None:
-        await post_notification(runner, title, message)
+    async def notify(title: str, message: str, view: str = "chat") -> None:
+        await post_notification(runner, title, message, view)
 
     voice_service.notifier = notify
     controller = MenuBarController(
@@ -502,6 +502,16 @@ def run_menubar(settings: Settings) -> None:
         controller.panel = MenuPanel(controller, local_service)
         controller.command_bar = CommandBar(controller, local_service)
         controller.window = BridgeWindow(controller, local_service)
+        # Notifications come from Bridge itself; clicking one opens the right screen.
+        try:
+            from app.desktop.notify import NativeNotifier
+            from app.tools.system import notifications as notification_tools
+
+            notifier = NativeNotifier(lambda view: controller.window.show(view))
+            notification_tools.native = notifier.post
+            controller.notifier = notifier
+        except Exception:
+            pass  # Script notifications still work.
         install_main_menu(controller.panel.actions)
 
         def should_terminate(delegate, sender):

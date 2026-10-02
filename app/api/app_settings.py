@@ -155,6 +155,13 @@ def install(app: FastAPI, authorize, settings) -> None:
         request.app.state.restart_needed = True
         return {"saved": sorted(changes), "restart_needed": True}
 
+    @app.post("/api/v1/notifications/test", dependencies=[Depends(authorize)])
+    async def test_notification(request: Request):
+        await request.app.state.agent.scheduler.notify(
+            "Bridge", "Notifications work. Click this to open Today.", view="today"
+        )
+        return {"sent": True}
+
     @app.post("/api/v1/app/restart", dependencies=[Depends(authorize)])
     async def restart():
         bundle = os.environ.get("BRIDGE_APP_BUNDLE", "")

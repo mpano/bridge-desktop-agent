@@ -69,4 +69,5 @@ class Scheduler:
             body = result.get("message") or "Done."
         else:
             body = "Didn't finish: " + (result.get("message") or "check the dashboard.")
-        await self.notify(title, body)
+        view = "today" if "plan my day" in title.lower() else "chat"
+        await self.notify(title, body, view=view)

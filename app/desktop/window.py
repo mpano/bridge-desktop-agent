@@ -130,9 +130,11 @@ class BridgeWindow:
     def visible(self) -> bool:
         return bool(self.window.isVisible() or self.window.isMiniaturized())
 
-    def load(self) -> bool:
+    def load(self, view: str | None = None) -> bool:
         """Sign in with a fresh launch ticket. False while the service is starting."""
         url = self.service.dashboard_url()
+        if url is not None and view and view.isalpha():
+            url += f"&view={view}"  # The page opens on that screen once signed in.
         if url is None:
             self.web.loadHTMLString_baseURL_(STARTING, None)
             return False
@@ -144,14 +146,15 @@ class BridgeWindow:
         if self.controller.quitting:
             return
         stale = time.monotonic() - self.loaded_at > FRESH_SECONDS
-        if not self.loaded or (stale and not self.visible):
-            self.load()
+        opening = not self.loaded or (stale and not self.visible)
+        if opening:
+            self.load(view)
         if self.window.isMiniaturized():
             self.window.deminiaturize_(None)
         self.window.makeKeyAndOrderFront_(None)
         self.controller.update_dock()
         AK.NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
-        if view and self.loaded:
+        if view and self.loaded and not opening:
             # A screen named by the panel or command bar ("today", "chat", "inbox", …).
             self.web.evaluateJavaScript_completionHandler_(
                 f"window.BridgeUI && window.BridgeUI.view({view!r})", None

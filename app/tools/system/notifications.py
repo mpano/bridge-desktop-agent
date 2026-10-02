@@ -60,10 +60,20 @@ end run
 """
 
 
-async def post_notification(runner, title: str, message: str) -> None:
+# Set by the Mac app at launch: posts as Bridge.app and opens the right screen on click.
+native = None
+
+
+async def post_notification(runner, title: str, message: str, view: str = "today") -> None:
     """Bridge's own status alerts (scheduled results, approvals). Text is passed as
     arguments, so it can never become script source. Failures are ignored."""
     clean = lambda text, limit: " ".join(text.split())[:limit]  # noqa: E731
+    if native is not None:
+        try:
+            native(clean(title, 100), clean(message, 400), view)
+            return
+        except Exception:
+            pass  # Fall back to the system's script notification.
     try:
         await runner.run(
             "/usr/bin/osascript", "-e", NOTIFY_SCRIPT, clean(title, 100), clean(message, 250)

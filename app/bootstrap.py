@@ -221,8 +221,8 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     agent.accounts = accounts
     agent.memories = facts
 
-    async def notify(title: str, message: str) -> None:
-        await notifications.post_notification(runner, title, message)
+    async def notify(title: str, message: str, view: str = "today") -> None:
+        await notifications.post_notification(runner, title, message, view)
 
     agent.scheduler = Scheduler(agent, schedule_store, notify)
     agent.schedule_store = schedule_store

@@ -1066,6 +1066,9 @@
       }
     }
     await showAuth();
+    // Opened from a notification (or the panel) about a particular screen.
+    const go = hash.get("view");
+    if (go && signedIn && /^[a-z]+$/.test(go) && $(`view-${go}`)) view(go);
     if (hash.get("account-linked") && signedIn) {
       view("settings", "account");
       await refreshAccount();
