@@ -1,6 +1,7 @@
 """Native Bridge menu bar: AppKit on the main thread, owned services on workers."""
 
 import contextlib
+import json
 import os
 import signal
 import sys
@@ -15,6 +16,26 @@ from app.config.settings import Settings
 from app.desktop.login import LoginItem, running_app_bundle
 from app.desktop.service import LocalService, ServiceState
 from app.desktop.voice import IDLE_STATES, MenuVoiceService, VoiceState
+from app.voice.paths import BRIDGE_SUPPORT_DIR
+
+LISTENING_FILE = BRIDGE_SUPPORT_DIR / "listening.json"
+
+
+def remember_listening(on: bool, path: Path | None = None) -> None:
+    """Only your own switch (menu or Settings) is remembered, never a shutdown's stop."""
+    path = path or LISTENING_FILE
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"hey_bridge": bool(on)}))
+    except OSError:
+        pass
+
+
+def was_listening(path: Path | None = None) -> bool:
+    try:
+        return bool(json.loads((path or LISTENING_FILE).read_text()).get("hey_bridge"))
+    except (OSError, ValueError, AttributeError):
+        return False
 
 
 class MenuBarController:
@@ -108,11 +129,13 @@ class MenuBarController:
     def start_voice(self, _=None) -> None:
         if self.voice is not None and not self.quitting:
             self.voice.start()
+            remember_listening(True)
             self.refresh(None)
 
     def stop_voice(self, _=None) -> None:
         if self.voice is not None:
             self.voice.stop()
+            remember_listening(False)
             self.refresh(None)
 
     def speak_once(self, _=None) -> None:
@@ -593,6 +616,10 @@ def run_menubar(settings: Settings) -> None:
             # service is up). The menu bar icon may be hidden behind the notch.
             if os.environ.get("BRIDGE_LAUNCHED_AT_LOGIN") != "1":
                 controller.open_dashboard()
+            # "Hey Bridge" was on when Bridge last closed: listen again.
+            voice = controller.voice
+            if voice is not None and was_listening() and voice.wake_model_ready:
+                voice.start()
 
         NSOperationQueue.mainQueue().addOperationWithBlock_(after_launch)
 

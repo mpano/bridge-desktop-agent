@@ -199,19 +199,49 @@ def build_launcher(
         raise
 
     if sign:
-        _ad_hoc_sign(destination)
+        _sign(destination)
     return destination
 
 
-def _ad_hoc_sign(bundle: Path) -> bool:
-    """A stable local signature lets macOS remember privacy grants for Bridge.app."""
+# A code-signing certificate you create once in Keychain Access. With it, macOS ties
+# Accessibility, Microphone and Keychain access to the certificate, so rebuilding Bridge.app
+# no longer resets them. Without it, Bridge falls back to an ad-hoc signature.
+SIGNING_IDENTITY = "Bridge Local Signing"
+BUNDLE_ID = "app.bridge.desktop-agent"
+
+
+def signing_identity(name: str = SIGNING_IDENTITY) -> str | None:
+    """The certificate's name if it's in your keychain and usable for code signing."""
+    security = shutil.which("security")
+    if security is None:
+        return None
+    found = subprocess.run(
+        [security, "find-identity", "-p", "codesigning"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return name if f'"{name}"' in found.stdout else None
+
+
+def _sign(bundle: Path) -> str:
+    """Sign with your own certificate when there is one, otherwise ad-hoc. Returns which."""
     codesign = shutil.which("codesign")
     if codesign is None:
-        return False
-    result = subprocess.run(
-        [codesign, "--force", "--sign", "-", str(bundle)], capture_output=True, check=False
-    )
-    return result.returncode == 0
+        return "unsigned"
+    identity = signing_identity()
+    # With a certificate, macOS's default identity check is "this bundle id, signed by this
+    # certificate" rather than the exact contents, so rebuilds keep their permissions.
+    command = [codesign, "--force", "--sign", identity or "-", "--identifier", BUNDLE_ID]
+    result = subprocess.run([*command, str(bundle)], capture_output=True, check=False)
+    if result.returncode == 0:
+        return identity or "ad-hoc"
+    if identity:  # A certificate macOS won't use: still produce a working app.
+        subprocess.run(
+            [codesign, "--force", "--sign", "-", str(bundle)], capture_output=True, check=False
+        )
+        return "ad-hoc"
+    return "unsigned"
 
 
 def main() -> None:

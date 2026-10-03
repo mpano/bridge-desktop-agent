@@ -410,3 +410,38 @@ def test_native_launcher_gives_bridge_its_own_executable(tmp_path):
     assert str(project).encode() in binary
     assert b"do-not-copy" not in binary
     assert executable.stat().st_mode & 0o111
+
+
+def test_hey_bridge_switch_is_remembered(tmp_path):
+    from app.desktop.menubar import remember_listening, was_listening
+
+    path = tmp_path / "listening.json"
+    assert was_listening(path) is False  # Off until you turn it on.
+    remember_listening(True, path)
+    assert was_listening(path) is True
+    remember_listening(False, path)
+    assert was_listening(path) is False
+    path.write_text("not json")
+    assert was_listening(path) is False
+
+
+def test_bundle_signs_with_your_certificate_when_it_exists(monkeypatch, tmp_path):
+    from app.desktop import bundle
+
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        stdout = '  1) ABC "Bridge Local Signing"\n' if command[1] == "find-identity" else ""
+        return SimpleNamespace(returncode=0, stdout=stdout)
+
+    monkeypatch.setattr(bundle.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(bundle.subprocess, "run", run)
+    assert bundle._sign(tmp_path) == "Bridge Local Signing"
+    assert calls[-1][:4] == ["/usr/bin/codesign", "--force", "--sign", "Bridge Local Signing"]
+    assert "app.bridge.desktop-agent" in calls[-1]
+
+    calls.clear()
+    monkeypatch.setattr(bundle, "signing_identity", lambda: None)
+    assert bundle._sign(tmp_path) == "ad-hoc"  # No certificate: same as before.
+    assert calls[-1][3] == "-"
