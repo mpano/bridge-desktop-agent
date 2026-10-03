@@ -11,6 +11,7 @@ from app.agent.scheduler import Scheduler
 from app.assistant.day_plan import DayPlanner
 from app.assistant.focus import FocusMode, FocusStore
 from app.assistant.replies import ReplyDrafter
+from app.assistant.slack_triage import SlackInbox
 from app.assistant.triage import InboxTriage
 from app.integrations.accounts import AccountManager
 from app.integrations.activity import SQLiteActivity
@@ -130,7 +131,9 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     day_planner = DayPlanner(proactive_store, calendar_controller, reminders_controller, inbox, llm)
     planning.register(
         registry,
-        planning.PlanningController(proactive_store, day_planner, inbox, people),
+        planning_controller := planning.PlanningController(
+            proactive_store, day_planner, inbox, people
+        ),
         gmail_available=gmail_service is not None,
     )
     focus_mode = FocusMode(
@@ -234,6 +237,8 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     agent.inbox = inbox
     agent.gmail = gmail_service
     agent.replies = ReplyDrafter(gmail_service, llm) if gmail_service is not None else None
+    agent.slack_inbox = SlackInbox(accounts, SlackService(accounts), llm) if connected else None
+    planning_controller.slack = agent.slack_inbox
     agent.screen = screen
     agent.proactive_store = proactive_store
     agent.proactive_controller = proactive_controller

@@ -135,13 +135,14 @@ def test_inbox_needs_gmail(tmp_path):
     ) as client:
         assert client.get("/api/v1/inbox", headers=headers()).json() == {
             "gmail": False,
+            "slack": False,
             "sorted": None,
         }
         assert (
             client.post(
                 "/api/v1/inbox/open", json={"message_id": "m1"}, headers=headers()
             ).status_code
-            == 409
+            == 404  # Nothing has been sorted, so there's nothing to open.
         )
         assert client.get("/ui/inbox.js").status_code == 200
 

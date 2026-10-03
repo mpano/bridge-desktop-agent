@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import time
 from datetime import datetime, timedelta
+from email.utils import parsedate_to_datetime
 from types import SimpleNamespace
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -44,64 +45,102 @@ def follow_up_due(now: datetime) -> datetime:
     return due.replace(hour=17, minute=0, second=0, microsecond=0)
 
 
+def sort_time(item: dict) -> float:
+    """Newest first across email (RFC 2822 dates) and Slack (ISO dates)."""
+    text = item.get("date") or ""
+    try:
+        return datetime.fromisoformat(text).timestamp()
+    except ValueError:
+        try:
+            return parsedate_to_datetime(text).timestamp()
+        except (TypeError, ValueError):
+            return 0.0
+
+
+LISTED = (
+    "message_id",
+    "source",
+    "thread_id",
+    "from",
+    "subject",
+    "date",
+    "summary",
+    "action",
+    "permalink",
+)
+
+
 def install(app: FastAPI, authorize) -> None:
     def bridge(request: Request):
         return request.app.state.agent
 
-    def gmail_parts(request: Request):
-        agent = bridge(request)
-        inbox = getattr(agent, "inbox", None)
-        if inbox is None:
-            raise HTTPException(409, "Connect Gmail in Connections first.")
-        return agent, inbox
+    def sources(agent) -> list:
+        return [
+            source
+            for source in (getattr(agent, "inbox", None), getattr(agent, "slack_inbox", None))
+            if source is not None
+        ]
 
-    def find(inbox, message_id: str) -> tuple[str, dict]:
-        last = getattr(inbox, "last", None)
-        for group in GROUPS:
-            for item in last[1]["groups"].get(group, []) if last else []:
-                if item["message_id"] == message_id:
-                    return group, item
-        raise HTTPException(404, "That email isn't in the sorted inbox anymore. Refresh.")
+    def find(agent, message_id: str) -> tuple[str, dict]:
+        for source in sources(agent):
+            last = getattr(source, "last", None)
+            for group in GROUPS:
+                for item in last[1]["groups"].get(group, []) if last else []:
+                    if item["message_id"] == message_id:
+                        return group, item
+        raise HTTPException(404, "That message isn't in the sorted inbox anymore. Refresh.")
+
+    def is_slack(item: dict) -> bool:
+        return item.get("source") == "slack"
 
     @app.get("/api/v1/inbox", dependencies=[Depends(authorize)])
     async def inbox(request: Request):
         agent = bridge(request)
-        sorted_inbox = getattr(agent, "inbox", None)
-        last = getattr(sorted_inbox, "last", None)
-        if last is None:
-            return {"gmail": sorted_inbox is not None, "sorted": None}
-        at, data = last
+        connected = sources(agent)
+        done = [source.last for source in connected if getattr(source, "last", None)]
+        flags = {
+            "gmail": getattr(agent, "inbox", None) is not None,
+            "slack": getattr(agent, "slack_inbox", None) is not None,
+        }
+        if not done:
+            return {**flags, "sorted": None}
+        groups = {group: [] for group in GROUPS}
+        for _at, data in done:
+            for group in GROUPS:
+                for item in data["groups"].get(group, []):
+                    groups[group].append(
+                        {key: item.get(key) for key in LISTED}
+                        | {"source": item.get("source", "gmail")}
+                    )
+        oldest = min(at for at, _ in done)
         return {
-            "gmail": True,
+            **flags,
             "sorted": {
-                "at": at,
-                "fresh": time.time() - at < INBOX_FRESH_SECONDS,
-                "has_more": data.get("has_more", False),
+                "at": max(at for at, _ in done),
+                "fresh": time.time() - oldest < INBOX_FRESH_SECONDS,
+                "has_more": any(data.get("has_more") for _, data in done),
                 "groups": {
-                    group: [
-                        {
-                            key: item.get(key)
-                            for key in (
-                                "message_id",
-                                "thread_id",
-                                "from",
-                                "subject",
-                                "date",
-                                "summary",
-                                "action",
-                            )
-                        }
-                        for item in data["groups"].get(group, [])
-                    ]
-                    for group in GROUPS
+                    group: sorted(items, key=sort_time, reverse=True)
+                    for group, items in groups.items()
                 },
             },
         }
 
     @app.post("/api/v1/inbox/open", dependencies=[Depends(authorize)])
     async def open_message(payload: MessageRef, request: Request):
-        agent, sorted_inbox = gmail_parts(request)
-        _group, item = find(sorted_inbox, payload.message_id)
+        agent = bridge(request)
+        _group, item = find(agent, payload.message_id)
+        if is_slack(item):
+            earlier = await agent.slack_inbox.thread(item)
+            return {
+                "body": item.get("text", ""),
+                "date": item.get("date", ""),
+                "earlier": earlier,
+                "to": item["subject"] + (" · in the thread" if item.get("thread_ts") else ""),
+                "subject": item["subject"],
+                "can_reply": bool(item.get("channel")),
+                "source": "slack",
+            }
         try:
             message = await asyncio.wait_for(agent.replies.message(item), timeout=30)
         except TimeoutError:
@@ -113,14 +152,16 @@ def install(app: FastAPI, authorize) -> None:
             "to": address_of(item["from"]),
             "subject": reply_subject(item["subject"]),
             "can_reply": bool(address_of(item["from"]) and item.get("reply_message_id")),
+            "source": "gmail",
         }
 
     @app.post("/api/v1/inbox/draft", dependencies=[Depends(authorize)])
     async def draft(payload: DraftRequest, request: Request):
-        agent, sorted_inbox = gmail_parts(request)
-        _group, item = find(sorted_inbox, payload.message_id)
+        agent = bridge(request)
+        _group, item = find(agent, payload.message_id)
+        writer = agent.slack_inbox if is_slack(item) else agent.replies
         try:
-            body = await asyncio.wait_for(agent.replies.draft(item, payload.name), timeout=60)
+            body = await asyncio.wait_for(writer.draft(item, payload.name), timeout=60)
         except TimeoutError:
             raise HTTPException(504, "Writing the draft took too long. Try again.") from None
         except ValueError as exc:
@@ -131,8 +172,15 @@ def install(app: FastAPI, authorize) -> None:
 
     @app.post("/api/v1/inbox/send", dependencies=[Depends(authorize)])
     async def send(payload: SendRequest, request: Request):
-        agent, sorted_inbox = gmail_parts(request)
-        _group, item = find(sorted_inbox, payload.message_id)
+        agent = bridge(request)
+        _group, item = find(agent, payload.message_id)
+        if is_slack(item):
+            # The conversation and thread come from the message itself, never the page.
+            try:
+                await agent.slack_inbox.send(item, payload.body)
+            except Exception as exc:
+                raise HTTPException(502, str(exc) or "Slack didn't accept the reply.") from None
+            return {"sent": True, "to": item["subject"], "followup": None}
         to = address_of(item["from"])
         if not to or not item.get("reply_message_id") or not item.get("thread_id"):
             raise HTTPException(422, "This email can't be answered from Bridge. Reply in Gmail.")

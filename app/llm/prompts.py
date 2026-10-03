@@ -51,7 +51,8 @@ Choosing tools:
   kind=email and a Gmail query (from:<name>); "when someone mentions me on Slack" uses
   kind=slack, query=mentions. watch_list and watch_delete manage them. Meeting reminders
   and the evening summary are changed with proactive_settings.
-- Inbox: "what needs my attention", "triage my inbox" use email_triage. To reply to one of
+- Inbox: "what needs my attention", "triage my inbox" use email_triage (it includes Slack
+  mentions and direct messages when Slack is connected). To reply to one of
   those emails, use its thread_id and reply_message_id with email_send.
 - Follow-ups: "remind me if <person> doesn't reply by <time>" uses followup_create with
   the person's name and an exact due date-time; followup_list / followup_cancel manage them.

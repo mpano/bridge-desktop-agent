@@ -60,6 +60,7 @@ class PlanningController:
         clock=lambda: datetime.now().astimezone(),
     ):
         self.store, self.planner, self.inbox, self.contacts = store, planner, inbox, contacts
+        self.slack = None  # Set when Slack can be sorted too.
         self.clock = clock
 
     # Triage -------------------------------------------------------------------------------
@@ -67,7 +68,19 @@ class PlanningController:
     async def triage(self, args):
         if self.inbox is None:
             raise ValueError("Connect Gmail in the dashboard's Connections page first.")
-        return await self.inbox.triage(args.days, args.limit)
+        email = await self.inbox.triage(args.days, args.limit)
+        if self.slack is None:
+            return email
+        try:
+            slack = await self.slack.triage()
+        except Exception:
+            slack = None  # Email still answers the question.
+        if not slack:
+            return email
+        groups = {key: list(items) for key, items in email["groups"].items()}
+        for key, items in slack["groups"].items():
+            groups.setdefault(key, []).extend(items)
+        return {**email, "groups": groups, "total": email["total"] + slack["total"]}
 
     # Follow-ups ---------------------------------------------------------------------------
 
@@ -165,8 +178,9 @@ def register(registry, controller: PlanningController, gmail_available: bool):
         registry.register(
             Tool(
                 "email_triage",
-                "Sort recent unread email into urgent / needs reply / FYI / newsletters with a "
-                "one-line summary each. Use for 'what needs my attention', 'triage my inbox'.",
+                "Sort recent unread email (and Slack mentions and direct messages, when Slack is "
+                "connected) into urgent / needs reply / FYI / newsletters with a one-line "
+                "summary each. Use for 'what needs my attention', 'triage my inbox'.",
                 TriageInput,
                 RiskLevel.SAFE,
                 controller.triage,

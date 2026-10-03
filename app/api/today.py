@@ -7,6 +7,7 @@ my calendar" or "start focus" run directly here, the same way approving a card d
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from datetime import datetime, timedelta
 from types import SimpleNamespace
@@ -16,6 +17,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 INBOX_FRESH_SECONDS = 30 * 60
+log = logging.getLogger(__name__)
 
 
 class PlanRequest(BaseModel):
@@ -34,29 +36,53 @@ class FocusStart(BaseModel):
     task: str = Field(default="", max_length=80)
 
 
-def inbox_summary(inbox) -> dict | None:
-    last = getattr(inbox, "last", None)
-    if not last:
+def inbox_summary(*sources) -> dict | None:
+    """Email and Slack together: what needs you, from each source's last sort."""
+    sorted_ = [getattr(source, "last", None) for source in sources if source is not None]
+    sorted_ = [item for item in sorted_ if item]
+    if not sorted_:
         return None
-    at, data = last
-    groups = data["groups"]
+    counts = {"urgent": 0, "reply": 0, "fyi": 0, "newsletter": 0}
     top = []
-    for key in ("urgent", "reply"):
-        for item in groups[key]:
-            top.append(
-                {
-                    "group": key,
-                    "from": item["from"].split("<")[0].strip().strip('"') or item["from"],
-                    "subject": item["subject"],
-                    "summary": item["summary"],
-                }
-            )
+    for _at, data in sorted_:
+        for key, items in data["groups"].items():
+            counts[key] = counts.get(key, 0) + len(items)
+        for key in ("urgent", "reply"):
+            for item in data["groups"].get(key, []):
+                top.append(
+                    {
+                        "group": key,
+                        "source": item.get("source", "gmail"),
+                        "from": item["from"].split("<")[0].strip().strip('"') or item["from"],
+                        "subject": item["subject"],
+                        "summary": item["summary"],
+                    }
+                )
+    at = min(at for at, _ in sorted_)
     return {
-        "at": at,
+        "at": max(at for at, _ in sorted_),
         "fresh": time.time() - at < INBOX_FRESH_SECONDS,
-        "counts": {key: len(groups[key]) for key in groups},
-        "top": top[:4],
+        "counts": counts,
+        "top": sorted(top, key=lambda item: item["group"] != "urgent")[:4],
     }
+
+
+async def sort_everything(agent) -> None:
+    """Sort email and Slack at the same time; one failing doesn't stop the other."""
+    jobs = [
+        source.triage()
+        for source in (getattr(agent, "inbox", None), getattr(agent, "slack_inbox", None))
+        if source is not None
+    ]
+    results = await asyncio.wait_for(asyncio.gather(*jobs, return_exceptions=True), timeout=150)
+    errors = [result for result in results if isinstance(result, Exception)]
+    for error in errors:
+        log.warning(
+            "Inbox sorting failed for one source: %s",
+            type(error).__name__ + ": " + str(error)[:200],
+        )
+    if errors and len(errors) == len(results):
+        raise errors[0]
 
 
 def install(app: FastAPI, authorize) -> None:
@@ -101,8 +127,11 @@ def install(app: FastAPI, authorize) -> None:
             ],
             "focus": focus.status() if focus is not None else {"active": False},
             "approvals": bridge.confirmations.count(),
-            "inbox": inbox_summary(getattr(bridge, "inbox", None)),
-            "gmail": getattr(bridge, "inbox", None) is not None,
+            "inbox": inbox_summary(
+                getattr(bridge, "inbox", None), getattr(bridge, "slack_inbox", None)
+            ),
+            "gmail": getattr(bridge, "inbox", None) is not None
+            or getattr(bridge, "slack_inbox", None) is not None,
             "work": {"start": settings.get("work_start"), "end": settings.get("work_end")},
         }
 
@@ -129,21 +158,26 @@ def install(app: FastAPI, authorize) -> None:
 
     @app.get("/api/v1/inbox/summary", dependencies=[Depends(authorize)])
     async def summary(request: Request):
-        inbox = getattr(agent(request), "inbox", None)
-        return {"gmail": inbox is not None, "summary": inbox_summary(inbox)}
+        bridge = agent(request)
+        inbox, slack = getattr(bridge, "inbox", None), getattr(bridge, "slack_inbox", None)
+        return {
+            "gmail": inbox is not None or slack is not None,
+            "summary": inbox_summary(inbox, slack),
+        }
 
     @app.post("/api/v1/inbox/triage", dependencies=[Depends(authorize)])
     async def triage(request: Request):
-        inbox = getattr(agent(request), "inbox", None)
-        if inbox is None:
-            raise HTTPException(409, "Connect Gmail in Connections first.")
+        bridge = agent(request)
+        inbox, slack = getattr(bridge, "inbox", None), getattr(bridge, "slack_inbox", None)
+        if inbox is None and slack is None:
+            raise HTTPException(409, "Connect Gmail or Slack in Connections first.")
         try:
-            await asyncio.wait_for(inbox.triage(), timeout=120)
+            await sort_everything(bridge)
         except TimeoutError:
-            raise HTTPException(504, "Gmail took too long. Try again.") from None
+            raise HTTPException(504, "That took too long. Try again.") from None
         except Exception as exc:
             raise HTTPException(502, str(exc) or "Couldn't read your inbox.") from None
-        return {"gmail": True, "summary": inbox_summary(inbox)}
+        return {"gmail": True, "summary": inbox_summary(inbox, slack)}
 
     @app.get("/api/v1/screen/peek", dependencies=[Depends(authorize)])
     async def peek(request: Request):

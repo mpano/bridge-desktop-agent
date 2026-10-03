@@ -114,7 +114,8 @@ def render(data: dict) -> str:
         rows = []
         for item in items:
             subject = item["subject"] or "(no subject)"
-            line = f"• {sender(item['from'])} — {subject}\n  {item['summary']}"
+            where = "Slack · " if item.get("source") == "slack" else ""
+            line = f"• {where}{sender(item['from'])} — {subject}\n  {item['summary']}"
             if item["action"]:
                 line += f"  → {item['action']}"
             rows.append(line)

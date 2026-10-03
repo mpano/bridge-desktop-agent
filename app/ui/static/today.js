@@ -211,7 +211,7 @@
     const top = node("ul", undefined, "plain mail-top");
     for (const item of data.inbox.top.slice(0, 3)) {
       const li = node("li");
-      li.append(node("strong", item.from), node("span", item.summary, "muted"));
+      li.append(node("strong", item.source === "slack" ? `${item.from} · Slack` : item.from), node("span", item.summary, "muted"));
       top.append(li);
     }
     if (data.inbox.top.length) body.append(top);

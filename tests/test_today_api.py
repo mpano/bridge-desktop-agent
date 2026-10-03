@@ -131,6 +131,7 @@ def test_inbox_summary_comes_from_the_last_triage(today):
     assert summary["top"] == [
         {
             "group": "urgent",
+            "source": "gmail",
             "from": "Olivier Mupenzi",
             "subject": "Contract",
             "summary": "Sign today",

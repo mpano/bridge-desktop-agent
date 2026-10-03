@@ -129,7 +129,7 @@
       });
       row.setAttribute("aria-current", chosen ? "true" : "false");
       const top = node("span", undefined, "mail-top");
-      top.append(node("strong", name(item.from)));
+      top.append(node("span", item.source === "slack" ? "Slack" : "Email", `src ${item.source === "slack" ? "violet" : "warm"}`), node("strong", name(item.from)));
       if (status[item.message_id]) top.append(node("span", status[item.message_id], `badge ${status[item.message_id]}`));
       top.append(node("span", shortDate(item.date), "mono faint"));
       row.append(top, node("span", item.subject || "(no subject)", "mail-subject"), node("span", item.summary, "mail-summary"));
@@ -182,7 +182,7 @@
       mark(item.message_id, "sent");
       delete drafts[item.message_id];
       const follow = result.followup ? ` Bridge will tell you if ${name(item.from)} hasn't replied in 3 working days.` : "";
-      ui().notify(`Sent to ${name(item.from)}.${follow}`);
+      ui().notify(item.source === "slack" ? `Sent in ${item.subject}.` : `Sent to ${name(item.from)}.${follow}`);
       next();
       render();
     } catch (error) {
@@ -194,7 +194,8 @@
   function draftCard(item, message, group) {
     const card = node("section", undefined, "draft-card");
     const head = node("div", undefined, "draft-head");
-    head.append(node("h3", `Reply to ${name(item.from)}`), node("span", message.to, "mono faint"));
+    const slack = item.source === "slack";
+    head.append(node("h3", slack ? `Reply to ${name(item.from)} on Slack` : `Reply to ${name(item.from)}`), node("span", message.to, "mono faint"));
     card.append(head);
     const text = drafts[item.message_id];
     if (text === undefined) {
@@ -217,7 +218,8 @@
     const remindLabel = node("label", undefined, "remind");
     const remind = node("input");
     remind.type = "checkbox";
-    remind.checked = group === "reply" || group === "urgent";
+    remind.checked = !slack && (group === "reply" || group === "urgent");
+    remindLabel.hidden = slack;  // Follow-ups watch Gmail for replies.
     remindLabel.append(remind, node("span", "Remind me if no reply in 3 working days"));
     const go = node("button", undefined, "primary");
     go.type = "button";
@@ -232,7 +234,9 @@
     const skip = button("Skip", "secondary", () => { mark(item.message_id, "skipped"); next(); render(); });
     const actions = node("div", undefined, "draft-actions");
     actions.append(go, skip, remindLabel);
-    card.append(label, box, actions, node("p", "Sent from your Gmail, in the same thread. Nothing goes out until you press Send.", "faint note"));
+    const where = slack ? (item.subject === "Direct message" ? "Sent as you, in the direct message." : `Sent as you, in the thread in ${item.subject}.`)
+      : "Sent from your Gmail, in the same thread.";
+    card.append(label, box, actions, node("p", `${where} Nothing goes out until you press Send.`, "faint note"));
     return card;
   }
 
@@ -268,8 +272,9 @@
     panel.append(node("blockquote", message.body || "(no text)", "mail-body"));
     if (group !== "newsletter" && message.can_reply) panel.append(draftCard(item, message, group));
     const links = node("div", undefined, "draft-actions");
-    const gmail = node("a", "Open in Gmail ↗", "secondary small button-link");
-    gmail.href = `https://mail.google.com/mail/u/0/#all/${encodeURIComponent(item.thread_id || "")}`;
+    const gmail = node("a", item.source === "slack" ? "Open in Slack ↗" : "Open in Gmail ↗", "secondary small button-link");
+    gmail.href = item.source === "slack" ? (item.permalink || "https://slack.com/")
+      : `https://mail.google.com/mail/u/0/#all/${encodeURIComponent(item.thread_id || "")}`;
     gmail.target = "_blank";
     gmail.rel = "noopener";
     links.append(gmail);
@@ -290,16 +295,16 @@
     $("inbox-sort").disabled = sorting || !state.gmail;
     $("inbox-when").textContent = state.sorted ? `Sorted by Bridge · ${ago(state.sorted.at)}` : "Inbox";
     renderTabs();
-    if (!state.gmail) {
+    if (!state.gmail && !state.slack) {
       list.replaceChildren();
-      panel.replaceChildren(node("h2", "Connect Gmail"), node("p", "Bridge sorts your unread email by what it needs from you and writes replies in your style. You send them.", "empty"),
+      panel.replaceChildren(node("h2", "Connect Gmail or Slack"), node("p", "Bridge sorts your unread email and Slack messages by what they need from you and writes replies in your style. You send them.", "empty"),
         button("Open Connections", "primary", () => ui().view("connections")));
       return;
     }
     if (!state.sorted) {
       list.replaceChildren();
       panel.replaceChildren(node("h2", sorting ? "Reading your unread email…" : "See what needs you"),
-        node("p", sorting ? "Bridge is sorting the last two days of unread email." : "Bridge reads your unread email from the last two days and sorts it by what it needs from you.", "empty"));
+        node("p", sorting ? "Bridge is sorting the last two days of email and Slack." : "Bridge reads your unread email and Slack mentions and direct messages from the last two days, and sorts them by what they need from you.", "empty"));
       if (!sorting) panel.append(button("Sort my inbox", "primary", sortInbox));
       return;
     }
