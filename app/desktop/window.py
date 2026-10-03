@@ -138,9 +138,11 @@ class BridgeWindow:
     def visible(self) -> bool:
         return bool(self.window.isVisible() or self.window.isMiniaturized())
 
-    def load(self, view: str | None = None) -> bool:
+    def load(self, view: str | None = None, auto: bool = False) -> bool:
         """Sign in with a fresh launch ticket. False while the service is starting."""
         url = self.service.dashboard_url()
+        if url is not None and auto:
+            url += "&auto=1"  # The page asked for this; it shows a normal login if it fails.
         if url is not None and view and view.isalpha():
             url += f"&view={view}"  # The page opens on that screen once signed in.
         if url is None:
@@ -185,6 +187,13 @@ class BridgeWindow:
             self.controller.stop_voice()
         elif action == "train_wake":
             self.controller.train_voice()
+        elif action == "signin":
+            # The session expired while the window was open: sign in again, at most
+            # every 10 seconds so a failure can't turn into a reload loop.
+            now = time.monotonic()
+            if now - getattr(self, "_signin_at", 0.0) > 10:
+                self._signin_at = now
+                self.load(auto=True)
         self._voice_sent = None  # Send the new state on the next refresh.
 
     def push_voice(self, voice) -> None:

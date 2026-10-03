@@ -818,9 +818,27 @@
     }
   }
 
+  // Inside the Bridge app the window signs itself in with a one-time link from the app:
+  // an expired session never needs a password or Google there (Google sign-in can't
+  // finish inside an app window anyway; it would end up signed in in the browser).
+  const inApp = Boolean(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge);
+  let autoSignInFailed = false;
+
   async function showAuth() {
     authStatus = await request("/api/v1/auth/status");
     if (authStatus.signed_in) return enterWorkspace();
+    if (inApp && authStatus.has_owner && !autoSignInFailed) {
+      signedIn = false;
+      $("workspace").hidden = true;
+      $("auth-panel").hidden = false;
+      $("signup-form").hidden = true;
+      $("login-form").hidden = true;
+      $("auth-need-menu").hidden = true;
+      $("auth-loading").hidden = false;
+      $("auth-loading").textContent = "Signing you in…";
+      window.webkit.messageHandlers.bridge.postMessage({action: "signin"});
+      return;
+    }
     signedIn = false;
     document.body.classList.add("signed-out");
     $("workspace").hidden = true;
@@ -858,7 +876,7 @@
     document.body.classList.remove("signed-out");
     $("auth-panel").hidden = true;
     $("workspace").hidden = false;
-    $("disconnect").hidden = false;
+    $("disconnect").hidden = inApp;  // In the app, signing out would just sign back in.
     $("account-chip").hidden = false;
     const owner = status.owner || {name: "", email: ""};
     $("account-name").textContent = owner.name || owner.email;
@@ -1055,6 +1073,8 @@
     const hash = new URLSearchParams(window.location.hash.slice(1));
     if ([...hash.keys()].length) history.replaceState(null, "", window.location.pathname);
     if (hash.get("auth-error")) authError(hash.get("auth-error"));
+    // The app already tried to sign this window in; if that failed, show the normal login.
+    if (hash.get("auto")) autoSignInFailed = true;
     const launch = hash.get("launch");
     if (launch) {
       const response = await fetch("/api/v1/session/launch", {method: "POST", credentials: "same-origin",

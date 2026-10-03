@@ -142,3 +142,21 @@ def test_floating_panel_and_command_bar_follow_their_page():
     bar.on_message({"action": "unknown"})  # Ignored.
     panel.dock_off()
     controller.update_dock.assert_called_with(closing=panel)
+
+
+def test_window_signs_itself_in_again_without_a_login_page():
+    import AppKit as AK
+
+    from app.desktop.window import BridgeWindow
+
+    AK.NSApplication.sharedApplication()
+    service = SimpleNamespace(
+        port=8000, dashboard_url=Mock(return_value="http://localhost:8000/#launch=t")
+    )
+    window = BridgeWindow(SimpleNamespace(quitting=False, update_dock=Mock()), service)
+    window.on_message({"action": "signin"})
+    assert window.loaded and service.dashboard_url.call_count == 1
+    loaded = window.web.URL()
+    window.on_message({"action": "signin"})  # Again right away: ignored, no reload loop.
+    assert service.dashboard_url.call_count == 1
+    assert loaded is None or "auto=1" in str(loaded.absoluteString())
