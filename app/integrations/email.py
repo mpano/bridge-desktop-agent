@@ -97,6 +97,18 @@ class GmailService:
             "content_is_untrusted": True,
         }
 
+    async def message(self, args):
+        """One message in full (its text, never attachments)."""
+        data = await self.accounts.request(
+            args.account_id,
+            "gmail",
+            "GET",
+            "messages/" + quote(args.message_id, safe=""),
+            scopes=(GOOGLE + "gmail.readonly",),
+            params={"format": "full"},
+        )
+        return {**message_view(data), "content_is_untrusted": True}
+
     async def thread(self, args):
         data = await self.accounts.request(
             args.account_id,

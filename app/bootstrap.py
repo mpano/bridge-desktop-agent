@@ -9,6 +9,7 @@ from app.agent.planner import Planner
 from app.agent.proactive import Proactive
 from app.agent.scheduler import Scheduler
 from app.assistant.chats import ChatStore
+from app.assistant.commitments import CommitmentStore, CommitmentTracker
 from app.assistant.day_plan import DayPlanner
 from app.assistant.focus import FocusMode, FocusStore
 from app.assistant.replies import ReplyDrafter
@@ -41,6 +42,7 @@ from app.tools.productivity import (
     planning,
     reminders,
 )
+from app.tools.productivity import commitments as commitment_tools
 from app.tools.productivity import memory as memory_tools
 from app.tools.registry import ToolRegistry
 from app.tools.screen import context as screen_context
@@ -257,4 +259,15 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
         accounts=accounts if connected else None,
         focus=focus_mode,
     )
+    commitments = CommitmentTracker(
+        CommitmentStore(settings.database_path),
+        llm,
+        gmail=gmail_service,
+        slack_inbox=agent.slack_inbox,
+        replies=agent.replies,
+    )
+    commitments.notify = notify
+    commitment_tools.register(registry, commitments)
+    agent.commitments = commitments
+    agent.proactive.commitments = commitments
     return agent

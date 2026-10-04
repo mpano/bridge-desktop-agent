@@ -234,19 +234,9 @@
 
   // Follow-ups ---------------------------------------------------------------------------------
 
+  // Emails you sent and are waiting for a reply to: shown with promises, under "Waiting on".
   function renderWaiting() {
-    $("waiting-card").hidden = data.followups.length === 0;
-    const list = $("waiting-list");
-    list.replaceChildren();
-    for (const item of data.followups.slice(0, 4)) {
-      const li = node("li", undefined, "waiting");
-      const who = node("span");
-      who.append(node("strong", item.name), node("span", ` — ${item.about}`, "muted"));
-      const due = new Date(item.due);
-      const label = item.status === "overdue" ? "overdue" : `by ${due.toLocaleDateString([], {weekday: "short"})}`;
-      li.append(who, node("span", label, item.status === "overdue" ? "pill warm" : "mono faint"));
-      list.append(li);
-    }
+    if (window.BridgePromises) window.BridgePromises.refresh(data.followups || []);
   }
 
   // Focus -------------------------------------------------------------------------------------

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app.api.app_settings import install as install_app_settings
 from app.api.automations import install as install_automations
+from app.api.commitments import install as install_commitments
 from app.api.inbox import install as install_inbox
 from app.api.launch import LaunchTickets
 from app.api.onboarding import install as install_onboarding
@@ -184,6 +185,7 @@ def create_app(
 
     install_connections(app, authorize)
     install_today(app, authorize)
+    install_commitments(app, authorize)
     install_inbox(app, authorize)
     install_automations(app, authorize)
     install_app_settings(app, authorize, settings)

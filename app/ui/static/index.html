@@ -20,6 +20,7 @@
   <script src="/ui/automations.js" defer></script>
   <script src="/ui/settings.js" defer></script>
   <script src="/ui/onboarding.js" defer></script>
+  <script src="/ui/promises.js" defer></script>
   <script src="/ui/phone.js" defer></script>
 </head>
 <body>
@@ -130,13 +131,19 @@
               <h2 id="approvals-title" class="label attention">Waiting for your OK</h2>
               <ul id="approvals-list" class="plain"></ul>
             </section>
+            <section class="card promises" id="promises-card" aria-labelledby="promises-title">
+              <div class="card-head"><h2 id="promises-title" class="label">Promises</h2><span id="promises-when" class="mono faint"></span><button type="button" id="promises-check" class="link">Check now</button></div>
+              <div class="seg promises-tabs" role="tablist" aria-label="Promises">
+                <button type="button" role="tab" id="promises-tab-mine" aria-selected="true">You owe <span id="promises-count-mine" class="count"></span></button>
+                <button type="button" role="tab" id="promises-tab-theirs" aria-selected="false">Waiting on <span id="promises-count-theirs" class="count"></span></button>
+              </div>
+              <ul id="promises-list" class="plain promises-list" aria-live="polite"></ul>
+              <p id="promises-empty" class="empty" hidden></p>
+              <p id="promises-closed" class="hint promises-closed" hidden></p>
+            </section>
             <section class="card" aria-labelledby="inbox-title">
               <div class="card-head"><h2 id="inbox-title" class="label">Inbox</h2><button type="button" id="inbox-refresh" class="link" hidden>Refresh</button></div>
               <div id="inbox-body"></div>
-            </section>
-            <section class="card" id="waiting-card" aria-labelledby="waiting-title" hidden>
-              <h2 id="waiting-title" class="label">You're waiting on</h2>
-              <ul id="waiting-list" class="plain"></ul>
             </section>
           </div>
         </div>

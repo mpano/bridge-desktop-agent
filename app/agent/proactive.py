@@ -42,6 +42,7 @@ class Proactive:
         self.calendar, self.gmail, self.slack, self.accounts = calendar, gmail, slack, accounts
         self.clock = clock
         self.focus = focus
+        self.commitments = None  # Promises you made and are owed; re-checked and nudged here.
         self._last_watch_check = 0.0
 
     async def run(self) -> None:
@@ -51,6 +52,8 @@ class Proactive:
                 if self.focus is not None:
                     await self.focus.check()  # Ends a focus session whose time passed.
                 await self.check_meetings()
+                if self.commitments is not None:
+                    await self.commitments.tick()
                 if loop.time() - self._last_watch_check >= WATCH_CHECK_SECONDS:
                     self._last_watch_check = loop.time()
                     await self.check_watches()
