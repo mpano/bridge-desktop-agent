@@ -238,6 +238,7 @@
   function renderWaiting() {
     if (window.BridgePromises) window.BridgePromises.refresh(data.followups || []);
     if (window.BridgeBrief) window.BridgeBrief.refresh();
+    if (window.BridgeWork) window.BridgeWork.refresh();
   }
 
   // Focus -------------------------------------------------------------------------------------

@@ -18,9 +18,12 @@ from app.assistant.slack_triage import SlackInbox
 from app.assistant.triage import InboxTriage
 from app.integrations.accounts import AccountManager
 from app.integrations.activity import SQLiteActivity
+from app.integrations.credentials import KeychainCredentials
 from app.integrations.email import GmailService
 from app.integrations.slack import SlackService
 from app.integrations.spotify import SpotifyWebService
+from app.integrations.tokens import MemoryTokens, TokenConnections
+from app.integrations.work import GitHub, Jira
 from app.llm import prompts
 from app.llm.factory import create_llm
 from app.memory.facts import FactStore
@@ -62,6 +65,7 @@ from app.tools.system import (
 )
 from app.tools.system import proactive as proactive_tools
 from app.tools.terminal import terminal
+from app.tools.work import tools as work_tools
 from app.workflows import retention
 from app.workflows.schedules import ScheduleStore
 from app.workflows.store import SQLiteWorkflows
@@ -86,6 +90,11 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     script = MacOSAppleScript(runner)
     registry = ToolRegistry()
     accounts = accounts or AccountManager(settings, activity=SQLiteActivity(settings.database_path))
+    # Work tokens live in the Keychain alongside the other accounts (in memory when those are).
+    keychain = isinstance(accounts.store, KeychainCredentials)
+    tokens = TokenConnections(None if keychain else MemoryTokens(), activity=accounts.activity)
+    jira, github = Jira(tokens), GitHub(tokens)
+    work_tools.register(registry, jira, github)
     spotify_app = spotify.SpotifyController(runner, script)
     people = contacts.ContactsDirectory()
     if settings.integrations_enabled:
@@ -227,6 +236,7 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
         preferences=preferences,
     )
     agent.accounts = accounts
+    agent.tokens, agent.jira, agent.github = tokens, jira, github
     agent.memories = facts
     agent.use_chats(ChatStore(settings.database_path, days=settings.chat_retention_days))
 
@@ -282,6 +292,7 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
         day_planner=day_planner,
     )
     briefs.notify = notify
+    briefs.jira, briefs.github = jira, github
     agent.briefs = briefs
     agent.proactive.briefs = briefs
     try:

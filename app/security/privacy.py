@@ -27,6 +27,10 @@ class ToolResultPrivacy:
             raise ValueError("Unknown remote tool-result privacy mode.")
         object.__setattr__(self, "allowed_tools", frozenset(self.allowed_tools))
 
+    def allow(self, names) -> None:
+        """Share more tools' results (the user turned sharing on for a new service)."""
+        object.__setattr__(self, "allowed_tools", frozenset(self.allowed_tools | set(names)))
+
     def filter_result(self, result: dict) -> dict:
         """Return a detached result with only explicitly permitted data."""
         if not isinstance(result, dict):

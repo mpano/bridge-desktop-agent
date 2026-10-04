@@ -24,9 +24,10 @@ log = logging.getLogger(__name__)
 TOP = 3
 PICK = """You are the user's chief of staff. From the candidates below, pick the three
 things that matter most for the user today, in order. Prefer: promises the user made that are
-due or overdue, people blocked waiting on the user, urgent email or Slack, and meetings that
-need preparation. Skip routine things. For each give "why": at most 10 words saying why it
-matters today (e.g. "You promised Olivier it today", "Sam is blocked on your answer").
+due or overdue, people blocked waiting on the user (including code reviews they asked for),
+urgent email or Slack, Jira issues due today, and meetings that need preparation. Skip
+routine things. For each give "why": at most 10 words saying why it matters today
+(e.g. "You promised Olivier it today", "Sam is blocked on your answer").
 Also write "headline": one short, warm sentence summing up the day (at most 14 words, no
 exclamation marks). Reply as JSON:
 {"top": [{"id": "<candidate id>", "why": "..."}], "headline": "..."}"""
@@ -62,6 +63,7 @@ class Briefs:
         self.settings_store, self.calendar = proactive_store, calendar
         self.commitments, self.inbox, self.slack = commitments, inbox, slack_inbox
         self.day_planner = day_planner
+        self.jira = self.github = None  # Work tools, when connected.
         self.clock = clock or (lambda: datetime.now().astimezone())
         self.notify = None
         with self._db() as db:
@@ -187,6 +189,8 @@ class Briefs:
                 "detail": "Urgent" if item["group"] == "urgent" else "Waiting for your reply",
                 "ref": {"message_id": item["id"].split(":", 1)[1]},
             }
+        for key, item in (await self._work(today)).items():
+            candidates[key] = item
         for event in (events or [])[:8]:
             start = datetime.fromisoformat(event["start"])
             if start < now:
@@ -221,6 +225,39 @@ class Briefs:
             "inbox": counts,
         }
 
+    async def _work(self, today: date) -> dict:
+        """Pull requests waiting for your review, and Jira issues due or most urgent."""
+        found: dict = {}
+        try:
+            if self.github is not None and await self.github.connected():
+                for pr in (await self.github.reviews())[:4]:
+                    found[f"review:{pr['repo']}#{pr['number']}"] = {
+                        "kind": "review",
+                        "title": f"Review: {pr['title']}",
+                        "detail": f"{pr['author'] or 'Someone'} asked you to review it",
+                        "ref": {"url": pr["url"]},
+                    }
+        except Exception:
+            log.warning("Morning brief: couldn't read GitHub.")
+        try:
+            if self.jira is not None and await self.jira.connected():
+                for issue in await self.jira.mine():
+                    due = issue.get("due") and issue["due"] <= today.isoformat()
+                    urgent = issue.get("priority") in {"Highest", "High", "Blocker", "Critical"}
+                    if not due and not urgent:
+                        continue
+                    found[f"ticket:{issue['key']}"] = {
+                        "kind": "ticket",
+                        "title": f"{issue['key']} {issue['summary']}",
+                        "detail": f"Due {issue['due']}" if due else f"{issue['priority']} priority",
+                        "ref": {"url": issue["url"]},
+                    }
+                    if len(found) >= 8:
+                        break
+        except Exception:
+            log.warning("Morning brief: couldn't read Jira.")
+        return found
+
     async def _pick(self, today: date, candidates: dict) -> dict:
         if not candidates:
             return {
@@ -230,9 +267,15 @@ class Briefs:
         order = sorted(
             candidates,
             key=lambda key: (
-                {"promise": 0, "email": 1, "slack": 1, "waiting": 2, "meeting": 3}[
-                    candidates[key]["kind"]
-                ],
+                {
+                    "promise": 0,
+                    "email": 1,
+                    "slack": 1,
+                    "review": 2,
+                    "ticket": 2,
+                    "waiting": 3,
+                    "meeting": 4,
+                }[candidates[key]["kind"]],
                 key,
             ),
         )

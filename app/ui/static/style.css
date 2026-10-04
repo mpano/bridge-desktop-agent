@@ -1460,3 +1460,26 @@ body.phone .promise-done, body.phone .promise-menu summary { width: 34px; height
 .brief-all { margin-top: 10px; }
 body.phone .brief-item { flex-wrap: wrap; }
 body.phone .brief-item .brief-words { flex-basis: calc(100% - 40px); }
+
+/* Work connections (Jira, GitHub) -------------------------------------------------------- */
+.token-form { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.token-field { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: 13px; color: var(--muted); }
+.token-field input { font-size: 14px; }
+.token-form .hint { margin: 0; }
+.token-more summary { font-size: 13px; color: var(--muted); }
+.token-more > div { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+
+/* Work (Today) --------------------------------------------------------------------------- */
+.work .card-head h2 { flex: 1; }
+.work-section + .work-section { margin-top: 14px; }
+.work-head { margin: 10px 0 4px; font: 600 11px ui-monospace, "SF Mono", Menlo, monospace; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); }
+.work-list { margin-top: 4px; gap: 8px; }
+.work-item { display: flex; align-items: flex-start; gap: 10px; }
+.work-words { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.work-title { font-size: 13.5px; font-weight: 600; color: var(--text); text-decoration: none; line-height: 1.35; }
+.work-title:hover { color: var(--accent); }
+.work-meta { font-size: 12px; color: var(--faint); }
+.work-badge { flex-shrink: 0; font: 500 11px ui-monospace, "SF Mono", Menlo, monospace; color: var(--faint); padding-top: 2px; white-space: nowrap; }
+.work-badge.bad { color: var(--red); }
+.work-badge.good { color: var(--green); }
+.work-alert { margin: 8px 0 0; font-size: 13px; color: var(--red); }

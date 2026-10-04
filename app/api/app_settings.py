@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.config.env_file import update_env
 from app.tools.screen.context import BLOCKED_BY_DEFAULT
+from app.tools.work.tools import READ_TOOLS
 
 SCREEN_TOOL = "screen_context"
 SHARED_RESULTS = [
@@ -30,6 +31,8 @@ SHARED_RESULTS = [
     "calendar_free_time",
     "slack_search",
     "slack_read_channel",
+    "commitments_list",
+    *READ_TOOLS,
 ]
 
 

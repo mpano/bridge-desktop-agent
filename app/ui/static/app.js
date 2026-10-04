@@ -111,6 +111,14 @@
       reads: ["Channels and messages you can see, to search and summarize", "Mentions of you"],
       does: ["Send a message", "Set your status and pause notifications while you focus"],
       never: ["Change workspace settings or anyone else's account"]},
+    jira: {glyph: "J", tone: "cool", actions: "creating issues, commenting and moving status",
+      reads: ["Issues assigned to you and issues you search for", "Confluence pages you can see"],
+      does: ["Create an issue", "Comment on an issue", "Move an issue to another status"],
+      never: ["Delete issues or pages, or change project settings"]},
+    github: {glyph: "GH", tone: "", actions: "creating issues and commenting",
+      reads: ["Pull requests waiting for your review", "Your pull requests and their checks", "Issues assigned to you"],
+      does: ["Create an issue", "Comment on an issue or pull request"],
+      never: ["Merge, approve, push code or change repository settings"]},
     spotify: {glyph: "♪", tone: "green", actions: "playing music",
       reads: ["Your playlists and what's playing"],
       does: ["Play, pause and skip music"],
@@ -182,6 +190,11 @@
     words.append(node("h2", provider.name), node("p", accounts.length ? accounts.map(shortIdentity).join(", ") : label, "faint"));
     head.append(node("span", info.glyph, `glyph big ${info.tone}`), words);
     panel.append(head);
+    if (provider.kind === "token") {
+      tokenPanel(panel, provider, accounts, info);
+      recentFor(panel, provider);
+      return;
+    }
 
     if (state === "off") {
       panel.append(node("p", "Connected services are turned off. Set INTEGRATIONS_ENABLED=true in .env and restart Bridge.", "notice-box"));
@@ -230,6 +243,14 @@
       panel.append(allow, controls);
     }
 
+    recentFor(panel, provider);
+    const details = node("details", undefined, "tech");
+    details.append(node("summary", "Exact permissions"),
+      node("pre", `Callback: ${provider.redirect_uri}\n\nRead:\n${provider.read_scopes.join("\n")}\n\nActions:\n${provider.write_scopes.join("\n")}`));
+    panel.append(details);
+  }
+
+  function recentFor(panel, provider) {
     const recent = connectionData.activity.filter((item) => item.provider === provider.provider).slice(0, 5);
     if (recent.length) {
       const block = node("div", undefined, "perm-block");
@@ -243,10 +264,97 @@
       block.append(list);
       panel.append(block);
     }
-    const details = node("details", undefined, "tech");
-    details.append(node("summary", "Exact permissions"),
-      node("pre", `Callback: ${provider.redirect_uri}\n\nRead:\n${provider.read_scopes.join("\n")}\n\nActions:\n${provider.write_scopes.join("\n")}`));
-    panel.append(details);
+  }
+
+  // Jira and GitHub connect with a token (or, for GitHub, the gh command line) instead of a
+  // browser sign-in. The token goes straight to the Keychain; the page never shows it again.
+  function tokenPanel(panel, provider, accounts, info) {
+    const account = accounts[0];
+    if (provider.error) panel.append(node("p", provider.error, "notice-box bad"));
+    if (account && !account.scopes.includes("actions")) {
+      panel.append(node("p", `Read-only. Connect again with “Allow ${info.actions}” to let Bridge act after you approve.`, "notice-box"));
+    }
+    panel.append(permissionList("Reads", info.reads, "reads"), permissionList("Does, after you approve", info.does, "does"), permissionList("Never", info.never, "never"));
+    const form = node("form", undefined, "token-form");
+    const field = (label, id, type, placeholder, value = "") => {
+      const input = node("input");
+      input.id = id;
+      input.type = type;
+      input.placeholder = placeholder;
+      input.value = value;
+      input.autocomplete = "off";
+      input.spellcheck = false;
+      const wrap = node("label", undefined, "token-field");
+      wrap.append(node("span", label), input);
+      form.append(wrap);
+      return input;
+    };
+    const allow = node("label", undefined, "allow");
+    const box = node("input");
+    box.type = "checkbox";
+    box.checked = account ? account.scopes.includes("actions") : true;
+    allow.append(box, node("span", `Allow ${info.actions}`));
+    const connect = (body) => execute(async () => {
+      const result = await request("/api/v1/connections/token", "POST", {provider: provider.provider, allow_actions: box.checked, ...body});
+      await refreshConnections();
+      notify(`${provider.name} connected as ${result.identity}.${result.shared ? " Bridge can now answer questions about it." : ""}`);
+    }, {refresh: false});
+    const controls = node("div", undefined, "svc-controls");
+    if (provider.provider === "jira") {
+      if (account) panel.append(node("p", `Connected to ${account.site} as ${account.identity}.`, "hint"));
+      const site = field("Your Atlassian site", "jira-site", "text", "yourteam.atlassian.net", account ? account.site : "");
+      const email = field("Your Atlassian email", "jira-email", "email", "you@company.com");
+      const token = field("API token", "jira-token", "password", "Paste the token");
+      const create = node("a", "Create an API token ↗");
+      create.href = "https://id.atlassian.com/manage-profile/security/api-tokens";
+      create.target = "_blank";
+      create.rel = "noopener noreferrer";
+      const help = node("p", undefined, "hint");
+      help.append(create, node("span", " — on Atlassian's site. Name it “Bridge”, copy it and paste it here."));
+      form.append(help, allow);
+      controls.append(action(account ? "Connect again" : "Connect Jira", () => {
+        connect({site: site.value, email: email.value, token: token.value});
+        token.value = "";
+      }, account ? "secondary" : "primary"));
+    } else {
+      if (account) panel.append(node("p", `Connected as ${account.identity}${account.method === "cli" ? ", using your GitHub command line sign-in" : ""}.`, "hint"));
+      if (provider.cli_available) {
+        form.append(node("p", "You're signed in to the GitHub command line (gh) on this Mac, so Bridge can use that — nothing to paste.", "hint"));
+      }
+      const more = node("details", undefined, "token-more");
+      more.append(node("summary", provider.cli_available ? "Or use a token instead" : "Use a token"));
+      const tokenWrap = node("div");
+      more.append(tokenWrap);
+      const token = node("input");
+      token.type = "password";
+      token.placeholder = "Paste a GitHub token";
+      token.autocomplete = "off";
+      const make = node("a", "Create a fine-grained token ↗");
+      make.href = "https://github.com/settings/personal-access-tokens/new";
+      make.target = "_blank";
+      make.rel = "noopener noreferrer";
+      const help = node("p", undefined, "hint");
+      help.append(make, node("span", " — give it read access to pull requests and issues (and write, to create issues and comments)."));
+      tokenWrap.append(token, help, action("Connect with this token", () => { connect({token: token.value}); token.value = ""; }, "secondary"));
+      if (!provider.cli_available) more.open = true;
+      form.append(allow);
+      if (provider.cli_available) {
+        controls.append(action(account ? "Connect again with gh" : "Use my GitHub sign-in", () => connect({use_cli: true}), account ? "secondary" : "primary"));
+      }
+      form.append(more);
+    }
+    form.addEventListener("submit", (event) => event.preventDefault());
+    if (account) {
+      controls.append(action("Disconnect", () => {
+        if (!window.confirm(`Disconnect ${provider.name} from Bridge?`)) return;
+        execute(async () => {
+          const result = await request("/api/v1/connections/disconnect", "POST", {account_id: provider.provider});
+          await refreshConnections();
+          notify(result.message);
+        }, {refresh: false});
+      }, "ghost danger"));
+    }
+    panel.append(form, controls);
   }
 
   function renderActivity() {

@@ -22,6 +22,7 @@
   <script src="/ui/onboarding.js" defer></script>
   <script src="/ui/promises.js" defer></script>
   <script src="/ui/brief.js" defer></script>
+  <script src="/ui/work.js" defer></script>
   <script src="/ui/phone.js" defer></script>
 </head>
 <body>
@@ -146,6 +147,10 @@
               <ul id="promises-list" class="plain promises-list" aria-live="polite"></ul>
               <p id="promises-empty" class="empty" hidden></p>
               <p id="promises-closed" class="hint promises-closed" hidden></p>
+            </section>
+            <section class="card work" id="work-card" aria-labelledby="work-title" hidden>
+              <div class="card-head"><h2 id="work-title" class="label">Work</h2><button type="button" id="work-refresh" class="link">Refresh</button></div>
+              <div id="work-body"></div>
             </section>
             <section class="card" aria-labelledby="inbox-title">
               <div class="card-head"><h2 id="inbox-title" class="label">Inbox</h2><button type="button" id="inbox-refresh" class="link" hidden>Refresh</button></div>

@@ -103,7 +103,13 @@
         li.append(words);
         if (item.kind === "promise") li.append(button("Done", "secondary small", () => markDone(item.ref.id)));
         else if (item.kind === "email" || item.kind === "slack") li.append(button("Open", "secondary small", () => ui().view("inbox")));
-        else if (item.kind === "waiting" && window.BridgePromises) {
+        else if ((item.kind === "review" || item.kind === "ticket") && item.ref.url) {
+          const link = node("a", "Open", "secondary small button-link");
+          link.href = item.ref.url;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          li.append(link);
+        } else if (item.kind === "waiting" && window.BridgePromises) {
           li.append(button("Follow up", "secondary small", () => window.BridgePromises.show("theirs")));
         }
         list.append(li);

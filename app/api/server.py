@@ -26,6 +26,7 @@ from app.api.schemas import (
     MessageRequest,
 )
 from app.api.today import install as install_today
+from app.api.work import install as install_work
 from app.bootstrap import build_agent
 from app.config.settings import Settings
 from app.diagnostics import collect_diagnostics
@@ -184,10 +185,11 @@ def create_app(
             response = JSONResponse({"signed_in": has_owner, "setup": not has_owner})
             return auth.sign_in(response, request, kind="owner" if has_owner else "setup")
 
-    install_connections(app, authorize)
+    install_connections(app, authorize, settings)
     install_today(app, authorize)
     install_commitments(app, authorize)
     install_briefs(app, authorize)
+    install_work(app, authorize)
     install_inbox(app, authorize)
     install_automations(app, authorize)
     install_app_settings(app, authorize, settings)
