@@ -54,6 +54,8 @@ PHONE_PATHS = {
     ("GET", "/api/v1/approvals"),
     ("GET", "/api/v1/brief"),
     ("GET", "/api/v1/work"),
+    ("GET", "/api/v1/repos"),
+    ("POST", "/api/v1/repos/seen"),
     ("POST", "/api/v1/brief/move"),
     ("GET", "/api/v1/commitments"),
     ("POST", "/api/v1/commitments/scan"),

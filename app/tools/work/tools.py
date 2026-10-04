@@ -27,6 +27,7 @@ READ_TOOLS = (
     "github_my_prs",
     "github_assigned",
     "github_read",
+    "github_activity",
 )
 JIRA_READS = tuple(name for name in READ_TOOLS if not name.startswith("github"))
 GITHUB_READS = tuple(name for name in READ_TOOLS if name.startswith("github"))
@@ -82,6 +83,31 @@ class GitHubCommentInput(RepoItemInput):
     body: str = Field(min_length=1, max_length=8000)
 
 
+class PullInput(Input):
+    repo: str = Field(min_length=3, max_length=140, description="owner/name or just the name")
+
+
+def _activity(data: dict) -> str:
+    lines = []
+    for r in data["repos"]:
+        if not r["news"]:
+            continue
+        name = r["repo"].split("/")[-1]
+        parts = []
+        if r["commits"]:
+            parts.append(f"{len(r['commits'])} new commits by {', '.join(r['pushers'][:3])}")
+        if r["merged"]:
+            parts.append(f"{len(r['merged'])} PRs merged")
+        parts += [f"{rel['tag']} released" for rel in r["releases"]]
+        if r["main_checks"] == "failing":
+            parts.append(f"❌ checks failing on {r['branch']}")
+        local = r.get("local") or {}
+        if local.get("behind"):
+            parts.append(f"your copy is {local['behind']} behind")
+        lines.append(f"• {name}: " + "; ".join(parts))
+    return "\n".join(lines) or "Nothing new in your repos."
+
+
 def _issues(data: dict) -> str:
     items = data["issues"]
     if not items:
@@ -109,8 +135,8 @@ def _prs(data: dict, empty: str) -> str:
 
 
 class WorkController:
-    def __init__(self, jira: Jira, github: GitHub):
-        self.jira, self.github = jira, github
+    def __init__(self, jira: Jira, github: GitHub, repos=None):
+        self.jira, self.github, self.repos = jira, github, repos
 
     async def my_issues(self, _):
         return {"issues": await self.jira.mine(fresh=True)}
@@ -166,9 +192,22 @@ class WorkController:
     async def github_comment(self, args):
         return await self.github.comment(args.repo, args.number, args.body)
 
+    async def activity(self, _):
+        return await self.repos.feed(fresh=True)
 
-def register(registry, jira: Jira, github: GitHub) -> None:
-    c = WorkController(jira, github)
+    async def pull(self, args):
+        wanted = args.repo.lower().strip().removeprefix("https://github.com/").strip("/")
+        copies = await self.repos.copies()
+        matches = [name for name in copies if name == wanted or name.split("/")[-1] == wanted]
+        if len(matches) != 1:
+            raise ValueError(
+                "Say which repo (owner/name)." if matches else "No copy of that repo on this Mac."
+            )
+        return await self.repos.pull(matches[0])
+
+
+def register(registry, jira: Jira, github: GitHub, repos=None) -> None:
+    c = WorkController(jira, github, repos)
     tools = [
         Tool(
             "jira_my_issues",
@@ -302,5 +341,28 @@ def register(registry, jira: Jira, github: GitHub) -> None:
             render=lambda d: f"Commented: {d['url']}",
         ),
     ]
+    if repos is not None:
+        tools += [
+            Tool(
+                "github_activity",
+                "What changed in the user's GitHub repos: teammates' new "
+                "commits on the main branch, releases, merged pull requests, failing checks on "
+                "main, and whether the user's copies on this Mac are behind.",
+                Input,
+                RiskLevel.SAFE,
+                c.activity,
+                render=_activity,
+            ),
+            Tool(
+                "git_pull",
+                "Update the user's copy of a repo on this Mac from GitHub (fast-"
+                "forward only, only when it has no uncommitted changes).",
+                PullInput,
+                RiskLevel.CONFIRM,
+                c.pull,
+                confirmation_message="Pull the latest code?",
+                render=lambda d: d["message"],
+            ),
+        ]
     for tool in tools:
         registry.register(tool)

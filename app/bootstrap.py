@@ -20,6 +20,7 @@ from app.integrations.accounts import AccountManager
 from app.integrations.activity import SQLiteActivity
 from app.integrations.credentials import KeychainCredentials
 from app.integrations.email import GmailService
+from app.integrations.repos import RepoWatcher
 from app.integrations.slack import SlackService
 from app.integrations.spotify import SpotifyWebService
 from app.integrations.tokens import MemoryTokens, TokenConnections
@@ -66,10 +67,20 @@ from app.tools.system import (
 from app.tools.system import proactive as proactive_tools
 from app.tools.terminal import terminal
 from app.tools.work import tools as work_tools
+from app.tools.work.tools import GITHUB_READS, JIRA_READS
 from app.workflows import retention
 from app.workflows.schedules import ScheduleStore
 from app.workflows.store import SQLiteWorkflows
 from app.workflows.watches import ProactiveStore
+
+
+def shared_tools(allowlist: list[str]) -> set[str]:
+    """Sharing one of a service's reads means sharing all of them (new ones included)."""
+    allowed = set(allowlist)
+    for family in (JIRA_READS, GITHUB_READS):
+        if allowed & set(family):
+            allowed |= set(family)
+    return allowed
 
 
 def build_agent(settings, llm=None, runner=None, accounts=None):
@@ -94,7 +105,10 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     keychain = isinstance(accounts.store, KeychainCredentials)
     tokens = TokenConnections(None if keychain else MemoryTokens(), activity=accounts.activity)
     jira, github = Jira(tokens), GitHub(tokens)
-    work_tools.register(registry, jira, github)
+    repos = RepoWatcher(
+        settings.database_path, github, projects=SQLiteMemory(settings.database_path)
+    )
+    work_tools.register(registry, jira, github, repos)
     spotify_app = spotify.SpotifyController(runner, script)
     people = contacts.ContactsDirectory()
     if settings.integrations_enabled:
@@ -227,7 +241,7 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
             registry,
             privacy=ToolResultPrivacy(
                 mode=settings.remote_tool_results,
-                allowed_tools=set(settings.remote_tool_result_allowlist),
+                allowed_tools=shared_tools(settings.remote_tool_result_allowlist),
             ),
         ),
         Executor(registry),
@@ -236,7 +250,7 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
         preferences=preferences,
     )
     agent.accounts = accounts
-    agent.tokens, agent.jira, agent.github = tokens, jira, github
+    agent.tokens, agent.jira, agent.github, agent.repos = tokens, jira, github, repos
     agent.memories = facts
     agent.use_chats(ChatStore(settings.database_path, days=settings.chat_retention_days))
 
@@ -293,6 +307,8 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     )
     briefs.notify = notify
     briefs.jira, briefs.github = jira, github
+    repos.notify = notify
+    agent.proactive.repos = repos
     agent.briefs = briefs
     agent.proactive.briefs = briefs
     try:

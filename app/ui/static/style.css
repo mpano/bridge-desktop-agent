@@ -1483,3 +1483,12 @@ body.phone .brief-item .brief-words { flex-basis: calc(100% - 40px); }
 .work-badge.bad { color: var(--red); }
 .work-badge.good { color: var(--green); }
 .work-alert { margin: 8px 0 0; font-size: 13px; color: var(--red); }
+.repo-item { display: flex; flex-direction: column; gap: 4px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.repo-item:last-child { border-bottom: 0; padding-bottom: 0; }
+.repo-top { display: flex; align-items: center; gap: 8px; }
+.repo-top .work-title { flex: 1; }
+.repo-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; color: var(--muted); }
+.repo-link { color: var(--muted); text-decoration: none; }
+.repo-link:hover { color: var(--accent); }
+.repo-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.repo-actions .link { padding: 0; font-size: 12.5px; margin-left: auto; }

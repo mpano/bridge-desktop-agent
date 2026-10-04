@@ -9,3 +9,15 @@ def private_listening_file(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "app.desktop.menubar.LISTENING_FILE", tmp_path / "listening.json", raising=False
     )
+
+
+@pytest.fixture(autouse=True)
+def no_real_work_accounts(monkeypatch):
+    """Tests never see your real Jira/GitHub sign-ins or your git copies."""
+    from app.integrations import repos, tokens
+
+    store: dict = {}
+    monkeypatch.setattr(tokens.KeychainTokens, "load", lambda self: dict(store))
+    monkeypatch.setattr(tokens.KeychainTokens, "save", lambda self, data: store.update(data))
+    monkeypatch.setattr(tokens, "GH_CANDIDATES", ())
+    monkeypatch.setattr(repos, "find_copies", lambda home, extra=(), depth=3: {})
