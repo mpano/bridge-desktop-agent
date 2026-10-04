@@ -85,7 +85,12 @@ def test_tailscale_status_and_serve_state():
             "User": {"7": {"LoginName": LOGIN}},
             "CertDomains": ["mac.tail-test.ts.net"],
             "Peer": {
-                "a": {"HostName": "iphone", "OS": "iOS", "Online": True},
+                "a": {
+                    "HostName": "localhost",
+                    "DNSName": "iphone.tail-test.ts.net.",
+                    "OS": "iOS",
+                    "Online": True,
+                },
                 "b": {"HostName": "server", "OS": "linux", "Online": True},
             },
         }
@@ -376,3 +381,15 @@ def test_icons_manifest_and_service_worker_are_served(tmp_path):
         # The phone gets the page too, through Tailscale.
         assert client.get("/", headers=PHONE).status_code == 200
         assert client.get("/sw.js", headers=PHONE).status_code == 200
+
+
+def test_tailscale_cli_gets_a_terminal_type_when_bridge_has_none(monkeypatch, tmp_path):
+    """Opened from Finder, Bridge has no TERM; without one Tailscale's app opens its window."""
+    script = tmp_path / "tailscale"
+    script.write_text(
+        '#!/bin/sh\n[ -n "$TERM" ] && echo cli || echo "The Tailscale GUI failed to start"\n'
+    )
+    script.chmod(0o755)
+    monkeypatch.setattr(tailscale, "CANDIDATES", (str(script),))
+    monkeypatch.delenv("TERM", raising=False)
+    assert asyncio.run(tailscale.run("version")).strip() == "cli"

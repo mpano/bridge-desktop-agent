@@ -32,9 +32,13 @@ async def run(*args: str, timeout: float = 20) -> str:
     path = cli()
     if path is None:
         raise TailscaleError("Install Tailscale on this Mac first.")
+    # Tailscale's Mac app acts as its command line only when it sees a terminal type; from an
+    # app opened in Finder (like Bridge) there is none, and it tries to start its window.
+    env = {**os.environ, "TERM": os.environ.get("TERM") or "dumb"}
     process = await asyncio.create_subprocess_exec(
         path,
         *args,
+        env=env,
         stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
@@ -46,10 +50,13 @@ async def run(*args: str, timeout: float = 20) -> str:
         raise TailscaleError(
             "Tailscale didn't answer. Open the Tailscale app and try again."
         ) from None
+    text = out.decode(errors="replace")
+    if "GUI failed to start" in text:
+        raise TailscaleError("Bridge couldn't use Tailscale's command line. Try again.")
     if process.returncode != 0:
         detail = (err or out).decode(errors="replace").strip().splitlines()
         raise TailscaleError(detail[-1][:300] if detail else "Tailscale reported an error.")
-    return out.decode(errors="replace")
+    return text
 
 
 def parse_status(data: dict) -> dict:
@@ -58,7 +65,8 @@ def parse_status(data: dict) -> dict:
     login = (users.get(str(me.get("UserID"))) or {}).get("LoginName", "")
     phones = [
         {
-            "name": peer.get("HostName") or "Phone",
+            # iPhones call themselves "localhost"; the tailnet name is the one you see.
+            "name": str(peer.get("DNSName") or "").split(".")[0] or peer.get("HostName") or "Phone",
             "os": peer.get("OS"),
             "online": bool(peer.get("Online")),
         }
