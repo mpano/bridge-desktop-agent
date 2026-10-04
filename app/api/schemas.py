@@ -1,6 +1,6 @@
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class MessageRequest(BaseModel):
@@ -17,6 +17,23 @@ class ConfirmationRequest(BaseModel):
 class LaunchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     ticket: str = Field(min_length=16, max_length=100)
+
+
+class ChatRef(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    id: str = Field(pattern=r"^[0-9a-f]{32}$")
+
+
+class ChatDelete(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    id: str | None = Field(default=None, pattern=r"^[0-9a-f]{32}$")
+    all: bool = False
+
+    @model_validator(mode="after")
+    def one_or_all(self):
+        if bool(self.id) == self.all:
+            raise ValueError("Name one chat, or ask for all of them.")
+        return self
 
 
 class MemoryRequest(BaseModel):

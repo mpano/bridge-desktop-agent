@@ -44,6 +44,7 @@ class AppSettings(BaseModel):
     share_results: bool | None = None
     share_screen: bool | None = None
     blocked_apps: list[str] | None = Field(default=None, max_length=30)
+    keep_chats_days: Literal[0, 7, 30] | None = None
 
     @field_validator("blocked_apps")
     @classmethod
@@ -104,6 +105,7 @@ def install(app: FastAPI, authorize, settings) -> None:
                     "Dashlane",
                     "System Settings",
                 ],
+                "keep_chats_days": settings.chat_retention_days,
                 "model": settings.openai_model,
                 "openai_key": bool(settings.openai_api_key.get_secret_value()),
             },
@@ -146,14 +148,27 @@ def install(app: FastAPI, authorize, settings) -> None:
             settings.remote_tool_results = changes["REMOTE_TOOL_RESULTS"]
         if payload.blocked_apps is not None:
             changes["SCREEN_CONTEXT_BLOCKED_APPS"] = json.dumps(payload.blocked_apps)
-        if not changes:
+        # Keeping chats applies right away; everything else after a restart.
+        live: dict[str, str] = {}
+        if payload.keep_chats_days is not None:
+            live["CHAT_RETENTION_DAYS"] = str(payload.keep_chats_days)
+        if not changes and not live:
             return {"saved": [], "restart_needed": request.app.state.restart_needed}
         try:
-            await asyncio.to_thread(update_env, env_path(), changes)
+            await asyncio.to_thread(update_env, env_path(), {**changes, **live})
         except OSError:
             raise HTTPException(500, "Couldn't save your settings file.") from None
-        request.app.state.restart_needed = True
-        return {"saved": sorted(changes), "restart_needed": True}
+        if live:
+            settings.chat_retention_days = payload.keep_chats_days
+            store = getattr(request.app.state.agent, "chats", None)
+            if store is not None:
+                await asyncio.to_thread(store.set_days, payload.keep_chats_days)
+        if changes:
+            request.app.state.restart_needed = True
+        return {
+            "saved": sorted({**changes, **live}),
+            "restart_needed": request.app.state.restart_needed,
+        }
 
     @app.post("/api/v1/notifications/test", dependencies=[Depends(authorize)])
     async def test_notification(request: Request):

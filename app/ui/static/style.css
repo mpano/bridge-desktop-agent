@@ -972,6 +972,19 @@ dialog.sheet p { margin: 0 0 16px; font-size: 14px; }
 .ask-head { display: flex; align-items: flex-end; gap: 8px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
 .ask-head > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .ask-head h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.025em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ask-head { position: relative; }
+.recent-chats { position: absolute; top: calc(100% - 8px); right: 0; z-index: 20; width: min(380px, 100%); padding: 6px; box-shadow: var(--shadow); }
+.recent-list { list-style: none; margin: 0; padding: 0; max-height: 340px; overflow-y: auto; }
+.recent-item { display: flex; align-items: center; gap: 2px; border-radius: 8px; }
+.recent-item:hover, .recent-item.current { background: var(--surface-hover); }
+.recent-open { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; border: 0; background: none; text-align: left; }
+.recent-open:hover:not(:disabled) { background: none; }
+.recent-title { max-width: 100%; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recent-when { font-size: 12px; }
+.recent-item .chip-x { opacity: 0; margin-right: 6px; }
+.recent-item:hover .chip-x, .recent-item .chip-x:focus-visible { opacity: 1; }
+.recent-note { margin: 6px 10px 4px; font-size: 12px; }
+.recent-foot { display: flex; justify-content: space-between; padding: 2px 4px 2px; border-top: 1px solid var(--line); margin-top: 6px; }
 .thread {
   flex: 1; min-height: 0; overflow: auto; max-height: none; padding: 24px 0 12px;
   display: flex; flex-direction: column; gap: 22px; scroll-behavior: smooth;

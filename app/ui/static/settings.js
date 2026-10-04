@@ -168,6 +168,7 @@
         toggle("Share screen content with OpenAI", p.share_screen, (on) => save({share_screen: on}))),
       row("Your voice", data.voice.speech === "local" ? "Transcribed on this Mac, then deleted." : "Sent to OpenAI for transcription.", data.voice.speech === "local" ? stays() : goes()),
       row("Sign-ins, history and files", "Account tokens live in your Mac's Keychain.", stays()),
+      keepChatsRow(p.keep_chats_days),
       row("Model", p.openai_key ? `OpenAI · ${p.model}` : "No OpenAI key yet — add it to .env.", pill(p.openai_key ? "key in .env" : "missing", p.openai_key ? "" : "warm")),
     );
 
@@ -202,6 +203,29 @@
     const block = node("div", undefined, "set column");
     block.append(words, list, form);
     blocked.append(block);
+  }
+
+  function keepChatsRow(days) {
+    const end = node("span", undefined, "set-end");
+    end.append(segmented("Keep chats", [[0, "Off"], [7, "7 days"], [30, "30 days"]], days, (key) => {
+      if (key === 0 && !window.confirm("Stop keeping chats? Your saved chats are deleted now.")) return;
+      save({keep_chats_days: key});
+    }));
+    const clear = node("button", "Delete all", "secondary small");
+    clear.type = "button";
+    clear.addEventListener("click", async () => {
+      if (!window.confirm("Delete all saved chats? This can't be undone.")) return;
+      try {
+        const {deleted} = await ui().request("/api/v1/chats/delete", "POST", {all: true});
+        ui().notify(deleted ? `Deleted ${deleted} ${deleted === 1 ? "chat" : "chats"}.` : "There were no saved chats.");
+      } catch (error) {
+        ui().notify(error.message, true);
+      }
+    });
+    if (days) end.append(clear);
+    const hint = days ? `Recent chats in Ask stay on this Mac for ${days} days, then they're deleted.`
+      : "Off: each chat is forgotten when Bridge quits.";
+    return row("Keep chats", hint, end);
   }
 
   function renderPermissions() {

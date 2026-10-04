@@ -8,6 +8,7 @@ from app.agent.executor import Executor
 from app.agent.planner import Planner
 from app.agent.proactive import Proactive
 from app.agent.scheduler import Scheduler
+from app.assistant.chats import ChatStore
 from app.assistant.day_plan import DayPlanner
 from app.assistant.focus import FocusMode, FocusStore
 from app.assistant.replies import ReplyDrafter
@@ -223,6 +224,7 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     )
     agent.accounts = accounts
     agent.memories = facts
+    agent.use_chats(ChatStore(settings.database_path, days=settings.chat_retention_days))
 
     async def notify(title: str, message: str, view: str = "today") -> None:
         await notifications.post_notification(runner, title, message, view)

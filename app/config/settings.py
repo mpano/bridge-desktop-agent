@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     dictation_cleanup: bool = True
     dictation_max_seconds: float = Field(default=120, ge=10, le=300)
     dictation_pause_seconds: float = Field(default=2.5, ge=1, le=10)
+    # Days Ask keeps recent chats on this Mac; 0 keeps none.
+    chat_retention_days: int = Field(default=7, ge=0, le=365)
     voice_tts_voice: str | None = None
     voice_tts_rate: int | None = Field(default=None, ge=80, le=500)
     voice_background_enabled: bool = False

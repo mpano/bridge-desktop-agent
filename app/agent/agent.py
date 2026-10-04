@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import sqlite3
 import time
 from datetime import datetime
@@ -8,12 +9,15 @@ from uuid import uuid4
 from app.agent.context import AgentContext
 from app.agent.executor import Executor
 from app.agent.planner import Planner
+from app.assistant.chats import IDLE_SECONDS
 from app.llm.models import LLMProviderError, ToolCall
 from app.preferences.service import ApplicationPreferences
 from app.security.confirmation import ConfirmationStore, Pending
 from app.security.permissions import checked_path
 from app.workflows.retention import PruneInput, RetentionPolicy, WorkflowQuery
 from app.workflows.store import WorkflowRepository
+
+logger = logging.getLogger(__name__)
 
 
 class Agent:
@@ -34,17 +38,61 @@ class Agent:
         self.history: list[dict] = []
         self.tasks: dict[str, dict] = {}
         self.background: asyncio.Task | None = None
-        # What the user saw, for the dashboard after a reload. Memory only, never journaled.
+        # What the user saw, for the dashboard after a reload. Kept on disk only through
+        # `chats` (Settings › Privacy › Keep chats); never in the workflow journal.
         self.transcript: list[dict] = []
+        self.chats = None
+        self.chat_id = uuid4().hex
+        self.last_active = time.time()
+
+    def use_chats(self, store) -> None:
+        """Keep chats on this Mac, and carry on the latest one after a restart."""
+        self.chats = store
+        latest = store.latest() if store.keeping else None
+        if latest:
+            self.chat_id, self.transcript = latest["id"], latest["transcript"]
+            self.history, self.last_active = latest["history"], latest["updated"]
+
+    def _fresh_after_break(self) -> None:
+        # Back after a break: a fresh chat, so old context can't steer new requests.
+        if self.transcript and time.time() - self.last_active > IDLE_SECONDS:
+            self.new_chat()
 
     def _log(self, role: str, text: str, **extra) -> None:
+        self.last_active = time.time()
         self.transcript.append(
             {"role": role, "text": text, "at": datetime.now().astimezone().isoformat(), **extra}
         )
         del self.transcript[:-100]
+        if self.chats is not None:
+            try:
+                self.chats.save(self.chat_id, self.transcript, self.history)
+            except (sqlite3.Error, OSError):
+                logger.warning("Couldn't save the chat; it stays open until Bridge quits.")
 
     def conversation(self) -> list[dict]:
         return list(self.transcript)
+
+    def new_chat(self) -> None:
+        self.chat_id = uuid4().hex
+        self.transcript, self.history = [], []
+
+    def open_chat(self, chat_id: str) -> bool:
+        saved = self.chats.load(chat_id) if self.chats is not None else None
+        if saved is None:
+            return False
+        self.chat_id, self.transcript, self.history = chat_id, saved["transcript"], saved["history"]
+        self.last_active = time.time()
+        return True
+
+    def delete_chats(self, chat_id: str | None = None) -> int:
+        """One saved chat, or all of them when no id is given; the open one starts over."""
+        if self.chats is None:
+            return 0
+        removed = self.chats.delete(chat_id) if chat_id else self.chats.delete_all()
+        if chat_id is None or chat_id == self.chat_id:
+            self.new_chat()
+        return int(removed)
 
     def submit(self, message: str) -> dict:
         """Start one tracked request; never create an unbounded execution queue."""
@@ -112,6 +160,7 @@ class Agent:
         try:
             async with self.lock:
                 if message is not None:
+                    self._fresh_after_break()
                     context.history = [*self.history, {"role": "user", "content": message}]
                     self._log("user", message, request_id=context.request_id)
                 state["status"] = "running"
@@ -505,8 +554,8 @@ class Agent:
             )
 
     def reset_conversation(self) -> None:
-        self.transcript.clear()
-        self.history.clear()
+        """ "New conversation": the current one stays in Recent while chats are kept."""
+        self.new_chat()
 
     async def close(self) -> None:
         if self.background and not self.background.done():

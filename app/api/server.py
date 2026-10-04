@@ -15,6 +15,8 @@ from app.api.launch import LaunchTickets
 from app.api.onboarding import install as install_onboarding
 from app.api.schemas import (
     AgentResponse,
+    ChatDelete,
+    ChatRef,
     ConfirmationRequest,
     ForgetRequest,
     LaunchRequest,
@@ -355,7 +357,33 @@ def create_app(
 
     @app.get("/api/v1/conversation", dependencies=[Depends(authorize)])
     async def conversation(request: Request):
-        return {"messages": request.app.state.agent.conversation()}
+        agent = request.app.state.agent
+        return {"messages": agent.conversation(), "chat_id": agent.chat_id}
+
+    @app.get("/api/v1/chats", dependencies=[Depends(authorize)])
+    async def chats(request: Request):
+        agent = request.app.state.agent
+        store = agent.chats
+        return {
+            "chats": store.recent() if store is not None else [],
+            "current": agent.chat_id,
+            "days": store.days if store is not None else 0,
+        }
+
+    @app.post("/api/v1/chats/open", dependencies=[Depends(authorize)])
+    async def open_chat(payload: ChatRef, request: Request):
+        agent = request.app.state.agent
+        async with agent.lock:
+            if not agent.open_chat(payload.id):
+                raise HTTPException(404, "That chat is gone — chats are kept for a few days.")
+        return {"messages": agent.conversation(), "chat_id": agent.chat_id}
+
+    @app.post("/api/v1/chats/delete", dependencies=[Depends(authorize)])
+    async def delete_chats(payload: ChatDelete, request: Request):
+        agent = request.app.state.agent
+        async with agent.lock:
+            removed = agent.delete_chats(None if payload.all else payload.id)
+        return {"deleted": removed, "chat_id": agent.chat_id}
 
     @app.post("/api/v1/conversation/reset", dependencies=[Depends(authorize)])
     async def reset(request: Request):

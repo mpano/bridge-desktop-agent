@@ -295,8 +295,13 @@
       <section id="view-chat" class="view ask" hidden aria-labelledby="ask-title">
         <header class="ask-head">
           <div><p id="ask-when" class="label">Ask</p><h1 id="ask-title">New conversation</h1></div>
-          <button type="button" id="ask-history" class="secondary small">History</button>
+          <button type="button" id="ask-history" class="secondary small" aria-expanded="false" aria-controls="recent-chats">Recent</button>
           <button type="button" id="reset-chat" class="secondary small">New</button>
+          <section id="recent-chats" class="recent-chats card" role="dialog" aria-label="Recent chats" hidden>
+            <ul id="recent-list" class="recent-list"></ul>
+            <p id="recent-note" class="recent-note muted"></p>
+            <div class="recent-foot"><button type="button" id="recent-settings" class="link">Keep chats…</button><button type="button" id="recent-activity" class="link">All activity</button></div>
+          </section>
         </header>
         <div id="conversation" class="thread" role="log" aria-label="Conversation" aria-live="polite">
           <div id="empty-chat" class="ask-empty">

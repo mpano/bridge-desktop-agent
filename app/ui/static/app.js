@@ -1251,7 +1251,55 @@
       decide(true);
     }
   });
-  $("ask-history").addEventListener("click", () => view("workflows"));
+  // Recent chats: kept on this Mac for the days chosen in Settings › Privacy.
+  function closeRecent() {
+    $("recent-chats").hidden = true;
+    $("ask-history").setAttribute("aria-expanded", "false");
+  }
+
+  async function showRecent() {
+    const {chats, current, days} = await request("/api/v1/chats");
+    const list = $("recent-list");
+    list.replaceChildren();
+    for (const chat of chats) {
+      const item = node("li", undefined, chat.id === current ? "recent-item current" : "recent-item");
+      const open = node("button", undefined, "recent-open");
+      open.type = "button";
+      open.append(node("span", chat.title, "recent-title"), node("span", chat.id === current ? "Open now" : ago(chat.updated), "recent-when faint"));
+      open.addEventListener("click", () => execute(async () => {
+        closeRecent();
+        if (chat.id !== current) await request("/api/v1/chats/open", "POST", {id: chat.id});
+        pending = null;
+        await loadConversation();
+      }, {refresh: false}));
+      const remove = node("button", "×", "chip-x");
+      remove.type = "button";
+      remove.setAttribute("aria-label", `Delete “${chat.title}”`);
+      remove.addEventListener("click", () => execute(async () => {
+        await request("/api/v1/chats/delete", "POST", {id: chat.id});
+        if (chat.id === current) await loadConversation();
+        await showRecent();
+      }, {refresh: false}));
+      item.append(open, remove);
+      list.append(item);
+    }
+    $("recent-note").textContent = !days ? "Chats aren't kept: each one is forgotten when Bridge quits."
+      : chats.length ? `Kept on this Mac for ${days} days, then deleted.`
+      : `No chats yet. They're kept on this Mac for ${days} days.`;
+    $("recent-chats").hidden = false;
+    $("ask-history").setAttribute("aria-expanded", "true");
+  }
+
+  $("ask-history").addEventListener("click", () => {
+    if (!$("recent-chats").hidden) return closeRecent();
+    showRecent().catch((error) => notify(error.message, true));
+  });
+  $("recent-settings").addEventListener("click", () => { closeRecent(); view("settings", "privacy"); });
+  $("recent-activity").addEventListener("click", () => { closeRecent(); view("workflows"); });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !$("recent-chats").hidden) closeRecent(); });
+  document.addEventListener("click", (event) => {
+    if (!$("recent-chats").hidden && !event.target.closest("#recent-chats, #ask-history")) closeRecent();
+  });
 
   // Which window "this" means: app and title only, refreshed when you come to Ask.
   async function peekScreen() {
@@ -1270,8 +1318,9 @@
 
   $("reset-chat").addEventListener("click", () => execute(async () => {
     await request("/api/v1/conversation/reset", "POST");
+    closeRecent();
     renderConversation([]);
-    notify("Conversation cleared. Saved projects and workflows are unchanged.");
+    notify("Started a new conversation.");
   }));
   $("refresh-projects").addEventListener("click", () => execute(async () => {}));
   $("capability-search").addEventListener("input", renderCapabilities);
