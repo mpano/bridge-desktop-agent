@@ -1314,3 +1314,84 @@ body.onboarding-mode main { max-width: none; padding: 0; }
 .ob-foot .grow { flex: 1; }
 .ob-foot .primary { padding: 12px 22px; }
 .ob-body .chips button { padding: 8px 14px; font-size: 13.5px; }
+
+/* Bridge on your phone ------------------------------------------------------------------- */
+.tabbar, .mail-back { display: none; }
+.phone-pair { display: flex; align-items: center; gap: 24px; margin-top: 16px; }
+.phone-pair canvas { flex-shrink: 0; border-radius: 12px; border: 1px solid var(--line); background: #fff; transition: opacity .2s; }
+.phone-pair canvas.expired { opacity: .2; }
+.phone-pair-words h3 { margin: 0 0 6px; }
+.phone-pair-words p { margin: 0 0 10px; }
+#settings-phone-devices { margin-top: 16px; }
+
+body.phone { display: block; -webkit-tap-highlight-color: transparent; }
+body.phone .sidebar, body.phone kbd, body.phone .screen-chip, body.phone .ask-shortcut { display: none !important; }
+body.phone main {
+  max-width: none;
+  padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) calc(76px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+body.phone.signed-out main { padding-bottom: env(safe-area-inset-bottom); }
+body.phone h1 { font-size: 28px; }
+body.phone .view { padding-top: 14px; }
+body.phone #notice {
+  top: auto; bottom: calc(84px + env(safe-area-inset-bottom)); left: 50%;
+  max-width: calc(100vw - 32px); width: max-content; font-size: 14px;
+}
+
+.tabbar:not([hidden]) {
+  position: fixed; z-index: 30; left: 0; right: 0; bottom: 0;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  padding: 6px max(8px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  -webkit-backdrop-filter: saturate(1.6) blur(20px); backdrop-filter: saturate(1.6) blur(20px);
+  border-top: 1px solid var(--line);
+}
+.tabbar button {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  min-height: 50px; padding: 6px 0 2px; border: 0; background: none; color: var(--faint);
+  font-size: 11px; font-weight: 600;
+}
+.tabbar button:hover:not(:disabled) { background: none; }
+.tabbar .icon { width: 24px; height: 24px; }
+.tabbar [aria-current="page"] { color: var(--accent); }
+.tab-badge {
+  position: absolute; top: 2px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 99px; background: var(--amber); color: #fff; font: 700 11px/18px -apple-system, sans-serif;
+}
+
+/* Sign-in */
+body.phone .auth { min-height: calc(100dvh - 40px); }
+body.phone .auth-card { width: 100%; max-width: 420px; padding: 28px 22px; text-align: center; }
+.phone-login-mark { border-radius: 16px; margin-bottom: 14px; }
+#phone-faceid { margin-top: 8px; height: 50px; font-size: 16px; }
+
+/* Ask: the composer sits just above the tab bar. */
+body.phone .ask:not([hidden]) { height: calc(100dvh - 76px - env(safe-area-inset-bottom) - env(safe-area-inset-top)); padding-bottom: 10px; }
+body.phone #conversation { max-height: none; }
+body.phone .ask-head h1 { font-size: 22px; }
+body.phone .ask-composer textarea { font-size: 16px; }  /* 16px keeps iOS from zooming in. */
+body.phone input, body.phone textarea, body.phone select { font-size: 16px; }
+body.phone .recent-chats { width: 100%; }
+body.phone .message, body.phone .message.user { margin-left: 0; margin-right: 0; }
+
+/* Inbox: the list, then a message on its own screen. */
+body.phone .inbox:not([hidden]) { height: calc(100dvh - 76px - env(safe-area-inset-bottom) - env(safe-area-inset-top)); }
+body.phone .inbox-head h1 { font-size: 28px; }
+body.phone .inbox-split { display: block; overflow: hidden; }
+body.phone .mail-list { height: 100%; padding: 8px 0 16px; border-right: 0; }
+body.phone .mail-detail { display: none; height: 100%; padding: 4px 0 24px; }
+body.phone .inbox.reading .mail-list, body.phone .inbox.reading .inbox-head, body.phone .inbox.reading #inbox-tabs { display: none; }
+body.phone .inbox.reading .mail-detail { display: flex; }
+/* Empty states (nothing to list) show the message where the list would be. */
+body.phone .inbox-split:has(.mail-list:empty) .mail-list { display: none; }
+body.phone .inbox-split:has(.mail-list:empty) .mail-detail { display: flex; }
+body.phone .mail-back { display: inline-flex; align-self: flex-start; padding: 6px 0; margin-bottom: 6px; font-size: 16px; }
+body.phone .mail-detail > h2, body.phone .detail-head h2 { font-size: 22px; margin-top: 4px; }
+body.phone .tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+
+/* You */
+.phone-you:not([hidden]) { display: flex; flex-direction: column; gap: 16px; }
+.phone-you h1 { margin: 0; }
+.phone-you .hint { margin: 0 4px; }
+body.phone .set { gap: 12px; }
+body.phone .set-end { flex-shrink: 0; }

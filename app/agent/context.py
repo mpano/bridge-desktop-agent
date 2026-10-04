@@ -13,6 +13,7 @@ class AgentContext:
     rounds: int = 0
     recovering: bool = False
     cancel_requested: bool = False
+    from_phone: bool = False  # Asked from the phone: nothing that reads this Mac's screen.
     current_tool: str | None = None
     confirmation_message: str | None = None
     completion_message: str = (

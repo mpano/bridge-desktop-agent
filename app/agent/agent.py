@@ -11,6 +11,7 @@ from app.agent.executor import Executor
 from app.agent.planner import Planner
 from app.assistant.chats import IDLE_SECONDS
 from app.llm.models import LLMProviderError, ToolCall
+from app.phone.access import MAC_ONLY_TOOLS
 from app.preferences.service import ApplicationPreferences
 from app.security.confirmation import ConfirmationStore, Pending
 from app.security.permissions import checked_path
@@ -94,11 +95,11 @@ class Agent:
             self.new_chat()
         return int(removed)
 
-    def submit(self, message: str) -> dict:
+    def submit(self, message: str, *, from_phone: bool = False) -> dict:
         """Start one tracked request; never create an unbounded execution queue."""
         if self.background and not self.background.done():
             raise ValueError("A background request is already active.")
-        context = AgentContext()
+        context = AgentContext(from_phone=from_phone)
         return self._start_background(context, message=message)
 
     def pending_approvals(self) -> list[dict]:
@@ -426,6 +427,13 @@ class Agent:
                 ]
                 return self.response(
                     context, "completed", self._with_local_results(context, reply.text)
+                )
+            if context.from_phone and any(c.name in MAC_ONLY_TOOLS for c in reply.calls):
+                return self.response(
+                    context,
+                    "failed",
+                    "That needs your Mac's screen, clipboard or Terminal, so it only works "
+                    "when you ask from your Mac.",
                 )
             try:
                 context.queue = self._prepare(reply.calls)

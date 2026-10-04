@@ -23,6 +23,7 @@ from app.llm import prompts
 from app.llm.factory import create_llm
 from app.memory.facts import FactStore
 from app.memory.store import SQLiteMemory
+from app.phone.access import PhoneAccess
 from app.preferences import service as preferences_service
 from app.security.privacy import ToolResultPrivacy
 from app.tools.browser import browser, chrome
@@ -226,8 +227,11 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     agent.memories = facts
     agent.use_chats(ChatStore(settings.database_path, days=settings.chat_retention_days))
 
+    agent.phone = PhoneAccess(settings.database_path)
+
     async def notify(title: str, message: str, view: str = "today") -> None:
         await notifications.post_notification(runner, title, message, view)
+        await agent.phone.notify(title, message, view)  # When you're away from the Mac.
 
     agent.scheduler = Scheduler(agent, schedule_store, notify)
     agent.schedule_store = schedule_store

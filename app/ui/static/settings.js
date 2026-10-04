@@ -72,6 +72,7 @@
     });
     document.querySelectorAll(".settings-section").forEach((panel) => { panel.hidden = panel.dataset.panel !== section; });
     if (section === "account") ui().refreshAccount();
+    if (section === "phone" && window.BridgePhone) window.BridgePhone.showSettings();
     refresh();
   }
 

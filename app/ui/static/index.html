@@ -2,10 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#F4F4F1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#141519" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Bridge">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>Bridge</title>
   <link rel="icon" type="image/png" href="/ui/bridge-mark.png">
+  <link rel="apple-touch-icon" href="/ui/icon-180.png">
+  <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="/ui/style.css">
   <script src="/ui/app.js" defer></script>
   <script src="/ui/today.js" defer></script>
@@ -13,6 +20,7 @@
   <script src="/ui/automations.js" defer></script>
   <script src="/ui/settings.js" defer></script>
   <script src="/ui/onboarding.js" defer></script>
+  <script src="/ui/phone.js" defer></script>
 </head>
 <body>
   <aside class="sidebar">
@@ -68,6 +76,12 @@
           <details><summary>Use the API token instead</summary>
             <form id="token-form" class="inline"><label for="api-token" class="sr-only">API token</label><input id="api-token" type="password" autocomplete="off" placeholder="API_TOKEN from your .env file"><button class="secondary" type="submit">Continue</button></form>
           </details>
+        </div>
+        <div id="phone-login" hidden>
+          <img class="phone-login-mark" src="/ui/icon-180.png" alt="" width="64" height="64">
+          <p class="eyebrow">BRIDGE ON YOUR PHONE</p><h1 id="phone-login-title">Sign in</h1>
+          <p id="phone-login-hint"></p>
+          <button id="phone-faceid" type="button" class="primary wide" hidden>Sign in with Face ID</button>
         </div>
         <p id="auth-error" role="alert"></p>
       </div>
@@ -221,6 +235,7 @@
             <button type="button" data-section="privacy">Privacy</button>
             <button type="button" data-section="permissions">Mac permissions</button>
             <button type="button" data-section="account">Account</button>
+            <button type="button" data-section="phone">Phone</button>
             <button type="button" data-section="projects">Projects</button>
             <button type="button" data-section="about">About & diagnostics</button>
           </nav>
@@ -236,6 +251,7 @@
             <section class="settings-section" data-panel="voice" aria-label="Voice and dictation" hidden><h2>Voice &amp; dictation</h2><div id="settings-voice" class="card group"></div></section>
             <section class="settings-section" data-panel="privacy" aria-label="Privacy" hidden><h2>Privacy</h2><p class="lede">Bridge runs on this Mac. It uses OpenAI to understand requests — here is exactly what that includes.</p><div id="settings-privacy" class="card group"></div><div id="settings-blocked" class="card group"></div></section>
             <section class="settings-section" data-panel="permissions" aria-label="Mac permissions" hidden><h2>Mac permissions</h2><p class="lede">What macOS lets Bridge do. Each one is optional; Bridge tells you when something needs one.</p><div id="settings-permissions" class="card group"></div></section>
+            <section class="settings-section" data-panel="phone" aria-label="Phone" hidden><h2>Bridge on your phone</h2><p class="lede">Use Today, Ask and Inbox and approve things from your phone, over your own private Tailscale network. Nothing is opened to the internet, and your Mac has to be on.</p><div id="settings-phone" class="card group"></div><div id="phone-pair" class="card phone-pair" hidden><canvas id="phone-qr" width="232" height="232" aria-label="QR code that signs your phone in"></canvas><div class="phone-pair-words"><h3>Scan with your phone's camera</h3><p>It opens Bridge in Safari and signs you in. Then set up Face ID and add Bridge to your Home Screen.</p><p id="phone-pair-link" class="mono small-print" hidden></p><p id="phone-pair-expiry" class="hint"></p><button type="button" id="phone-pair-new" class="secondary small">New code</button></div></div><div id="settings-phone-devices" class="card group" hidden></div></section>
             <section class="settings-section" data-panel="account" aria-label="Account" hidden><h2>Account</h2>
         <div class="two-column">
           <form id="profile-form" class="card"><h2>Profile</h2><label for="profile-name">Name</label><input id="profile-name" required maxlength="80"><label for="profile-email">Email</label><input id="profile-email" type="email" required maxlength="254"><button type="submit" class="primary">Save profile</button></form>
@@ -352,7 +368,19 @@
           <aside id="service-detail" class="svc-detail" aria-live="polite"></aside>
         </div>
       </section>
+      <section id="view-phone" class="view phone-you" hidden aria-labelledby="phone-you-title">
+        <h1 id="phone-you-title">You</h1>
+        <div id="phone-you" class="card group"></div>
+        <p class="hint">Settings, connections, automations and memory live in Bridge on your Mac.</p>
+        <button type="button" id="phone-sign-out" class="secondary wide">Sign out of this phone</button>
+      </section>
     </fieldset>
+    <nav id="tabbar" class="tabbar" aria-label="Main navigation" hidden>
+      <button type="button" data-view="today"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5a1.5 1.5 0 0 1 1.5-1.5h8a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5zM2.5 6.5h11"/></svg><span>Today</span></button>
+      <button type="button" data-view="chat"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11v7.5H7.5L4.5 13.5V11h-2z"/></svg><span>Ask</span></button>
+      <button type="button" data-view="inbox"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 9.5 4 3h8l1.5 6.5v3.5h-11zM2.5 9.5h3l1 1.5h3l1-1.5h3"/></svg><span>Inbox</span><span id="tab-inbox-badge" class="tab-badge" hidden></span></button>
+      <button type="button" data-view="phone"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 8a2.75 2.75 0 1 0 0-5.5A2.75 2.75 0 0 0 8 8zM2.75 14c.6-2.6 2.7-4 5.25-4s4.65 1.4 5.25 4"/></svg><span>You</span></button>
+    </nav>
 
     <p id="busy-status" role="status" aria-live="polite" hidden>Working on your request…</p>
   </main>

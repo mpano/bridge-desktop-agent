@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.auth.oauth import PROVIDERS, OAuthSignIn, SignInError
 from app.auth.passkeys import PasskeyError, Passkeys
 from app.auth.store import AuthStore
+from app.phone.access import SESSION_HOURS as PHONE_SESSION_HOURS
 
 COOKIE = "bridge_session"
 EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[A-Za-z]{2,}$")
@@ -49,7 +50,7 @@ class Start(Body):
 
 class PasskeyRegistration(Body):
     credential: dict
-    name: str = Field(default="Touch ID on this Mac", min_length=1, max_length=60)
+    name: str = Field(default="", max_length=60)
 
 
 class PasskeyLogin(Body):
@@ -79,8 +80,9 @@ def checked_email(value: str) -> str:
 
 
 class AuthService:
-    def __init__(self, settings):
+    def __init__(self, settings, from_phone=lambda request: False):
         self.settings = settings
+        self.from_phone = from_phone
         self._store: AuthStore | None = None
         self.oauth = OAuthSignIn(settings)
         self._passkeys: Passkeys | None = None
@@ -102,15 +104,26 @@ class AuthService:
         return self.store.session(request.cookies.get(COOKIE))
 
     def owner_session(self, request: Request):
+        """Your session: a Mac one on this Mac, a phone one only from the phone."""
         current = self.session(request)
-        return current if current and current.kind == "owner" else None
+        wanted = "phone" if self.from_phone(request) else "owner"
+        return current if current and current.kind == wanted else None
+
+    def rp_id(self, request: Request) -> str:
+        """Which address passkeys belong to: the phone's, or this Mac's localhost."""
+        if self.from_phone(request):
+            return request.app.state.agent.phone.host
+        return "localhost"
 
     def sign_in(self, response, request: Request, *, remember: bool = False, kind="owner"):
-        hours = (
-            self.settings.auth_remember_days * 24
-            if remember
-            else (1 if kind == "setup" else self.settings.auth_session_hours)
-        )
+        if kind == "owner" and self.from_phone(request):
+            kind = "phone"
+        if kind == "phone":
+            hours, remember = PHONE_SESSION_HOURS, True  # Kept for 24 hours, then Face ID.
+        elif remember:
+            hours = self.settings.auth_remember_days * 24
+        else:
+            hours = 1 if kind == "setup" else self.settings.auth_session_hours
         token = self.store.create_session(
             kind, hours, request.headers.get("user-agent", ""), remember
         )
@@ -120,6 +133,7 @@ class AuthService:
             max_age=int(hours * 3600) if remember else None,
             httponly=True,
             samesite="strict",
+            secure=kind == "phone",
             path="/",
         )
         return response
@@ -134,8 +148,10 @@ class AuthService:
         self.failures.append(time.monotonic())
 
 
-def install_auth(app: FastAPI, settings, same_origin, api_token_valid) -> AuthService:
-    auth = AuthService(settings)
+def install_auth(
+    app: FastAPI, settings, same_origin, api_token_valid, from_phone=lambda request: False
+) -> AuthService:
+    auth = AuthService(settings, from_phone)
     app.state.auth = auth
 
     def browser_request(request: Request) -> str:
@@ -156,9 +172,21 @@ def install_auth(app: FastAPI, settings, same_origin, api_token_valid) -> AuthSe
     async def status(request: Request):
         owner = auth.store.owner()
         current = auth.session(request)
-        signed_in = bool(current and current.kind == "owner" and owner)
+        phone = auth.from_phone(request)
+        signed_in = bool(auth.owner_session(request) and owner)
         linked = {item["provider"] for item in auth.store.identities()}
         origin = f"{request.url.scheme}://{request.url.netloc}"
+        if phone:
+            # The phone signs in only with Face ID or by scanning the QR code on the Mac.
+            return {
+                "has_owner": owner is not None,
+                "signed_in": signed_in,
+                "setup": False,
+                "phone": True,
+                "owner": {"name": owner.name, "email": owner.email} if signed_in else None,
+                "methods": {"passkey": bool(auth.store.passkeys(auth.rp_id(request)))},
+                "passkeys_supported": True,
+            }
         return {
             "has_owner": owner is not None,
             "signed_in": signed_in,
@@ -294,30 +322,32 @@ def install_auth(app: FastAPI, settings, same_origin, api_token_valid) -> AuthSe
     async def passkey_options(request: Request):
         browser_request(request)
         require_owner(request)
-        return auth.passkeys.registration_options(auth.store.owner())
+        return auth.passkeys.registration_options(auth.store.owner(), auth.rp_id(request))
 
     @app.post("/api/v1/auth/passkeys", include_in_schema=False)
     async def passkey_register(payload: PasskeyRegistration, request: Request):
         origin = browser_request(request)
         require_owner(request)
+        default = "Face ID on your phone" if auth.from_phone(request) else "Touch ID on this Mac"
+        name = payload.name.strip() or default
         try:
-            return auth.passkeys.register(payload.credential, origin, payload.name.strip())
+            return auth.passkeys.register(payload.credential, origin, name, auth.rp_id(request))
         except PasskeyError as exc:
             raise HTTPException(400, str(exc)) from None
 
     @app.post("/api/v1/auth/passkey-login/options", include_in_schema=False)
     async def passkey_login_options(request: Request):
         browser_request(request)
-        if not auth.store.passkeys():
+        if not auth.store.passkeys(auth.rp_id(request)):
             raise HTTPException(409, "No passkey is set up yet.")
-        return auth.passkeys.authentication_options()
+        return auth.passkeys.authentication_options(auth.rp_id(request))
 
     @app.post("/api/v1/auth/passkey-login", include_in_schema=False)
     async def passkey_login(payload: PasskeyLogin, request: Request):
         origin = browser_request(request)
         auth.check_rate()
         try:
-            auth.passkeys.authenticate(payload.credential, origin)
+            auth.passkeys.authenticate(payload.credential, origin, auth.rp_id(request))
         except PasskeyError as exc:
             auth.failed()
             raise HTTPException(401, str(exc)) from None
@@ -392,7 +422,8 @@ def install_auth(app: FastAPI, settings, same_origin, api_token_valid) -> AuthSe
     async def passkey_remove(payload: Target, request: Request):
         browser_request(request)
         require_owner(request)
-        keep_one_method()
+        if any(item["credential_id"] == payload.value for item in auth.store.passkeys()):
+            keep_one_method()  # Only this Mac's passkeys count as a way to sign in here.
         if not auth.store.remove_passkey(payload.value):
             raise HTTPException(404, "That passkey was already removed.")
         return {"removed": True}

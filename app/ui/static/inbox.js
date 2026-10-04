@@ -125,7 +125,9 @@
       const chosen = item.message_id === selected;
       const row = button("", `mail${chosen ? " on" : ""}${status[item.message_id] ? " done" : ""}`, () => {
         selected = item.message_id;
+        $("view-inbox").classList.add("reading");  // On the phone, the message takes the screen.
         render();
+        $("inbox-detail").scrollTop = 0;
       });
       row.setAttribute("aria-current", chosen ? "true" : "false");
       const top = node("span", undefined, "mail-top");
@@ -248,7 +250,8 @@
     const [group, item] = found;
     const label = GROUPS.find(([key]) => key === group)[1];
     const head = node("header", undefined, "detail-head");
-    head.append(node("p", label, "label"), node("h2", item.subject || "(no subject)"));
+    const back = button("‹ Inbox", "link mail-back", () => $("view-inbox").classList.remove("reading"));
+    head.append(back, node("p", label, "label"), node("h2", item.subject || "(no subject)"));
     const who = node("p", undefined, "who");
     who.append(node("strong", name(item.from)), node("span", ` · ${shortDate(item.date)}`, "faint"));
     head.append(who);
@@ -298,7 +301,8 @@
     if (!state.gmail && !state.slack) {
       list.replaceChildren();
       panel.replaceChildren(node("h2", "Connect Gmail or Slack"), node("p", "Bridge sorts your unread email and Slack messages by what they need from you and writes replies in your style. You send them.", "empty"),
-        button("Open Connections", "primary", () => ui().view("connections")));
+        ui().phone() ? node("p", "Connect them in Bridge on your Mac: Connections.", "hint")
+          : button("Open Connections", "primary", () => ui().view("connections")));
       return;
     }
     if (!state.sorted) {

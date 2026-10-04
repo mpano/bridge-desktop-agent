@@ -5,14 +5,14 @@ import time
 from contextlib import asynccontextmanager, suppress
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
-from starlette.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app.api.app_settings import install as install_app_settings
 from app.api.automations import install as install_automations
 from app.api.inbox import install as install_inbox
 from app.api.launch import LaunchTickets
 from app.api.onboarding import install as install_onboarding
+from app.api.phone import install as install_phone
 from app.api.schemas import (
     AgentResponse,
     ChatDelete,
@@ -28,6 +28,7 @@ from app.bootstrap import build_agent
 from app.config.settings import Settings
 from app.diagnostics import collect_diagnostics
 from app.integrations.routes import install_connections
+from app.phone.access import PhoneAccess, phone_may_use
 from app.preferences.service import ApplicationPreferencesInput
 from app.text_actions import (
     DictationRequest,
@@ -39,6 +40,8 @@ from app.tools.files.projects import ProjectAlias, RememberProject
 from app.tools.system.proactive import SettingsInput as ProactiveSettings
 from app.tools.system.proactive import WatchInput as WatchRequest
 from app.workflows.retention import RetentionPolicy, WorkflowFilter, WorkflowQuery
+
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "testserver"}
 
 
 def create_app(
@@ -73,9 +76,37 @@ def create_app(
             await app.state.agent.close()
 
     app = FastAPI(title="Bridge", lifespan=lifespan)
-    app.add_middleware(
-        TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "testserver"]
-    )
+
+    def phone_access(request: Request):
+        agent_now = getattr(request.app.state, "agent", None) or agent
+        access = getattr(agent_now, "phone", None)
+        return access if isinstance(access, PhoneAccess) else None
+
+    def from_phone(request: Request) -> bool:
+        phone = phone_access(request)
+        return bool(phone is not None and phone.is_phone(request))
+
+    @app.middleware("http")
+    async def phone_gate(request: Request, call_next):
+        """Local names only, plus the phone address when it really came through Tailscale.
+
+        From the phone, only the phone's screens are reachable."""
+        host = (request.headers.get("host") or "").split(":")[0].lower()
+        phone = phone_access(request)
+        forwarded = any(h in request.headers for h in ("tailscale-user-login", "x-forwarded-host"))
+        if host in LOCAL_HOSTS and forwarded:
+            # Relayed from another device but addressed as this Mac: never treat it as local.
+            return PlainTextResponse("Invalid host header", status_code=400)
+        if host not in LOCAL_HOSTS:
+            if phone is None or not phone.enabled or host != phone.host:
+                return PlainTextResponse("Invalid host header", status_code=400)
+            if not phone.is_phone(request):
+                return JSONResponse({"detail": "Not allowed."}, status_code=403)
+            if not phone_may_use(request.method, request.url.path):
+                return JSONResponse(
+                    {"detail": "Open Bridge on your Mac for this."}, status_code=403
+                )
+        return await call_next(request)
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
@@ -88,13 +119,18 @@ def create_app(
             response.headers["Content-Security-Policy"] = (
                 "default-src 'none'; script-src 'self'; style-src 'self'; "
                 "connect-src 'self'; img-src 'self'; base-uri 'none'; "
-                "form-action 'none'; frame-ancestors 'none'"
+                "form-action 'none'; frame-ancestors 'none'; "
+                "manifest-src 'self'; worker-src 'self'"
             )
         return response
 
     def same_origin(request: Request):
         origin = request.headers.get("origin")
-        local_origin = f"{request.url.scheme}://{request.url.netloc}"
+        local_origin = (
+            phone_access(request).origin
+            if from_phone(request)
+            else f"{request.url.scheme}://{request.url.netloc}"
+        )
         if origin and (not enable_ui or origin != local_origin):
             raise HTTPException(403, "Browser origin is not allowed.")
         if request.headers.get("sec-fetch-site") in {"cross-site", "same-site"}:
@@ -113,11 +149,11 @@ def create_app(
         from app.ui.routes import install_ui
 
         install_ui(app)
-        auth = install_auth(app, settings, same_origin, api_token_valid)
+        auth = install_auth(app, settings, same_origin, api_token_valid, from_phone)
 
     async def authorize(request: Request):
         """The API token (menu bar, voice, scripts) or a signed-in dashboard session."""
-        if api_token_valid(request):
+        if api_token_valid(request) and not from_phone(request):
             same_origin(request)
             return
         if auth is not None and request.cookies.get("bridge_session"):
@@ -152,6 +188,7 @@ def create_app(
     install_automations(app, authorize)
     install_app_settings(app, authorize, settings)
     install_onboarding(app, authorize, settings)
+    install_phone(app, authorize, settings, auth, from_phone)
 
     @app.get("/health")
     async def health():
@@ -185,7 +222,7 @@ def create_app(
         if request.headers.get("x-bridge-source") == "voice":
             request.app.state.usage["talk"] = time.time()
         try:
-            return request.app.state.agent.submit(payload.message)
+            return request.app.state.agent.submit(payload.message, from_phone=from_phone(request))
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
 

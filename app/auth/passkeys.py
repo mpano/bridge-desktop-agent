@@ -1,7 +1,8 @@
-"""Passkeys (Touch ID / iCloud Keychain) for the Bridge owner, via py_webauthn.
+"""Passkeys (Touch ID / Face ID / iCloud Keychain) for the Bridge owner, via py_webauthn.
 
 WebAuthn needs a domain name, so passkeys work on http://localhost:<port>, not on a
-bare IP address such as 127.0.0.1.
+bare IP address such as 127.0.0.1. Your phone uses Bridge's private https address, and
+its passkeys belong to that address (the relying party ID), separately from this Mac's.
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ class Passkeys:
         self._challenges: dict[str, tuple[bytes, float]] = {}
 
     def _remember(self, purpose: str, challenge: bytes) -> None:
+        # One challenge per purpose and address, so the Mac and the phone don't collide.
         self._challenges[purpose] = (challenge, time.monotonic() + CHALLENGE_SECONDS)
 
     def _take(self, purpose: str) -> bytes:
@@ -48,39 +50,43 @@ class Passkeys:
         return challenge
 
     @staticmethod
-    def check_origin(origin: str) -> None:
+    def check_origin(origin: str, rp_id: str = RP_ID) -> None:
+        if rp_id != RP_ID:
+            if origin != f"https://{rp_id}":
+                raise PasskeyError("Open Bridge from its phone address to use Face ID.")
+            return
         if not origin.startswith("http://localhost:"):
             raise PasskeyError(
                 "Passkeys work at http://localhost:8000. Open the dashboard from the Bridge menu."
             )
 
-    def registration_options(self, owner) -> dict:
+    def registration_options(self, owner, rp_id: str = RP_ID) -> dict:
         options = generate_registration_options(
-            rp_id=RP_ID,
+            rp_id=rp_id,
             rp_name="Bridge",
             user_id=USER_ID,
             user_name=owner.email,
             user_display_name=owner.name,
             exclude_credentials=[
                 PublicKeyCredentialDescriptor(id=base64url_to_bytes(item["credential_id"]))
-                for item in self.store.passkeys()
+                for item in self.store.passkeys(rp_id)
             ],
             authenticator_selection=AuthenticatorSelectionCriteria(
                 resident_key=ResidentKeyRequirement.REQUIRED,
                 user_verification=UserVerificationRequirement.REQUIRED,
             ),
         )
-        self._remember("register", options.challenge)
+        self._remember(f"register:{rp_id}", options.challenge)
         return json.loads(options_to_json(options))
 
-    def register(self, credential: dict, origin: str, name: str) -> dict:
-        self.check_origin(origin)
+    def register(self, credential: dict, origin: str, name: str, rp_id: str = RP_ID) -> dict:
+        self.check_origin(origin, rp_id)
         try:
             verified = verify_registration_response(
                 credential=credential,
-                expected_challenge=self._take("register"),
+                expected_challenge=self._take(f"register:{rp_id}"),
                 expected_origin=origin,
-                expected_rp_id=RP_ID,
+                expected_rp_id=rp_id,
                 require_user_verification=True,
             )
         except PasskeyError:
@@ -89,29 +95,29 @@ class Passkeys:
             raise PasskeyError("The passkey couldn't be verified. Try again.") from None
         credential_id = bytes_to_base64url(verified.credential_id)
         self.store.add_passkey(
-            credential_id, verified.credential_public_key, verified.sign_count, name
+            credential_id, verified.credential_public_key, verified.sign_count, name, rp_id
         )
         return {"credential_id": credential_id, "name": name}
 
-    def authentication_options(self) -> dict:
+    def authentication_options(self, rp_id: str = RP_ID) -> dict:
         options = generate_authentication_options(
-            rp_id=RP_ID, user_verification=UserVerificationRequirement.REQUIRED
+            rp_id=rp_id, user_verification=UserVerificationRequirement.REQUIRED
         )
-        self._remember("login", options.challenge)
+        self._remember(f"login:{rp_id}", options.challenge)
         return json.loads(options_to_json(options))
 
-    def authenticate(self, credential: dict, origin: str) -> None:
-        self.check_origin(origin)
-        known = {item["credential_id"]: item for item in self.store.passkeys()}
+    def authenticate(self, credential: dict, origin: str, rp_id: str = RP_ID) -> None:
+        self.check_origin(origin, rp_id)
+        known = {item["credential_id"]: item for item in self.store.passkeys(rp_id)}
         stored = known.get(str(credential.get("id", "")))
         if stored is None:
-            self._challenges.pop("login", None)
+            self._challenges.pop(f"login:{rp_id}", None)
             raise PasskeyError("That passkey isn't registered with this Bridge.")
         try:
             verified = verify_authentication_response(
                 credential=credential,
-                expected_challenge=self._take("login"),
-                expected_rp_id=RP_ID,
+                expected_challenge=self._take(f"login:{rp_id}"),
+                expected_rp_id=rp_id,
                 expected_origin=origin,
                 credential_public_key=stored["public_key"],
                 credential_current_sign_count=stored["sign_count"],

@@ -38,7 +38,8 @@
     // While an approval waits, the composer waits too: answer the card first.
     $("message").disabled = Boolean(pending);
     $("send-message").disabled = busy || Boolean(pending);
-    $("message").placeholder = pending ? "Answer the card above first…" : "Ask anything, or describe what you want done…";
+    $("message").placeholder = pending ? "Answer the card above first…"
+      : phoneMode() ? "Ask Bridge…" : "Ask anything, or describe what you want done…";
     $("busy-status").hidden = !busy;
     $("workspace").setAttribute("aria-busy", String(busy));
   }
@@ -68,7 +69,13 @@
     return data;
   }
 
+  // On the phone: Today, Ask, Inbox and You. Everything else stays on the Mac.
+  const PHONE_VIEWS = ["today", "chat", "inbox", "phone"];
+  const phoneMode = () => Boolean(authStatus && authStatus.phone);
+
   function view(name, section) {
+    if (phoneMode() && !PHONE_VIEWS.includes(name)) name = "today";
+    if (name === "phone" && window.BridgePhone) window.BridgePhone.showYou();
     document.body.classList.toggle("onboarding-mode", name === "onboarding");
     if (name === "account") { name = "settings"; section = "account"; }
     if (name === "settings" && window.BridgeSettings) window.BridgeSettings.show(section || window.BridgeSettings.current());
@@ -77,7 +84,11 @@
     if (name === "inbox" && signedIn && window.BridgeInbox) window.BridgeInbox.refresh();
     if (name === "automations" && signedIn && window.BridgeAutomations) window.BridgeAutomations.refresh();
     if (name === "chat" && signedIn) {
-      setTimeout(() => { peekScreen(); scrollThread(); if (!pending) $("message").focus(); });
+      setTimeout(() => {
+        if (!phoneMode()) peekScreen();
+        scrollThread();
+        if (!pending && !phoneMode()) $("message").focus();  // No keyboard popping up on the phone.
+      });
     }
     document.querySelectorAll(".view").forEach((panel) => { panel.hidden = panel.id !== `view-${name}`; });
     document.querySelectorAll("[data-view]").forEach((button) => {
@@ -597,6 +608,10 @@
   }
 
   async function refreshAll() {
+    if (phoneMode()) {
+      await Promise.all([loadConversation(), refreshTasks()]);
+      return;
+    }
     const [projects, preferences] = await Promise.all([
       request("/api/v1/projects"), request("/api/v1/preferences"), refreshWorkflows(), refreshTasks(),
       refreshCapabilities(), refreshDiagnostics(), loadConversation(), refreshMemories(), refreshProactive(),
@@ -824,9 +839,27 @@
   const inApp = Boolean(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge);
   let autoSignInFailed = false;
 
+  function showPhoneAuth() {
+    signedIn = false;
+    document.body.classList.add("signed-out", "phone");
+    $("workspace").hidden = true;
+    $("tabbar").hidden = true;
+    $("auth-panel").hidden = false;
+    $("auth-loading").hidden = true;
+    for (const id of ["signup-form", "login-form", "auth-need-menu"]) $(id).hidden = true;
+    $("phone-login").hidden = false;
+    const faceId = authStatus.methods.passkey && window.PublicKeyCredential;
+    $("phone-faceid").hidden = !faceId;
+    $("phone-login-title").textContent = faceId ? "Welcome back" : "Sign in from your Mac";
+    $("phone-login-hint").textContent = faceId
+      ? "Your Mac needs to be on, with Bridge running."
+      : "On your Mac, open Bridge › Settings › Phone and scan the QR code with this phone's camera.";
+  }
+
   async function showAuth() {
     authStatus = await request("/api/v1/auth/status");
     if (authStatus.signed_in) return enterWorkspace();
+    if (authStatus.phone) return showPhoneAuth();
     if (inApp && authStatus.has_owner && !autoSignInFailed) {
       signedIn = false;
       $("workspace").hidden = true;
@@ -884,6 +917,15 @@
     $("connection-status").textContent = "Signed in";
     $("connection-status").classList.add("online");
     syncControls();
+    if (status.phone) {
+      document.body.classList.add("phone");
+      $("phone-login").hidden = true;
+      $("tabbar").hidden = false;
+      await refreshAll();
+      view("today");
+      if (window.BridgePhone) window.BridgePhone.signedIn();
+      return;
+    }
     await refreshAll();
     // First launch (or setup never finished): the guided setup; otherwise Today.
     if (window.BridgeOnboarding) await window.BridgeOnboarding.startIfNeeded();
@@ -943,6 +985,7 @@
       clientExtensionResults: credential.getClientExtensionResults ? credential.getClientExtensionResults() : {}};
   }
 
+  $("phone-faceid").addEventListener("click", () => $("passkey-login").click());
   $("passkey-login").addEventListener("click", () => {
     authError("");
     execute(async () => {
@@ -1075,6 +1118,18 @@
     if (hash.get("auth-error")) authError(hash.get("auth-error"));
     // The app already tried to sign this window in; if that failed, show the normal login.
     if (hash.get("auto")) autoSignInFailed = true;
+    const pair = hash.get("pair");
+    if (pair) {
+      const response = await fetch("/api/v1/phone/pair", {method: "POST", credentials: "same-origin",
+        cache: "no-store", redirect: "error", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ticket: pair})}).catch(() => null);
+      if (!response || !response.ok) {
+        const data = response ? await response.json().catch(() => ({})) : {};
+        authError(typeof data.detail === "string" ? data.detail : "That code didn't work. Show a new one on your Mac.");
+      } else {
+        sessionStorage.setItem("bridge-just-paired", "1");
+      }
+    }
     const launch = hash.get("launch");
     if (launch) {
       const response = await fetch("/api/v1/session/launch", {method: "POST", credentials: "same-origin",
@@ -1242,6 +1297,9 @@
     refreshAccount: () => execute(refreshAccount, {refresh: false}),
     run: (task) => execute(task, {refresh: false}),
     owner: () => (authStatus && authStatus.owner) || {name: "", email: ""},
+    phone: phoneMode,
+    passkeyJSON: credentialJSON,
+    fromB64,
     busy: () => busy || Boolean(pending),
   };
 

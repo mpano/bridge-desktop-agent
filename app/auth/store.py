@@ -91,6 +91,13 @@ class AuthStore:
                     remember INTEGER NOT NULL);
                 """
             )
+            # Passkeys belong to the address they were made on: localhost (this Mac) or the
+            # phone address. Older ones are all localhost.
+            columns = {row[1] for row in db.execute("PRAGMA table_info(auth_passkeys)")}
+            if "rp_id" not in columns:
+                db.execute(
+                    "ALTER TABLE auth_passkeys ADD COLUMN rp_id TEXT NOT NULL DEFAULT 'localhost'"
+                )
 
     def _db(self):
         return sqlite3.connect(self.path)
@@ -166,20 +173,44 @@ class AuthStore:
 
     # Passkeys -----------------------------------------------------------------------------
 
-    def passkeys(self) -> list[dict]:
+    def passkeys(self, rp_id: str | None = "localhost") -> list[dict]:
+        """Passkeys for one address (this Mac by default), or all of them with None."""
+        query = (
+            "SELECT credential_id, public_key, sign_count, name, created_at, last_used, rp_id "
+            "FROM auth_passkeys"
+        )
         with self._db() as db:
-            rows = db.execute(
-                "SELECT credential_id, public_key, sign_count, name, created_at, last_used "
-                "FROM auth_passkeys ORDER BY created_at"
-            ).fetchall()
-        keys = ("credential_id", "public_key", "sign_count", "name", "created_at", "last_used")
+            if rp_id is None:
+                rows = db.execute(query + " ORDER BY created_at").fetchall()
+            else:
+                rows = db.execute(
+                    query + " WHERE rp_id = ? ORDER BY created_at", (rp_id,)
+                ).fetchall()
+        keys = (
+            "credential_id",
+            "public_key",
+            "sign_count",
+            "name",
+            "created_at",
+            "last_used",
+            "rp_id",
+        )
         return [dict(zip(keys, row, strict=True)) for row in rows]
 
-    def add_passkey(self, credential_id: str, public_key: bytes, sign_count: int, name: str):
+    def add_passkey(
+        self,
+        credential_id: str,
+        public_key: bytes,
+        sign_count: int,
+        name: str,
+        rp_id: str = "localhost",
+    ):
         with self._db() as db:
             db.execute(
-                "INSERT INTO auth_passkeys VALUES (?, ?, ?, ?, ?, NULL)",
-                (credential_id, public_key, sign_count, name, time.time()),
+                "INSERT INTO auth_passkeys "
+                "(credential_id, public_key, sign_count, name, created_at, last_used, rp_id) "
+                "VALUES (?, ?, ?, ?, ?, NULL, ?)",
+                (credential_id, public_key, sign_count, name, time.time(), rp_id),
             )
 
     def used_passkey(self, credential_id: str, sign_count: int) -> None:
