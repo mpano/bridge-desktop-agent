@@ -38,9 +38,9 @@ def test_routines_own_their_schedules(auto):
     ]  # Not "Plan my day".
     assert data["schedules"][0]["when"] == "every Monday at 09:00"
     assert data["settings"]["morning_plan"] is True
-    routine = data["settings"]["morning_schedule_id"]
-    response = client.post("/api/v1/schedules/delete", json={"id": routine}, headers=headers())
-    assert response.status_code == 409 and "switch" in response.json()["detail"]
+    # The morning brief runs on its own now: no scheduled "Plan my day" request.
+    assert data["settings"]["morning_schedule_id"] == 0
+    assert data["settings"]["evening_summary"] is True  # Turned on once with the briefs.
     assert (
         client.post("/api/v1/schedules/delete", json={"id": mine.id}, headers=headers()).status_code
         == 200

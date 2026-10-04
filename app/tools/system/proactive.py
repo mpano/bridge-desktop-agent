@@ -12,9 +12,6 @@ from app.tools.base import Input, Tool
 from app.workflows.schedules import ScheduleStore
 from app.workflows.watches import ProactiveStore
 
-EVENING_REQUEST = "Brief me for tomorrow"
-MORNING_REQUEST = "Plan my day"
-
 
 class WatchInput(Input):
     kind: Literal["email", "slack"]
@@ -115,24 +112,27 @@ class ProactiveController:
         return {"label": matches[0].label}
 
     def apply(self, **changes) -> dict:
-        """Update settings; keep the morning and evening schedules in step with them."""
+        """Update settings. The morning brief and evening wrap-up run on their own (see
+        app/assistant/briefs.py); older versions kept a scheduled request for each, which
+        is removed here."""
         proposed = {**self.store.settings(), **changes}
         if proposed["work_end"] <= proposed["work_start"]:
             raise ValueError("The workday must end after it starts.")
         settings = self.store.update_settings(**changes)
         ids = {}
-        for prefix, request in (("evening", EVENING_REQUEST), ("morning", MORNING_REQUEST)):
-            schedule_id = settings[f"{prefix}_schedule_id"]
-            if schedule_id:
-                self.schedules.delete(schedule_id)
-                schedule_id = 0
-            enabled = settings["evening_summary" if prefix == "evening" else "morning_plan"]
-            if enabled:
-                schedule_id = self.schedules.add(
-                    request, "weekdays", settings[f"{prefix}_time"], None, self.clock()
-                ).id
-            ids[f"{prefix}_schedule_id"] = schedule_id
-        return self.store.update_settings(**ids)
+        for prefix in ("evening", "morning"):
+            if settings[f"{prefix}_schedule_id"]:
+                self.schedules.delete(settings[f"{prefix}_schedule_id"])
+                ids[f"{prefix}_schedule_id"] = 0
+        return self.store.update_settings(**ids) if ids else settings
+
+    def upgrade_routines(self) -> None:
+        """Once: move to the new brief and wrap-up, and turn the wrap-up on."""
+        settings = self.store.settings()
+        if settings.get("briefs_v1"):
+            return
+        self.apply(evening_summary=True)
+        self.store.update_settings(briefs_v1=True)
 
     async def configure(self, args):
         changes = {key: value for key, value in args.model_dump().items() if value is not None}

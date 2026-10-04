@@ -8,6 +8,7 @@ from app.agent.executor import Executor
 from app.agent.planner import Planner
 from app.agent.proactive import Proactive
 from app.agent.scheduler import Scheduler
+from app.assistant.briefs import Briefs
 from app.assistant.chats import ChatStore
 from app.assistant.commitments import CommitmentStore, CommitmentTracker
 from app.assistant.day_plan import DayPlanner
@@ -270,4 +271,21 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     commitment_tools.register(registry, commitments)
     agent.commitments = commitments
     agent.proactive.commitments = commitments
+    briefs = Briefs(
+        settings.database_path,
+        llm=llm,
+        proactive_store=proactive_store,
+        calendar=calendar_controller,
+        commitments=commitments,
+        inbox=inbox,
+        slack_inbox=agent.slack_inbox,
+        day_planner=day_planner,
+    )
+    briefs.notify = notify
+    agent.briefs = briefs
+    agent.proactive.briefs = briefs
+    try:
+        proactive_controller.upgrade_routines()
+    except Exception:
+        logging.getLogger(__name__).warning("Couldn't update the routines.", exc_info=True)
     return agent

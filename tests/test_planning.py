@@ -303,9 +303,13 @@ async def test_no_planning_after_the_workday(tmp_path):
 def test_morning_plan_setting_manages_a_weekday_schedule(tmp_path):
     store, schedules = ProactiveStore(tmp_path / "db"), ScheduleStore(tmp_path / "db")
     controller = proactive_tools.ProactiveController(store, schedules, clock=lambda: NOW)
+    # An older version scheduled a "Plan my day" request; the brief replaces it.
+    old = schedules.add("Plan my day", "weekdays", "08:00", None, NOW)
+    store.update_settings(morning_plan=True, morning_schedule_id=old.id)
     controller.apply(morning_plan=True, morning_time="08:15")
-    [schedule] = schedules.list()
-    assert schedule.message == "Plan my day" and schedule.describe() == "every weekday at 08:15"
+    assert schedules.list() == []
+    assert store.settings()["morning_time"] == "08:15"
+    assert store.settings()["morning_schedule_id"] == 0
     with pytest.raises(ValueError, match="end after it starts"):
         controller.apply(work_start="18:00", work_end="09:00")
     assert store.settings()["work_start"] == "09:00"  # Rejected values are never saved.

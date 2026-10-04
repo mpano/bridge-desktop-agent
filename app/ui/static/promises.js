@@ -75,6 +75,7 @@
       ui().notify(error.message, true);
     }
     refresh();
+    if (window.BridgeBrief) window.BridgeBrief.refresh();
   }
 
   function scanLine() {
@@ -275,5 +276,13 @@
     });
   });
 
-  window.BridgePromises = {refresh};
+  // Opens a tab of the card and brings it into view (from the brief).
+  function show(which) {
+    tab = which === "theirs" ? "theirs" : "mine";
+    open = null;
+    if (data) render();
+    $("promises-card").scrollIntoView({behavior: "smooth", block: "center"});
+  }
+
+  window.BridgePromises = {refresh, show};
 })();

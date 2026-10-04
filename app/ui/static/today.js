@@ -237,6 +237,7 @@
   // Emails you sent and are waiting for a reply to: shown with promises, under "Waiting on".
   function renderWaiting() {
     if (window.BridgePromises) window.BridgePromises.refresh(data.followups || []);
+    if (window.BridgeBrief) window.BridgeBrief.refresh();
   }
 
   // Focus -------------------------------------------------------------------------------------

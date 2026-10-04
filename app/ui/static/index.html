@@ -21,6 +21,7 @@
   <script src="/ui/settings.js" defer></script>
   <script src="/ui/onboarding.js" defer></script>
   <script src="/ui/promises.js" defer></script>
+  <script src="/ui/brief.js" defer></script>
   <script src="/ui/phone.js" defer></script>
 </head>
 <body>
@@ -115,6 +116,11 @@
             <button type="button" data-ask="What's on my calendar this week?">This week</button>
           </div>
         </form>
+        <section id="brief-card" class="card brief" aria-labelledby="brief-title" hidden>
+          <div class="brief-head"><p id="brief-label" class="label"></p><button type="button" id="brief-refresh" class="link small">Refresh</button><button type="button" id="brief-hide" class="ghost small" aria-label="Hide until tomorrow">×</button></div>
+          <h2 id="brief-title"></h2>
+          <div id="brief-body"></div>
+        </section>
         <div class="today-grid">
           <section class="card day" aria-labelledby="day-title">
             <div class="card-head">

@@ -1438,3 +1438,25 @@ body.phone .set-end { flex-shrink: 0; }
 .promise-editor textarea { min-height: 90px; resize: vertical; }
 .promises-closed { margin: 10px 0 0; font-size: 12.5px; }
 body.phone .promise-done, body.phone .promise-menu summary { width: 34px; height: 34px; }
+
+/* Brief (Today) -------------------------------------------------------------------------- */
+.brief { margin-bottom: 20px; border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 7%, var(--surface)), var(--surface) 60%); }
+.brief.evening { border-color: color-mix(in srgb, var(--amber) 30%, var(--line)); background: linear-gradient(160deg, color-mix(in srgb, var(--amber) 7%, var(--surface)), var(--surface) 60%); }
+.brief-head { display: flex; align-items: center; gap: 8px; }
+.brief-head .label { flex: 1; margin: 0; color: var(--accent); }
+.brief.evening .brief-head .label { color: var(--amber); }
+.brief-head .ghost { padding: 2px 8px; font-size: 16px; line-height: 1; color: var(--faint); }
+.brief h2 { margin: 6px 0 14px; font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.brief-top, .brief-slipped { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.brief-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
+.brief-n { flex-shrink: 0; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font: 700 12px -apple-system, sans-serif; }
+.brief-words { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.brief-words strong { font-size: 14.5px; font-weight: 600; line-height: 1.35; }
+.brief-words .muted { font-size: 13px; }
+.brief-facts { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 14px; font-size: 13px; color: var(--muted); }
+.brief-fact.link { padding: 0; font-size: 13px; }
+.brief-done { margin: 0 0 12px; font-size: 13.5px; color: var(--green); }
+.brief .label.attention { margin: 4px 0 8px; }
+.brief-all { margin-top: 10px; }
+body.phone .brief-item { flex-wrap: wrap; }
+body.phone .brief-item .brief-words { flex-basis: calc(100% - 40px); }

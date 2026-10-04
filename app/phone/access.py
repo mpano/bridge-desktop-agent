@@ -52,6 +52,8 @@ PHONE_PATHS = {
     ("POST", "/api/v1/inbox/send"),
     ("POST", "/api/v1/followups/cancel"),
     ("GET", "/api/v1/approvals"),
+    ("GET", "/api/v1/brief"),
+    ("POST", "/api/v1/brief/move"),
     ("GET", "/api/v1/commitments"),
     ("POST", "/api/v1/commitments/scan"),
     ("POST", "/api/v1/commitments/update"),

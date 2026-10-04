@@ -79,8 +79,8 @@
     grid.replaceChildren();
 
     const morning = node("label", undefined, "routine-setting");
-    morning.append(node("span", "Weekdays at"), timeInput("Plan my day time", s.morning_time, (value) => save({morning_time: value})));
-    grid.append(routine("Plan my day", "Each weekday morning, Bridge plans your day around meetings and what needs you, and lets you know it's ready.", s.morning_plan, "morning_plan", morning));
+    morning.append(node("span", "Weekdays at"), timeInput("Morning brief time", s.morning_time, (value) => save({morning_time: value})));
+    grid.append(routine("Morning brief", "Each weekday morning, Bridge plans your day and picks your 3 most important things — promises due, people waiting on you, urgent email and Slack.", s.morning_plan, "morning_plan", morning));
 
     const lead = node("label", undefined, "routine-setting");
     const minutes = node("select");
@@ -103,7 +103,7 @@
 
     const evening = node("label", undefined, "routine-setting");
     evening.append(node("span", "Weekdays at"), timeInput("Evening wrap-up time", s.evening_time, (value) => save({evening_time: value})));
-    grid.append(routine("Evening wrap-up", "Tomorrow's meetings, reminders that are due and unread email, so you can close the day.", s.evening_summary, "evening_summary", evening));
+    grid.append(routine("Evening wrap-up", "What got done, what slipped (move it to tomorrow with one tap) and tomorrow at a glance, so you can close the day.", s.evening_summary, "evening_summary", evening));
 
     const hours = node("div", undefined, "routine-setting");
     const from = timeInput("Workday starts", s.work_start, (value) => save({work_start: value}));

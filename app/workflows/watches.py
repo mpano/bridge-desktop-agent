@@ -22,6 +22,7 @@ DEFAULTS = {
     "morning_time": "08:30",
     "morning_schedule_id": 0,
     "onboarded": False,
+    "briefs_v1": False,
 }
 
 

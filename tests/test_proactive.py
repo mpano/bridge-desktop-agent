@@ -116,16 +116,13 @@ async def test_evening_summary_setting_manages_one_weekday_schedule(tmp_path):
     store, schedules = ProactiveStore(tmp_path / "db"), ScheduleStore(tmp_path / "db")
     controller = proactive_tools.ProactiveController(store, schedules, clock=lambda: NOW)
     controller.apply(evening_summary=True, evening_time="19:30")
-    [schedule] = schedules.list()
-    assert (
-        schedule.message == "Brief me for tomorrow"
-        and schedule.describe() == "every weekday at 19:30"
-    )
-    controller.apply(evening_time="18:00")
-    [schedule] = schedules.list()
-    assert schedule.at == "18:00"
+    assert schedules.list() == []  # The wrap-up runs on its own, not as a request.
+    assert store.settings()["evening_time"] == "19:30"
+    controller.upgrade_routines()
+    assert store.settings()["evening_summary"] is True and store.settings()["briefs_v1"]
     controller.apply(evening_summary=False)
-    assert schedules.list() == []
+    controller.upgrade_routines()  # Only once: your "off" stays off.
+    assert store.settings()["evening_summary"] is False
 
 
 async def test_watch_tool_requires_a_connected_account_and_can_be_stopped(tmp_path):
