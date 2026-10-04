@@ -178,6 +178,8 @@ class RepoWatcher:
                 """
                 CREATE TABLE IF NOT EXISTS repo_seen (repo TEXT PRIMARY KEY, since REAL NOT NULL);
                 CREATE TABLE IF NOT EXISTS repo_told (event TEXT PRIMARY KEY, at REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS repo_contributor (
+                    repo TEXT PRIMARY KEY, yes INTEGER NOT NULL, at REAL NOT NULL);
                 """
             )
 
@@ -224,9 +226,33 @@ class RepoWatcher:
         self._copies = (self.clock(), found)
         return found
 
+    async def contributed(self, repo: str, me: str) -> bool:
+        """Whether you have commits in this repo (remembered for a day)."""
+        key = repo.lower()
+        with self._db() as db:
+            row = db.execute(
+                "SELECT yes, at FROM repo_contributor WHERE repo = ?", (key,)
+            ).fetchone()
+        if row and self.clock() - row[1] < 86400:
+            return bool(row[0])
+        try:
+            found = await self.github.c.request(
+                "github", "GET", f"repos/{repo}/commits", params={"author": me, "per_page": 1}
+            )
+        except Exception:
+            return bool(row and row[0])  # Unknown right now: keep the last answer.
+        yes = bool(found)
+        with self._db() as db:
+            db.execute(
+                "INSERT INTO repo_contributor VALUES (?, ?, ?) ON CONFLICT(repo) "
+                "DO UPDATE SET yes = excluded.yes, at = excluded.at",
+                (key, int(yes), self.clock()),
+            )
+        return yes
+
     async def repos(self) -> dict[str, dict]:
-        """The repos that matter now: ones you pushed to on GitHub this month, then copies you
-        used on this Mac this month (most recent first)."""
+        """The repos that matter now, among those you've committed to: ones pushed to on GitHub
+        this month, then copies you used on this Mac this month (most recent first)."""
         listed = await self.github.c.request(
             "github",
             "GET",
@@ -254,9 +280,20 @@ class RepoWatcher:
             reverse=True,
         )
         for at, name, path in used:
-            if len(chosen) >= MAX_REPOS or at < cutoff:
+            if len(chosen) >= MAX_REPOS * 2 or at < cutoff:
                 break
             chosen[name] = {"name": name, "branch": None, "path": path}
+        # Only repos you contribute to: an organization's other repos don't belong here.
+        me = await self.github.c.me("github")
+        if me:
+            gate = asyncio.Semaphore(6)
+
+            async def keep(name, info):
+                async with gate:
+                    return name if await self.contributed(info["name"], me) else None
+
+            kept = set(await asyncio.gather(*(keep(n, i) for n, i in chosen.items())))
+            chosen = {name: info for name, info in chosen.items() if name in kept}
         return dict(list(chosen.items())[:MAX_REPOS])
 
     # What happened ---------------------------------------------------------------------------

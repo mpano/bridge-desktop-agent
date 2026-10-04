@@ -137,8 +137,16 @@ def fake_github(request: httpx.Request) -> httpx.Response:
                     "default_branch": "main",
                     "pushed_at": "2025-01-01T10:00:00Z",
                 },
+                {
+                    "full_name": "acme/other",
+                    "default_branch": "main",
+                    "pushed_at": "2026-09-20T11:00:00Z",
+                },
             ],
         )
+    if path.endswith("/commits") and "author" in request.url.params:
+        # You've committed to acme/web, not to acme/other.
+        return httpx.Response(200, json=[{"sha": "x"}] if "/acme/web/" in path else [])
     if path == "/repos/acme/web/commits" and "sha" in request.url.params:
         return httpx.Response(
             200,
@@ -204,7 +212,7 @@ def test_feed_and_notifications_once(tmp_path):
         return feed, first, second
 
     feed, first, second = asyncio.run(scenario())
-    [repo] = feed["repos"]  # acme/old wasn't pushed to for months.
+    [repo] = feed["repos"]  # acme/old is quiet; you've never committed to acme/other.
     assert repo["pushers"] == ["ana"] and repo["commits"][0]["message"] == "Fix pricing"
     assert repo["releases"][0]["tag"] == "v1.4.0" and repo["merged"][0]["title"] == "New plans"
     assert repo["main_checks"] == "failing" and repo["news"]
