@@ -118,21 +118,54 @@
     list.append(node("li", text, "line-empty"));
   }
 
+  const SOURCES = {email: "Email", slack: "Slack", github_pr: "GitHub", github_release: "GitHub", jira: "Jira", app: "App"};
+  const EXAMPLES = ["PR 412 is merged", "ABC-9 moves to QA", "Sarah replies to me", "someone mentions me on Slack", "a new release of owner/repo"];
+
+  function ago(seconds) {
+    const minutes = Math.round((Date.now() / 1000 - seconds) / 60);
+    if (minutes < 1) return "just now";
+    if (minutes < 60) return `${minutes} min ago`;
+    const when = new Date(seconds * 1000);
+    const today = new Date().toDateString() === when.toDateString();
+    return today ? when.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})
+      : when.toLocaleDateString([], {weekday: "short", hour: "2-digit", minute: "2-digit"});
+  }
+
   function renderWatches() {
     const list = $("watches");
     list.replaceChildren();
-    for (const watch of data.watches) {
-      const row = node("li", undefined, "line");
-      row.append(node("span", watch.kind === "slack" ? "Slack" : "Email", `src ${watch.kind}`));
+    const order = {active: 0, done: 1, expired: 2};
+    const watches = [...data.watches].sort((a, b) => (order[a.status] - order[b.status]) || (b.id - a.id));
+    for (const watch of watches) {
+      const row = node("li", undefined, `line watch-line ${watch.status}`);
+      row.append(node("span", SOURCES[watch.kind] || watch.kind, `src ${watch.kind}`));
       const words = node("span", undefined, "line-main");
-      words.append(node("span", watch.label), node("span", watch.query, "mono faint"));
+      const title = watch.url ? window.BridgeDOM.link(watch.label, watch.url, "watch-title") : node("span", watch.label, "watch-title");
+      words.append(title);
+      if (watch.status === "done") words.append(node("span", watch.fired || "It happened.", "watch-fired"));
+      else if (watch.status === "expired") words.append(node("span", "Stopped: it didn't happen in time.", "faint"));
+      else if (watch.fired) words.append(node("span", `Last: ${watch.fired}`, "faint"));
+      else words.append(node("span", watch.query, "mono faint"));
       row.append(words);
-      const status = watch.last_error ? node("span", watch.last_error, "line-error")
-        : node("span", watch.last_checked ? "checking" : "starting", "mono faint");
-      row.append(status, button("Remove", "ghost small", () => remove("/api/v1/watches/remove", watch.id)));
+      let status;
+      if (watch.status === "done") status = node("span", `✓ ${ago(watch.fired_at)}`, "pill good");
+      else if (watch.status === "expired") status = node("span", "stopped", "mono faint");
+      else if (watch.last_error) status = node("span", watch.last_error, "line-error");
+      else status = node("span", watch.once ? "waiting" : "every time", "pill pending");
+      status.title = watch.last_checked ? `Checked ${ago(watch.last_checked)}` : "Starting";
+      row.append(status, button(watch.status === "active" ? "Stop" : "Clear", "ghost small", () => remove("/api/v1/watches/remove", watch.id)));
       list.append(row);
     }
-    if (!data.watches.length) empty(list, "Nothing yet. Try “tell me when Olivier emails me”.");
+    if (!watches.length) empty(list, "Nothing yet. Try “PR 412 is merged” or “Sarah replies to me”.");
+    const examples = $("watch-examples");
+    if (examples && !examples.childElementCount) {
+      for (const text of EXAMPLES) {
+        examples.append(button(text, "chip", () => {
+          $("watch-new-query").value = text;
+          $("watch-new-query").focus();
+        }));
+      }
+    }
   }
 
   function renderSchedules() {
@@ -192,25 +225,24 @@
     ui().ask(text);
   });
 
-  $("watch-add").addEventListener("click", () => {
-    $("watch-new").hidden = false;
-    $("watch-new-query").focus();
-  });
-  $("watch-cancel").addEventListener("click", () => { $("watch-new").hidden = true; });
   $("watch-new").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const kind = $("watch-new-kind").value;
-    const query = $("watch-new-query").value.trim();
-    if (!query) return;
-    const label = kind === "slack" && query.toLowerCase() === "mentions" ? "Slack mentions of me"
-      : `${kind === "slack" ? "Slack" : "Email"}: ${query}`.slice(0, 80);
+    const input = $("watch-new-query");
+    const text = input.value.trim();
+    if (!text) return;
+    const submit = $("watch-submit");
+    submit.disabled = true;
+    submit.textContent = "Setting up…";
     try {
-      await ui().request("/api/v1/watches", "POST", {kind, query, label});
-      $("watch-new-query").value = "";
-      $("watch-new").hidden = true;
+      const made = await ui().request("/api/v1/watches/ask", "POST", {text});
+      input.value = "";
+      ui().notify(made.status === "done" ? `It already happened: ${made.fired}` : `Watching: ${made.label}`);
       refresh();
     } catch (error) {
       ui().notify(error.message, true);
+    } finally {
+      submit.disabled = false;
+      submit.textContent = "Watch";
     }
   });
 

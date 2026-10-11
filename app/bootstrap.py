@@ -19,6 +19,7 @@ from app.assistant.replies import ReplyDrafter
 from app.assistant.slack_triage import SlackInbox
 from app.assistant.talk import Talk
 from app.assistant.triage import InboxTriage
+from app.assistant.watchers import Watchers
 from app.integrations.accounts import AccountManager
 from app.integrations.activity import SQLiteActivity
 from app.integrations.credentials import KeychainCredentials
@@ -373,5 +374,11 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     agent.learning = learning
     agent.operator.learning = learning
     agent.proactive.learning = learning
+    watchers = Watchers(llm, github=github, jira=jira, mcp=mcp, privacy=agent.planner.privacy)
+    watchers.usage = usage
+    agent.watchers = watchers
+    agent.proactive.watchers = watchers
+    proactive_controller.watchers = watchers
+    proactive_controller.proactive = agent.proactive
     prompts.lessons_provider = learning.lessons
     return agent

@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
+from pydantic import ValidationError
 
 from app.api.app_settings import install as install_app_settings
 from app.api.automations import install as install_automations
@@ -48,6 +49,7 @@ from app.text_actions import (
 from app.tools.files.projects import ProjectAlias, RememberProject
 from app.tools.system.proactive import SettingsInput as ProactiveSettings
 from app.tools.system.proactive import WatchInput as WatchRequest
+from app.tools.system.proactive import WatchWords
 from app.workflows.retention import RetentionPolicy, WorkflowFilter, WorkflowQuery
 
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "testserver"}
@@ -387,6 +389,32 @@ def create_app(
             return await request.app.state.agent.proactive_controller.watch(payload)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
+
+    @app.post("/api/v1/watches/ask", dependencies=[Depends(authorize)])
+    async def ask_watch(payload: WatchWords, request: Request):
+        """ "tell me when PR 412 is merged" → a watcher (the model only fills in the fields)."""
+        agent = request.app.state.agent
+        watchers = getattr(agent, "watchers", None)
+        if watchers is None:
+            raise HTTPException(404, "Watchers aren't available.")
+        try:
+            fields = await watchers.understand(payload.text)
+            known = {
+                key: value for key, value in fields.items() if key in WatchRequest.model_fields
+            }
+            if isinstance(known.get("number"), str) and known["number"].strip().isdigit():
+                known["number"] = int(known["number"].strip())
+            if not isinstance(known.get("arguments", {}), dict):
+                known.pop("arguments")
+            known.setdefault("label", payload.text.strip()[:80])
+            try:
+                watch = WatchRequest.model_validate(known)
+            except ValidationError as exc:
+                first = exc.errors()[0]
+                raise ValueError(str(first.get("ctx", {}).get("error") or first["msg"])) from None
+            return await agent.proactive_controller.watch(watch)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc).removeprefix("Value error, ")) from None
 
     @app.post("/api/v1/watches/remove", dependencies=[Depends(authorize)])
     async def remove_watch(payload: ForgetRequest, request: Request):

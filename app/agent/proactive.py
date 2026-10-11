@@ -8,10 +8,12 @@ never acts on what it finds.
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
+from app.assistant.watchers import APP_EVERY, WatchError
 from app.workflows.watches import ProactiveStore, Watch
 
 MEETING_CHECK_SECONDS = 60
@@ -47,6 +49,7 @@ class Proactive:
         self.repos = None  # Teammates' pushes, releases and broken main in your repos.
         self.usage = None  # Budget alerts.
         self.learning = None  # Friday: what Bridge learned from your corrections.
+        self.watchers = None  # GitHub, Jira and app watchers (app/assistant/watchers.py).
         self._last_watch_check = 0.0
 
     async def run(self) -> None:
@@ -152,27 +155,82 @@ class Proactive:
     async def check_watches(self) -> int:
         sent = 0
         for watch in self.store.watches():
-            try:
-                matches = await self._matches(watch)
-            except Exception as exc:
-                self.store.failed(
-                    watch.id, str(exc) if isinstance(exc, ValueError) else "Check failed."
+            if watch.expires_at and time.time() > watch.expires_at:
+                self.store.expire(watch.id)
+                await self.notify(
+                    f"Stopped watching: {watch.label}",
+                    "It didn't happen in time. Ask Bridge to watch it again if you still care.",
+                    view="today",
                 )
                 continue
-            seen = set(watch.seen)
-            fresh = [item for item in matches if item[0] not in seen]
-            # The first check only records what's already there; no flood of old items.
-            place = "inbox" if watch.kind == "email" else "today"
-            if watch.baseline_done:
-                for _key, title, detail in reversed(fresh[:3]):
-                    await self.notify(f"{title} · {watch.label}", detail, view=place)
-                    sent += 1
-                if len(fresh) > 3:
-                    await self.notify(
-                        f"{watch.label}", f"{len(fresh) - 3} more new matches.", view=place
-                    )
-            self.store.checked(watch.id, [*watch.seen, *(item[0] for item in reversed(fresh))])
+            if watch.kind in {"email", "slack"}:
+                sent += await self._check_search(watch)
+            else:
+                sent += await self.check_condition(watch)
         return sent
+
+    async def _check_search(self, watch: Watch) -> int:
+        """Email and Slack: new matching messages (only the first one for "once")."""
+        try:
+            matches = await self._matches(watch)
+        except Exception as exc:
+            self.store.failed(
+                watch.id, str(exc) if isinstance(exc, ValueError) else "Check failed."
+            )
+            return 0
+        seen = set(watch.seen)
+        fresh = [item for item in matches if item[0] not in seen]
+        # The first check only records what's already there; no flood of old items.
+        place = "inbox" if watch.kind == "email" else "today"
+        sent = 0
+        if watch.baseline_done and fresh and watch.once:
+            _key, title, detail = fresh[0]
+            await self.notify(f"✓ {watch.label}", f"{title}: {detail}", view=place)
+            self.store.happened(watch.id, f"{title}: {detail}", done=True)
+            sent = 1
+        elif watch.baseline_done:
+            for _key, title, detail in reversed(fresh[:3]):
+                await self.notify(f"{title} · {watch.label}", detail, view=place)
+                sent += 1
+            if len(fresh) > 3:
+                await self.notify(
+                    f"{watch.label}", f"{len(fresh) - 3} more new matches.", view=place
+                )
+            if fresh:
+                self.store.happened(watch.id, f"{fresh[0][1]}: {fresh[0][2]}", done=False)
+        self.store.checked(watch.id, [*watch.seen, *(item[0] for item in reversed(fresh))])
+        return sent
+
+    async def check_condition(self, watch: Watch, *, quiet: bool = False) -> int:
+        """GitHub, Jira and apps: look, compare with last time, tell you if it happened.
+        With quiet=True (just created) nothing is sent; the caller reports it instead."""
+        if self.watchers is None:
+            return 0
+        if (
+            watch.kind == "app"
+            and watch.last_checked
+            and time.time() - watch.last_checked < APP_EVERY - 5
+        ):
+            return 0
+        before = watch.state if watch.baseline_done else None
+        try:
+            now = await self.watchers.look(watch)
+            event = await self.watchers.decide(watch, before, now)
+        except WatchError as exc:
+            self.store.failed(watch.id, str(exc))
+            return 0
+        except Exception:
+            self.store.failed(watch.id, "Check failed. Bridge will try again.")
+            return 0
+        self.store.observed(watch.id, self.watchers.remember(watch, now))
+        if event is None:
+            return 0
+        headline, detail = event[0], event[1]
+        done = watch.once and (len(event) < 3 or event[2])
+        self.store.happened(watch.id, f"{headline} — {detail}", done=done)
+        if not quiet:
+            await self.notify(headline, detail, view="today")
+        return 1
 
     # Follow-ups ---------------------------------------------------------------------------
 

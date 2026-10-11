@@ -70,11 +70,19 @@ TASKS = {
     "slack": ("Sorting Slack", "fast"),
     "promises": ("Finding promises", "fast"),
     "brief": ("Morning brief", "fast"),
+    "watchers": ("Watchers", "fast"),
     "text": ("Dictation and text actions", "fast"),
     "talk": ("Conversations (voice)", "voice"),
     "operator": ("Using your Mac", "operator"),
 }
-BACKGROUND = {"promises", "inbox", "slack", "brief", "learning"}  # Paused when saving money.
+BACKGROUND = {
+    "promises",
+    "inbox",
+    "slack",
+    "brief",
+    "learning",
+    "watchers",
+}  # Paused when saving money.
 
 _task: ContextVar[str] = ContextVar("bridge_llm_task", default="ask")
 

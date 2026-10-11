@@ -1144,8 +1144,19 @@ dialog.sheet p { margin: 0 0 16px; font-size: 14px; }
 .list-card .card-head { padding: 16px 18px 12px; align-items: flex-start; }
 .list-card .card-head h2 { font-size: 17px; font-weight: 700; margin: 0; }
 .list-card .card-head .hint { margin: 2px 0 0; font-size: 12.5px; }
-.watch-new { display: flex; gap: 8px; padding: 0 18px 14px; }
-.watch-new select { width: auto; }
+.watch-new { display: flex; gap: 8px; padding: 0 18px 8px; }
+.watch-new input { flex: 1; min-width: 0; }
+.watch-examples { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 18px 14px; }
+.watch-examples .chip { padding: 3px 10px; border-radius: 99px; border: 1px solid var(--line); background: var(--inset); color: var(--muted); font-size: 12px; cursor: pointer; }
+.watch-examples .chip:hover { color: var(--text); border-color: var(--line-strong); }
+.watch-title { color: var(--text); text-decoration: none; }
+a.watch-title:hover { text-decoration: underline; }
+.watch-fired { color: var(--green); font-size: 12.5px; }
+.watch-line.expired .watch-title, .watch-line.done .watch-title { color: var(--muted); }
+.watch-line .pill.pending { border: 0; background: var(--accent-soft); padding: 2px 8px; border-radius: 99px; font-size: 11.5px; white-space: nowrap; }
+.src.github_pr, .src.github_release { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
+.src.jira { background: color-mix(in srgb, #2684ff 16%, transparent); color: #2684ff; }
+.src.app { background: var(--green-soft); color: var(--green); }
 .lines { list-style: none; margin: 0; padding: 0; }
 .line { display: flex; align-items: center; gap: 12px; padding: 11px 18px; border-top: 1px solid var(--line); font-size: 14px; }
 .line-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }

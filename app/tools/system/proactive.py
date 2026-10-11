@@ -3,28 +3,115 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
+from app.assistant.watchers import JIRA_WHEN, PR_WHEN, WatchError
+from app.assistant.watchers import describe as describe_target
+from app.integrations.work import ISSUE_KEY
 from app.security.risk import RiskLevel
 from app.tools.base import Input, Tool
 from app.workflows.schedules import ScheduleStore
 from app.workflows.watches import ProactiveStore
 
+WATCH_KINDS = ("email", "slack", "github_pr", "github_release", "jira", "app")
+
 
 class WatchInput(Input):
-    kind: Literal["email", "slack"]
-    query: str = Field(
-        min_length=1,
-        max_length=200,
-        pattern=r"^[^\x00-\x1f\x7f]+$",
-        description="Gmail search (e.g. 'from:olivier', 'subject:invoice') or Slack search; "
-        "'mentions' watches Slack mentions of the user",
-    )
+    kind: Literal["email", "slack", "github_pr", "github_release", "jira", "app"]
     label: str = Field(
-        min_length=1, max_length=80, description="Short name, e.g. 'Emails from Olivier'"
+        min_length=1, max_length=80, description="Short name, e.g. 'PR 412 merged', 'Sarah replies'"
     )
+    query: str = Field(
+        default="",
+        max_length=200,
+        pattern=r"^[^\x00-\x1f\x7f]*$",
+        description="email/slack: Gmail search (e.g. 'from:olivier', 'subject:invoice') or Slack "
+        "search; 'mentions' watches Slack mentions of the user",
+    )
+    once: bool | None = Field(
+        default=None,
+        description="Stop after the first time (e.g. 'when Sarah replies'). Default: true for "
+        "GitHub/Jira/app conditions, false for email/slack.",
+    )
+    repo: str = Field(
+        default="", max_length=140, description="GitHub owner/name (optional for PRs)"
+    )
+    number: int | None = Field(default=None, ge=1, description="Pull request number")
+    key: str = Field(default="", max_length=40, description="Jira issue key, e.g. ABC-9")
+    when: str = Field(
+        default="",
+        max_length=30,
+        description="github_pr: merged, closed, approved, changes_requested, checks_pass, "
+        "checks_fail, checks_done, review, comment, any. jira: status_to (with status), done, "
+        "status, comment, assignee, any.",
+    )
+    status: str = Field(default="", max_length=60, description="Jira status for status_to, e.g. QA")
+    app: str = Field(default="", max_length=80, description="Connected app name (kind=app)")
+    tool: str = Field(default="", max_length=120, description="A read-only tool of that app")
+    arguments: dict[str, Any] = Field(default_factory=dict, description="The tool's arguments")
+    condition: str = Field(
+        default="", max_length=300, description="kind=app: what to wait for, in plain words"
+    )
+    days: int | None = Field(default=None, ge=1, le=90, description="Give up after this many days")
+
+    @model_validator(mode="after")
+    def complete(self):
+        if self.kind in {"email", "slack"}:
+            if not self.query.strip():
+                raise ValueError("Say what to look for, e.g. from:olivier.")
+        elif self.kind == "github_pr":
+            if not self.number:
+                raise ValueError("Which pull request? Give its number.")
+            self.when = self.when or "any"
+            if self.when not in PR_WHEN:
+                raise ValueError(f"For a pull request, 'when' is one of: {', '.join(PR_WHEN)}.")
+        elif self.kind == "github_release":
+            if not self.repo.strip():
+                raise ValueError("Which repository (owner/name)?")
+        elif self.kind == "jira":
+            if not ISSUE_KEY.fullmatch(self.key.strip().upper()):
+                raise ValueError("Use a Jira issue key like ABC-9.")
+            self.when = self.when or ("status_to" if self.status.strip() else "any")
+            if self.when not in JIRA_WHEN:
+                raise ValueError(f"For Jira, 'when' is one of: {', '.join(JIRA_WHEN)}.")
+            if self.when == "status_to" and not self.status.strip():
+                raise ValueError("Which status should it move to?")
+        elif not (self.app.strip() and self.tool.strip()):
+            raise ValueError("Say which app and which of its tools to check (see apps_find).")
+        if self.once is None:
+            self.once = self.kind not in {"email", "slack", "github_release"} and self.when not in {
+                "any",
+                "comment",
+                "review",
+                "status",
+                "assignee",
+            }
+        return self
+
+    def target(self) -> dict:
+        if self.kind == "github_pr":
+            return {"repo": self.repo.strip(), "number": self.number, "when": self.when}
+        if self.kind == "github_release":
+            return {"repo": self.repo.strip()}
+        if self.kind == "jira":
+            found = {"key": self.key.strip().upper(), "when": self.when}
+            if self.when == "status_to":
+                found["status"] = self.status.strip()
+            return found
+        if self.kind == "app":
+            return {
+                "app": self.app.strip(),
+                "tool": self.tool.strip(),
+                "arguments": self.arguments,
+                "condition": self.condition.strip(),
+            }
+        return {}
+
+
+class WatchWords(Input):
+    text: str = Field(min_length=3, max_length=300, pattern=r"^[^\x00-\x1f\x7f]+$")
 
 
 class WatchDeleteInput(Input):
@@ -61,6 +148,8 @@ class ProactiveController:
         clock=lambda: datetime.now().astimezone(),
     ):
         self.store, self.schedules, self.accounts, self.clock = store, schedules, accounts, clock
+        self.watchers = None  # app/assistant/watchers.py, set by bootstrap.
+        self.proactive = None  # Runs the first check of a new watcher.
 
     async def _require(self, provider: str, name: str) -> None:
         if self.accounts is None:
@@ -73,26 +162,60 @@ class ProactiveController:
             raise ValueError(f"Connect {name} in the dashboard's Connections page first.")
 
     async def watch(self, args):
-        await self._require(
-            "gmail" if args.kind == "email" else "slack",
-            "Gmail" if args.kind == "email" else "Slack",
+        if args.kind in {"email", "slack"}:
+            await self._require(
+                "gmail" if args.kind == "email" else "slack",
+                "Gmail" if args.kind == "email" else "Slack",
+            )
+            watch = self.store.add_watch(
+                args.kind, args.query.strip(), args.label.strip(), once=args.once, days=args.days
+            )
+            return self._view(watch)
+        if self.watchers is None or self.proactive is None:
+            raise ValueError("Watchers aren't available.")
+        try:
+            target = await self.watchers.prepare(args.kind, args.target())
+        except WatchError as exc:
+            raise ValueError(str(exc)) from None
+        except Exception as exc:  # The service couldn't be reached, …
+            raise ValueError(str(exc)[:200] or "Couldn't check that right now.") from None
+        watch = self.store.add_watch(
+            args.kind,
+            describe_target(args.kind, target),
+            args.label.strip(),
+            target=target,
+            once=args.once,
+            days=args.days,
         )
-        watch = self.store.add_watch(args.kind, args.query.strip(), args.label.strip())
-        return {"id": watch.id, "kind": watch.kind, "query": watch.query, "label": watch.label}
+        # Look right away: it may already have happened, or the target may not be readable.
+        if not watch.baseline_done:
+            await self.proactive.check_condition(watch, quiet=True)
+            watch = self.store.watch(watch.id)
+        if watch.last_error and not watch.baseline_done:
+            self.store.remove_watch(watch.id)
+            raise ValueError(watch.last_error)
+        return self._view(watch)
+
+    @staticmethod
+    def _view(w) -> dict:
+        return {
+            "id": w.id,
+            "kind": w.kind,
+            "query": w.query,
+            "label": w.label,
+            "once": w.once,
+            "status": w.status,
+            "fired": w.fired,
+            "fired_at": w.fired_at,
+            "expires_at": w.expires_at,
+            "last_checked": w.last_checked,
+            "last_error": w.last_error,
+            "url": w.state.get("url", "") if isinstance(w.state, dict) else "",
+        }
 
     async def list(self, _):
         return {
-            "watches": [
-                {
-                    "id": w.id,
-                    "kind": w.kind,
-                    "query": w.query,
-                    "label": w.label,
-                    "last_checked": w.last_checked,
-                    "last_error": w.last_error,
-                }
-                for w in self.store.watches()
-            ],
+            "watches": [self._view(w) for w in self.store.watches(everything=True)],
             "settings": self.store.settings(),
         }
 
@@ -165,26 +288,45 @@ def render_list(data: dict) -> str:
         lines.append("Watching:")
         for watch in data["watches"]:
             problem = f" ⚠ {watch['last_error']}" if watch["last_error"] else ""
-            lines.append(f"• {watch['label']} ({watch['kind']}: {watch['query']}){problem}")
+            if watch["status"] == "done":
+                lines.append(f"• ✓ {watch['label']} — {watch['fired']}")
+            elif watch["status"] == "expired":
+                lines.append(f"• {watch['label']} — stopped, it didn't happen in time")
+            else:
+                where = f"{watch['kind']}: " if watch["kind"] in {"email", "slack"} else ""
+                lines.append(f"• {watch['label']} ({where}{watch['query']}){problem}")
     else:
-        lines.append("Not watching anything. Try “tell me when Olivier emails me”.")
+        lines.append("Not watching anything. Try “tell me when PR 412 is merged”.")
     return "\n".join(lines)
+
+
+def render_created(data: dict) -> str:
+    if data["status"] == "done":
+        return f"It already happened: {data['fired']}. No need to watch it."
+    how = "(once, then I'll stop watching)" if data["once"] else "(every time)"
+    every = "5 minutes" if data["kind"] == "app" else "2 minutes"
+    return (
+        f"✓ I'll let you know: {data['label']} {how}. Checked every {every} while Bridge is open."
+    )
 
 
 def register(registry, controller: ProactiveController):
     registry.register(
         Tool(
             "watch_create",
-            "Notify the user when new matching email or Slack messages arrive, e.g. 'tell me "
-            "when Olivier emails me' (kind=email, query='from:olivier') or 'when someone "
-            "mentions me on Slack' (kind=slack, query='mentions'). Checked every 2 minutes.",
+            "Tell the user when something happens ('tell me when …'). kind=email/slack: new "
+            "matching messages ('when Olivier emails me': query='from:olivier'; 'when Sarah "
+            "replies': query='from:sarah', once=true; Slack mentions: query='mentions'). "
+            "kind=github_pr: a pull request is merged/approved/checks pass/fails/new comment "
+            "(number; repo optional). kind=github_release: a new release of a repo. kind=jira: "
+            "an issue moves to a status, is done, gets a comment (key, when, status). kind=app: "
+            "a condition in a connected app, using one of its read-only tools found with "
+            "apps_find (app, tool, arguments, condition). Bridge checks every few minutes and "
+            "notifies the Mac and the phone.",
             WatchInput,
             RiskLevel.SAFE,
             controller.watch,
-            render=lambda data: (
-                f"✓ I'll let you know: {data['label']}. Checked every 2 minutes "
-                "while Bridge is open."
-            ),
+            render=render_created,
         )
     )
     registry.register(

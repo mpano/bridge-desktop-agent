@@ -208,16 +208,13 @@
           <div id="routines" class="routine-grid"></div>
         </section>
         <section class="card list-card" aria-labelledby="watch-title">
-          <div class="card-head"><div><h2 id="watch-title">Tell me when…</h2><p class="hint">Checked every 2 minutes. You get a Mac notification with the sender and subject.</p></div>
-            <button type="button" id="watch-add" class="secondary small">Add</button></div>
-          <form id="watch-new" class="watch-new" hidden>
-            <label for="watch-new-kind" class="sr-only">Where</label>
-            <select id="watch-new-kind"><option value="email">Email</option><option value="slack">Slack</option></select>
-            <label for="watch-new-query" class="sr-only">What to look for</label>
-            <input id="watch-new-query" maxlength="200" required placeholder="from:olivier · subject:invoice · mentions">
-            <button type="submit" class="primary small">Watch</button>
-            <button type="button" id="watch-cancel" class="ghost small">Cancel</button>
+          <div class="card-head"><div><h2 id="watch-title">Tell me when…</h2><p class="hint">Pull requests, releases, Jira issues, replies, Slack and your apps. Bridge checks every few minutes and tells your Mac and your phone.</p></div></div>
+          <form id="watch-new" class="watch-new">
+            <label for="watch-new-query" class="sr-only">Tell me when</label>
+            <input id="watch-new-query" maxlength="300" required autocomplete="off" placeholder="PR 412 is merged · ABC-9 moves to QA · Sarah replies to me">
+            <button type="submit" class="primary small" id="watch-submit">Watch</button>
           </form>
+          <div id="watch-examples" class="watch-examples" aria-label="Examples"></div>
           <ul id="watches" class="lines"></ul>
         </section>
         <div class="two-up">
