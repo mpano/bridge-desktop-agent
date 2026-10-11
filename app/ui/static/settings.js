@@ -468,8 +468,8 @@
     const perms = (data.permissions || []).filter((p) => /accessibility|screen/i.test(p.name));
     const rows = [
       row("Let Bridge use your Mac",
-        o.enabled ? "On. Screenshots of your screen go to OpenAI while Bridge works on a task. Move the mouse to pause it; Stop ends it."
-          : "Off. When on, Bridge can click and type in your apps for a task you give it, and asks before anything important.",
+        o.enabled ? "On. Bridge can do tasks in your apps, or “show me how” — highlight each step for you to do yourself. Screenshots go to OpenAI only while one is running; Stop ends it."
+          : "Off. When on, Bridge can click and type in your apps for you (asking before anything important), or show you how, step by step, with a highlight on screen.",
         toggle("Let Bridge use your Mac", o.enabled, (on) => save({operator_enabled: on}))),
     ];
     if (o.enabled) {

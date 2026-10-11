@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <title>Bridge</title>
+  <link rel="stylesheet" href="/ui/style.css">
+  <link rel="stylesheet" href="/ui/mini.css">
+  <script src="/ui/dom.js" defer></script>
+  <script src="/ui/mini.js" defer></script>
+  <script src="/ui/guide.js" defer></script>
+</head>
+<body class="mini">
+  <main class="mini-panel guide-panel" id="gd" data-state="starting">
+    <div class="op-top">
+      <span class="op-dot" aria-hidden="true"></span>
+      <div class="op-words">
+        <strong id="gd-title">Show me how</strong>
+        <span id="gd-task" class="faint"></span>
+      </div>
+      <button type="button" id="gd-voice" class="ghost icon-btn gd-voice" aria-pressed="false" title="Read each step aloud" aria-label="Read each step aloud">🔈</button>
+      <button type="button" id="gd-stop" class="ghost icon-btn" aria-label="Stop the guide" title="Stop">×</button>
+    </div>
+    <div id="gd-body" class="gd-body" role="status" aria-live="polite"></div>
+    <div id="gd-actions" class="gd-actions"></div>
+  </main>
+</body>
+</html>

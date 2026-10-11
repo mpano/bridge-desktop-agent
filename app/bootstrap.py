@@ -13,6 +13,7 @@ from app.assistant.chats import ChatStore
 from app.assistant.commitments import CommitmentStore, CommitmentTracker
 from app.assistant.day_plan import DayPlanner
 from app.assistant.focus import FocusMode, FocusStore
+from app.assistant.guide import Guides
 from app.assistant.learning import Learning
 from app.assistant.operator import Operator
 from app.assistant.recipes import Recipes
@@ -75,6 +76,7 @@ from app.tools.system import (
     shortcuts,
     volume,
 )
+from app.tools.system import guide as guide_tools
 from app.tools.system import proactive as proactive_tools
 from app.tools.system import recipes as recipe_tools
 from app.tools.terminal import terminal
@@ -359,6 +361,15 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
         notify=notify,
     )
     operate.register(registry, agent.operator)
+    agent.guides = Guides(
+        settings.database_path,
+        settings,
+        hands=agent.operator.hands,
+        blocked=agent.operator.blocked,
+        operator=agent.operator,
+    )
+    agent.guides.executor = agent.executor
+    guide_tools.register(registry, agent.guides)
     agent.briefs = briefs
     agent.proactive.briefs = briefs
     try:
@@ -370,6 +381,7 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     commitments.usage = usage
     briefs.usage = usage
     agent.operator.usage = usage
+    agent.guides.usage = usage
     agent.talk.meter = usage
     agent.proactive.usage = usage
     learning = Learning(settings.database_path, llm, settings)

@@ -75,6 +75,7 @@ TASKS = {
     "text": ("Dictation and text actions", "fast"),
     "talk": ("Conversations (voice)", "voice"),
     "operator": ("Using your Mac", "operator"),
+    "guide": ("Show me how", "operator"),
 }
 BACKGROUND = {
     "promises",

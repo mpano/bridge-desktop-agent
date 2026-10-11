@@ -12,6 +12,7 @@ from app.api.app_settings import install as install_app_settings
 from app.api.automations import install as install_automations
 from app.api.briefs import install as install_briefs
 from app.api.commitments import install as install_commitments
+from app.api.guide import install as install_guide
 from app.api.health import install as install_health
 from app.api.inbox import install as install_inbox
 from app.api.launch import LaunchTickets
@@ -224,6 +225,7 @@ def create_app(
     install_briefs(app, authorize)
     install_reports(app, authorize)
     install_recipes(app, authorize)
+    install_guide(app, authorize)
     install_work(app, authorize)
     install_talk(app, authorize, from_phone)
     install_operator(app, authorize)

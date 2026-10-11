@@ -96,6 +96,7 @@ MAC_ONLY_TOOLS = frozenset(
         "copy_to_clipboard",
         "run_terminal_command",
         "operate_mac",
+        "show_me_how",
         "chrome_read_page",
         "set_preferences",
         "proactive_settings",

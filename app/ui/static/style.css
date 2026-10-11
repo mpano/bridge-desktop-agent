@@ -1698,3 +1698,23 @@ body.phone .report-to { width: 100%; }
 .recipe-event { margin: 4px 0 0; font-size: 13.5px; }
 .recipe-event a { color: var(--accent); text-decoration: none; }
 .recipe-ask .row-actions { margin-top: 10px; }
+
+/* Show me how panel */
+.guide-panel { gap: 8px; padding: 12px 14px; }
+.guide-panel[data-state="asking"] .op-dot { background: var(--amber); animation: none; }
+.guide-panel[data-state="done"] .op-dot { background: var(--green); animation: none; }
+.guide-panel[data-state="failed"] .op-dot, .guide-panel[data-state="stopped"] .op-dot { background: var(--line-strong); animation: none; }
+.gd-voice { font-size: 14px; }
+.gd-body { display: flex; flex-direction: column; gap: 4px; min-height: 0; overflow: auto; }
+.gd-step { margin: 0; font-size: 16px; line-height: 1.35; font-weight: 500; color: var(--text); }
+.gd-n { display: inline-block; margin-right: 8px; padding: 1px 7px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-size: 11.5px; font-weight: 700; vertical-align: 2px; }
+.gd-type { padding: 1px 6px; border-radius: 5px; background: var(--inset); border: 1px solid var(--line); font-size: 14px; }
+.gd-keys { margin: 2px 0 0; font: 600 18px ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .08em; color: var(--accent); }
+.gd-tip { margin: 0; font-size: 12.5px; color: var(--green); }
+.gd-note { margin: 0; font-size: 12.5px; }
+.gd-error { margin: 0; font-size: 12.5px; color: var(--red); }
+.gd-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+.gd-rest { margin-left: auto; }
+.gd-answer { display: flex; gap: 8px; margin-top: 6px; }
+.gd-answer input { flex: 1; min-width: 0; }
+.gd-list { margin: 4px 0 0; padding-left: 20px; font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }

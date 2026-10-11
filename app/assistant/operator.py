@@ -526,6 +526,11 @@ class Operator:
         if risk is not None and not await self._ask(run, risk):
             raise Stopped()
         run.steps.append(text)
+        await self.press(action, scale)
+
+    async def press(self, action: dict, scale: float) -> None:
+        """Carry out one checked step with the mouse and keyboard."""
+        hands = self.hands
         kind = action["type"]
         keys = action.get("keys") if kind != "keypress" else None
         if kind in {"click", "double_click"}:

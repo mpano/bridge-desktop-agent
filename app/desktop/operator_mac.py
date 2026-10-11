@@ -142,6 +142,38 @@ def _text(value) -> str:
     return " ".join(str(value).split())[:120] if value not in (None, "") else ""
 
 
+def _frame(element) -> list[float] | None:
+    """[x, y, width, height] in Quartz points (top-left origin), if the app says."""
+    from ApplicationServices import AXValueGetValue, kAXValueCGPointType, kAXValueCGSizeType
+
+    position, size = _ax(element, "AXPosition"), _ax(element, "AXSize")
+    if position is None or size is None:
+        return None
+    ok_point, point = AXValueGetValue(position, kAXValueCGPointType, None)
+    ok_size, extent = AXValueGetValue(size, kAXValueCGSizeType, None)
+    if not (ok_point and ok_size):
+        return None
+    return [float(point.x), float(point.y), float(extent.width), float(extent.height)]
+
+
+# AXMenuItemCmdModifiers: bit 0 shift, bit 1 option, bit 2 control, bit 3 "no command".
+def _shortcut(element) -> str:
+    key = _ax(element, "AXMenuItemCmdChar")
+    if not key or not str(key).strip():
+        return ""
+    modifiers = int(_ax(element, "AXMenuItemCmdModifiers") or 0)
+    marks = ""
+    if modifiers & 4:
+        marks += "⌃"
+    if modifiers & 2:
+        marks += "⌥"
+    if modifiers & 1:
+        marks += "⇧"
+    if not modifiers & 8:
+        marks += "⌘"
+    return marks + str(key).upper()
+
+
 def _flags(keys) -> int:
     flags = 0
     for key in keys or []:
@@ -234,12 +266,19 @@ class MacHands:
                 )
         if not label and role in {"AXStaticText"}:
             label = _text(_ax(element, "AXValue"))
-        return {
+        found = {
             "role": role,
             "subrole": _text(_ax(element, "AXSubrole")),
             "label": label,
             **self._app_of(element),
         }
+        target = parent if role != _text(_ax(element, "AXRole")) else element
+        found["frame"] = _frame(target)
+        if role == "AXMenuItem":
+            found["shortcut"] = _shortcut(target)
+        if role in {"AXTextField", "AXTextArea", "AXComboBox", "AXSearchField"} and not label:
+            found["label"] = _text(_ax(element, "AXPlaceholderValue"))
+        return found
 
     def focused(self) -> dict:
         """The field that would receive typing."""
@@ -249,8 +288,23 @@ class MacHands:
         return {
             "role": _text(_ax(element, "AXRole")),
             "subrole": _text(_ax(element, "AXSubrole")),
-            "label": _text(_ax(element, "AXTitle")) or _text(_ax(element, "AXDescription")),
+            "label": _text(_ax(element, "AXTitle"))
+            or _text(_ax(element, "AXDescription"))
+            or _text(_ax(element, "AXPlaceholderValue")),
+            "frame": _frame(element),
             **self._app_of(element),
+        }
+
+    def activity(self) -> dict:
+        """How many clicks, key presses and scrolls the Mac has seen (since it started).
+        Show me how compares these to notice you did a step; no permission needed."""
+        state = Quartz.kCGEventSourceStateHIDSystemState
+        count = Quartz.CGEventSourceCounterForEventType
+        return {
+            "clicks": int(count(state, Quartz.kCGEventLeftMouseDown))
+            + int(count(state, Quartz.kCGEventRightMouseDown)),
+            "keys": int(count(state, Quartz.kCGEventKeyDown)),
+            "scrolls": int(count(state, Quartz.kCGEventScrollWheel)),
         }
 
     def mouse(self) -> tuple[float, float]:

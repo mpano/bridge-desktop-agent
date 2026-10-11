@@ -555,6 +555,11 @@ def run_menubar(settings: Settings) -> None:
         from app.assistant import operator as operator_module
 
         operator_module.HUD = OperatorHud(controller.operator_panel)
+        from app.assistant import guide as guide_module
+        from app.desktop.guide_overlay import GuideHud, GuidePanel
+
+        controller.guide_panel = GuidePanel(controller, local_service)
+        guide_module.HUD = GuideHud(controller.guide_panel)
         controller.settings = settings
         if controller.voice is not None:
             controller.voice.on_wake = controller.wake_to_talk
