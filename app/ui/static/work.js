@@ -87,6 +87,12 @@
     reposLoading = false;
     box.replaceChildren();
     if (!data.connected) return;
+    if (data.loading) {
+      // Bridge is checking your repos for the first time since it started: look again soon.
+      box.append(node("p", "Checking your repos…", "work-meta"));
+      setTimeout(() => repos(false), 4000);
+      return;
+    }
     if (data.error) box.append(node("p", data.error, "notice-box bad"));
     const news = (data.repos || []).filter((repo) => repo.news);
     if (!news.length) {

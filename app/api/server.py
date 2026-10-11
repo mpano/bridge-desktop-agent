@@ -50,6 +50,23 @@ from app.workflows.retention import RetentionPolicy, WorkflowFilter, WorkflowQue
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "testserver"}
 
 
+async def warm_up(agent) -> None:
+    """A few seconds after Bridge starts, load what Today shows from Jira and GitHub (and
+    fetch your repos) in the background, so the first look at Today doesn't wait for it."""
+    await asyncio.sleep(3)
+    jobs = []
+    jira, github, repos = (getattr(agent, name, None) for name in ("jira", "github", "repos"))
+    with suppress(Exception):
+        if jira is not None and await jira.connected():
+            jobs.append(jira.mine(fresh=True))
+        if github is not None and await github.connected():
+            jobs += [github.reviews(fresh=True), github.my_prs(fresh=True)]
+            if repos is not None:
+                jobs.append(repos.feed(fresh=True))
+    if jobs:
+        await asyncio.gather(*jobs, return_exceptions=True)
+
+
 def create_app(
     settings: Settings | None = None,
     agent=None,
@@ -72,6 +89,8 @@ def create_app(
             )
             if worker is not None and inspect.iscoroutinefunction(getattr(worker, "run", None))
         ]
+        if getattr(app.state.agent, "proactive", None) is not None:
+            loops.append(asyncio.create_task(warm_up(app.state.agent)))
         try:
             yield
         finally:

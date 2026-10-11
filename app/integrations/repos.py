@@ -419,10 +419,12 @@ class RepoWatcher:
     async def feed(self, *, fresh: bool = False) -> dict:
         """What's new in your repos. Today gets the last answer straight away and a stale one
         is refreshed in the background (fetching every copy takes a while); fresh=True waits."""
-        if not fresh and self._feed is not None:
-            if self.clock() - self._feed[0] >= 5 * 60 and not self.lock.locked():
-                if self._refresh is None or self._refresh.done():
-                    self._refresh = asyncio.get_running_loop().create_task(self._gather())
+        if not fresh:
+            stale = self._feed is None or self.clock() - self._feed[0] >= 5 * 60
+            if stale and not self.lock.locked() and (self._refresh is None or self._refresh.done()):
+                self._refresh = asyncio.get_running_loop().create_task(self._gather())
+            if self._feed is None:
+                return {"repos": [], "loading": True, "checked_at": None}  # First look: soon.
             return self._feed[1]
         return await self._gather()
 

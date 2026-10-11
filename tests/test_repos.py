@@ -204,7 +204,9 @@ def test_feed_and_notifications_once(tmp_path):
         notes.append(title)
 
     async def scenario():  # One event loop, as in Bridge.
-        feed = await w.feed()
+        first = await w.feed()  # Not checked yet: Today gets "loading" at once…
+        assert first["loading"] and first["repos"] == []
+        feed = await w.feed(fresh=True)  # …and the full answer once it's in.
         w.notify = notify
         first = await w.check()
         w._last_check = 0
