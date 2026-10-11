@@ -1556,3 +1556,18 @@ body.phone .talk-sheet { padding: 12px 12px calc(88px + env(safe-area-inset-bott
 .health-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
 .health-dot[hidden] { display: none; }
 #health-recheck { margin-top: 4px; }
+
+/* More apps (MCP) ------------------------------------------------------------------------ */
+.mcp-card { margin: 18px 0; }
+.mcp-servers { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.mcp-server { border-bottom: 1px solid var(--line); }
+.mcp-server:last-child { border-bottom: 0; }
+.mcp-sub { margin: 16px 0 8px; }
+.mcp-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.mcp-preset { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); text-align: left; }
+.mcp-preset span { font-size: 12px; line-height: 1.35; font-weight: 400; }
+.mcp-preset.added { opacity: .55; }
+.mcp-custom { margin-top: 14px; }
+.mcp-custom summary { font-size: 13px; color: var(--muted); }
+.mcp-tools { padding: 4px 0 12px 12px; display: flex; flex-direction: column; gap: 4px; }
+.mcp-tool .set-hint { max-height: 3.9em; overflow: hidden; }

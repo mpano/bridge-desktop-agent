@@ -22,6 +22,7 @@ from app.integrations.accounts import AccountManager
 from app.integrations.activity import SQLiteActivity
 from app.integrations.credentials import KeychainCredentials
 from app.integrations.email import GmailService
+from app.integrations.mcp.manager import MCPManager
 from app.integrations.repos import RepoWatcher
 from app.integrations.slack import SlackService
 from app.integrations.spotify import SpotifyWebService
@@ -70,6 +71,7 @@ from app.tools.system import (
 )
 from app.tools.system import proactive as proactive_tools
 from app.tools.terminal import terminal
+from app.tools.work import apps as apps_tools
 from app.tools.work import tools as work_tools
 from app.tools.work.tools import GITHUB_READS, JIRA_READS
 from app.workflows import retention
@@ -127,6 +129,12 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
         settings.database_path, github, projects=SQLiteMemory(settings.database_path)
     )
     work_tools.register(registry, jira, github, repos)
+    mcp = MCPManager(
+        settings.database_path,
+        f"http://127.0.0.1:{settings.integrations_callback_port}/api/v1/mcp/callback",
+        secrets_store=None if keychain else MemoryTokens(),
+    )
+    apps_tools.register(registry, mcp)
     spotify_app = spotify.SpotifyController(runner, script)
     people = contacts.ContactsDirectory()
     if settings.integrations_enabled:
@@ -269,6 +277,9 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     )
     agent.accounts = accounts
     agent.tokens, agent.jira, agent.github, agent.repos = tokens, jira, github, repos
+    agent.mcp = mcp
+    mcp.privacy = agent.planner.privacy
+    mcp.apply_sharing()
     agent.talk = Talk(settings.database_path, agent, settings)
     agent.memories = facts
     agent.use_chats(ChatStore(settings.database_path, days=settings.chat_retention_days))

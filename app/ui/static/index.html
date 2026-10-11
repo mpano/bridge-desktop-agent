@@ -25,6 +25,7 @@
   <script src="/ui/brief.js" defer></script>
   <script src="/ui/work.js" defer></script>
   <script src="/ui/talk.js" defer></script>
+  <script src="/ui/apps.js" defer></script>
   <script src="/ui/phone.js" defer></script>
 </head>
 <body>
@@ -381,6 +382,23 @@
             </header>
             <div id="service-grid" class="svc-grid" aria-live="polite"></div>
             <p class="hint on-mac">Calendar, Contacts, Reminders and Messages on this Mac work without connecting anything — Bridge uses them directly once macOS allows it.</p>
+            <section class="card mcp-card" aria-labelledby="mcp-title">
+              <div class="card-head"><div><h2 id="mcp-title">More apps</h2><p class="hint">Any app that speaks MCP — Notion, Linear, Sentry, Figma and hundreds more. Reading tools run directly; anything that changes something asks you first.</p></div></div>
+              <div id="mcp-servers" class="mcp-servers"></div>
+              <p class="label mcp-sub">Add an app</p>
+              <div id="mcp-presets" class="mcp-presets"></div>
+              <details id="mcp-custom" class="mcp-custom"><summary>Add another app by address or program</summary>
+                <form id="mcp-form" class="token-form">
+                  <div class="seg" role="radiogroup" aria-label="Where the app is"><button type="button" class="on" data-mcp-kind="http" role="radio" aria-checked="true">Web address</button><button type="button" data-mcp-kind="stdio" role="radio" aria-checked="false">Program on this Mac</button></div>
+                  <label class="token-field"><span>Name</span><input id="mcp-name" maxlength="40" placeholder="e.g. Our wiki"></label>
+                  <label class="token-field mcp-web"><span>Server address</span><input id="mcp-url" maxlength="500" placeholder="https://…/mcp"></label>
+                  <label class="token-field mcp-web"><span>API key (only if the app gave you one)</span><input id="mcp-key" type="password" maxlength="500" autocomplete="off" placeholder="Leave empty to sign in instead"></label>
+                  <label class="token-field mcp-local" hidden><span>Program and arguments</span><input id="mcp-command" maxlength="400" placeholder="npx -y @modelcontextprotocol/server-filesystem ~/Documents"></label>
+                  <p class="hint mcp-local" hidden>This runs a program on your Mac whenever Bridge uses the app. Only add programs you trust.</p>
+                  <button type="submit" class="primary small">Add app</button>
+                </form>
+              </details>
+            </section>
             <section class="card list-card" aria-labelledby="activity-title">
               <div class="card-head">
                 <div><h2 id="activity-title">Recent activity</h2><p class="hint">What Bridge did with each service — never the content, recipients or tokens.</p></div>

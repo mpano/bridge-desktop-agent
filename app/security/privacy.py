@@ -31,11 +31,16 @@ class ToolResultPrivacy:
         """Share more tools' results (the user turned sharing on for a new service)."""
         object.__setattr__(self, "allowed_tools", frozenset(self.allowed_tools | set(names)))
 
+    def disallow(self, names) -> None:
+        """Stop sharing these results (the user turned sharing off, or removed the app)."""
+        object.__setattr__(self, "allowed_tools", frozenset(self.allowed_tools - set(names)))
+
     def filter_result(self, result: dict) -> dict:
         """Return a detached result with only explicitly permitted data."""
         if not isinstance(result, dict):
             return {"success": False, "status": "failed", "result_withheld": True}
-        tool = result.get("tool")
+        # One tool can carry many apps' results (apps_use): the executor names whose it is.
+        tool = result.get("privacy_key") or result.get("tool")
         if self.mode == "all" or (
             self.mode == "allowlist" and isinstance(tool, str) and tool in self.allowed_tools
         ):

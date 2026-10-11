@@ -14,6 +14,7 @@ from app.api.commitments import install as install_commitments
 from app.api.health import install as install_health
 from app.api.inbox import install as install_inbox
 from app.api.launch import LaunchTickets
+from app.api.mcp import install as install_mcp
 from app.api.onboarding import install as install_onboarding
 from app.api.operator import install as install_operator
 from app.api.phone import install as install_phone
@@ -98,6 +99,10 @@ def create_app(
                 task.cancel()
                 with suppress(asyncio.CancelledError):
                     await task
+            mcp = getattr(app.state.agent, "mcp", None)
+            if mcp is not None:
+                with suppress(Exception):
+                    await mcp.close()  # Local app programs stop with Bridge.
             await app.state.agent.close()
 
     app = FastAPI(title="Bridge", lifespan=lifespan)
@@ -215,6 +220,7 @@ def create_app(
     install_talk(app, authorize, from_phone)
     install_operator(app, authorize)
     install_health(app, authorize, settings)
+    install_mcp(app, authorize, settings)
     install_inbox(app, authorize)
     install_automations(app, authorize)
     install_app_settings(app, authorize, settings)

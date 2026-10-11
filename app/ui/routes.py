@@ -74,6 +74,10 @@ def install_ui(app: FastAPI) -> None:
         return FileResponse(STATIC / "bridge-mark.png", media_type="image/png")
 
     # Bridge on your phone: the Home Screen app's script, icons, manifest and service worker.
+    @app.get("/ui/apps.js", include_in_schema=False)
+    async def apps_js():
+        return FileResponse(STATIC / "apps.js", media_type="text/javascript")
+
     @app.get("/ui/dom.js", include_in_schema=False)
     async def dom_js():
         return FileResponse(STATIC / "dom.js", media_type="text/javascript")

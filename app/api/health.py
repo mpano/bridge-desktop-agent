@@ -207,6 +207,24 @@ def install(app: FastAPI, authorize, settings) -> None:
                         )
                     )
 
+        mcp = getattr(agent, "mcp", None)
+        if mcp is not None:
+            for server in mcp.servers():
+                state = mcp.status.get(server["id"], {}).get("state", "unknown")
+                detail = mcp.status.get(server["id"], {}).get("detail", "")
+                add(
+                    item(
+                        "Connections",
+                        f"mcp-{server['id']}",
+                        server["name"],
+                        {"ok": "ok", "sign_in": "error", "error": "error"}.get(state, "ok"),
+                        detail if state != "unknown" else "Connects when Bridge first uses it.",
+                        None
+                        if state in {"ok", "unknown"}
+                        else {"label": "Connections", "view": "connections"},
+                    )
+                )
+
         # The assistant ------------------------------------------------------------------
         sorted_at = [
             source.last[0]

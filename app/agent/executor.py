@@ -31,6 +31,10 @@ class Executor:
                 result.update(status="confirmation_required", arguments=arguments.model_dump())
             else:
                 data = await tool.execute(arguments)
+                if isinstance(data, dict) and "_privacy_key" in data:
+                    # Whose result this is, for the privacy rules (e.g. one MCP app's).
+                    data = dict(data)
+                    result["privacy_key"] = str(data.pop("_privacy_key"))
                 result.update(status="completed", success=True, result=data)
                 if tool.render is not None:
                     try:

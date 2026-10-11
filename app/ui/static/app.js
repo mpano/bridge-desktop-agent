@@ -83,6 +83,7 @@
     if (name === "today" && signedIn && window.BridgeToday) window.BridgeToday.refresh();
     if (name === "inbox" && signedIn && window.BridgeInbox) window.BridgeInbox.refresh();
     if (name === "automations" && signedIn && window.BridgeAutomations) window.BridgeAutomations.refresh();
+    if (name === "connections" && signedIn && window.BridgeApps) window.BridgeApps.refresh();
     if (name === "chat" && signedIn) refreshTalk();
     if (name === "chat" && signedIn) {
       setTimeout(() => {
