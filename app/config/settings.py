@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     explain_shortcut_enabled: bool = True
     # Bridge's avatar in a corner of the screen (meetings, what needs you, click to talk).
     desk_buddy: bool = True
+    # Meeting notes: listen to meetings (mic + the call's sound), transcribe on this Mac,
+    # summarize with OpenAI. Off until you turn it on.
+    meetings_enabled: bool = False
+    meeting_retention_days: int = Field(default=30, ge=1, le=365)
     dictation_cleanup: bool = True
     dictation_max_seconds: float = Field(default=120, ge=10, le=300)
     dictation_pause_seconds: float = Field(default=2.5, ge=1, le=10)

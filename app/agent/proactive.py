@@ -52,6 +52,7 @@ class Proactive:
         self.watchers = None  # GitHub, Jira and app watchers (app/assistant/watchers.py).
         self.reports = None  # Friday: the weekly report draft.
         self.recipes = None  # "When X, do Y" (app/assistant/recipes.py).
+        self.meetings = None  # Offers to take notes when a video meeting starts.
         self._last_watch_check = 0.0
 
     async def run(self) -> None:
@@ -73,6 +74,8 @@ class Proactive:
                     await self.learning.check()
                 if self.reports is not None:
                     await self.reports.check()
+                if self.meetings is not None:
+                    await self.meetings.check()
                 if loop.time() - self._last_watch_check >= WATCH_CHECK_SECONDS:
                     self._last_watch_check = loop.time()
                     await self.check_watches()

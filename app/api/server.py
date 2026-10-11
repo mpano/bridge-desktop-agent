@@ -19,6 +19,7 @@ from app.api.inbox import install as install_inbox
 from app.api.launch import LaunchTickets
 from app.api.learning import install as install_learning
 from app.api.mcp import install as install_mcp
+from app.api.meetings import install as install_meetings
 from app.api.onboarding import install as install_onboarding
 from app.api.operator import install as install_operator
 from app.api.phone import install as install_phone
@@ -228,6 +229,7 @@ def create_app(
     install_recipes(app, authorize)
     install_guide(app, authorize)
     install_desk(app, authorize)
+    install_meetings(app, authorize)
     install_work(app, authorize)
     install_talk(app, authorize, from_phone)
     install_operator(app, authorize)

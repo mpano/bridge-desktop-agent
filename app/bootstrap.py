@@ -17,6 +17,7 @@ from app.assistant.explain import Explainer
 from app.assistant.focus import FocusMode, FocusStore
 from app.assistant.guide import Guides
 from app.assistant.learning import Learning
+from app.assistant.meetings import Meetings
 from app.assistant.operator import Operator
 from app.assistant.recipes import Recipes
 from app.assistant.replies import ReplyDrafter
@@ -79,6 +80,7 @@ from app.tools.system import (
     volume,
 )
 from app.tools.system import guide as guide_tools
+from app.tools.system import meetings as meeting_tools
 from app.tools.system import proactive as proactive_tools
 from app.tools.system import recipes as recipe_tools
 from app.tools.terminal import terminal
@@ -101,6 +103,20 @@ def mac_hands():
         from app.desktop.operator_mac import MacHands
 
         return MacHands()
+    except Exception:
+        return None
+
+
+def meeting_ears():
+    """What hears a meeting (the microphone and the Mac's sound), on a Mac."""
+    if sys.platform != "darwin":
+        return None
+    try:
+        import sounddevice  # noqa: F401
+
+        from app.desktop.meeting_audio import MeetingAudio
+
+        return MeetingAudio
     except Exception:
         return None
 
@@ -375,6 +391,26 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     )
     agent.guides.executor = agent.executor
     guide_tools.register(registry, agent.guides)
+    try:
+        from app.voice.stt import build_stt
+
+        meeting_stt = build_stt(settings)
+    except Exception:
+        meeting_stt = None
+    agent.meetings = Meetings(
+        settings.database_path,
+        settings,
+        llm=llm,
+        stt=meeting_stt,
+        calendar=calendar_controller,
+        commitments=commitments,
+        gmail=gmail_service,
+        audio_factory=meeting_ears(),
+    )
+    agent.meetings.notify = notify
+    agent.meetings.proactive_store = proactive_store
+    agent.proactive.meetings = agent.meetings
+    meeting_tools.register(registry, agent.meetings)
     agent.explainer = Explainer(
         settings, hands=agent.operator.hands, llm=llm, blocked=agent.operator.blocked
     )

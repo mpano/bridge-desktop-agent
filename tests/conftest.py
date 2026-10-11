@@ -33,4 +33,5 @@ def no_real_work_accounts(monkeypatch):
 def no_real_mouse_and_keyboard(monkeypatch):
     """Tests never get the real Mac's mouse, keyboard or screen (computer use)."""
     monkeypatch.setattr("app.bootstrap.mac_hands", lambda: None)
+    monkeypatch.setattr("app.bootstrap.meeting_ears", lambda: None)  # Never the real mic.
     monkeypatch.setattr("app.assistant.operator.HUD", None)

@@ -107,7 +107,40 @@ class EventKitBackend:
             "location": str(event.location() or ""),
             # Free/tentative-as-free events don't block time (EKEventAvailabilityFree == 1).
             "busy": event.availability() != 1,
+            "attendees": self._people(event),
+            "video": self._video(event),
         }
+
+    @staticmethod
+    def _people(event) -> list[dict]:
+        """Who's invited (not you): names and email addresses, for meeting follow-ups."""
+        people = []
+        for person in event.attendees() or []:
+            try:
+                if person.isCurrentUser():
+                    continue
+                url = str(person.URL().absoluteString() if person.URL() else "")
+                email = url[7:] if url.lower().startswith("mailto:") else ""
+                people.append({"name": str(person.name() or email), "email": email})
+            except Exception:
+                continue
+        return people[:30]
+
+    @staticmethod
+    def _video(event) -> bool:
+        """Is it a video call (a Zoom, Meet, Teams or Webex link anywhere in the event)?"""
+        text = " ".join(
+            str(part or "")
+            for part in (
+                event.location(),
+                event.URL().absoluteString() if event.URL() else "",
+                event.notes(),
+            )
+        ).lower()
+        return any(
+            host in text
+            for host in ("zoom.us/", "meet.google.com/", "teams.microsoft.com/", "webex.com/")
+        )
 
     def _find(self, store, start: datetime, end: datetime):
         predicate = store.predicateForEventsWithStartDate_endDate_calendars_(

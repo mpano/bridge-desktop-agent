@@ -120,7 +120,7 @@
     const main = node("div", undefined, "promise-main");
     main.append(node("span", item.what, "promise-what"));
     const meta = node("span", undefined, "promise-meta");
-    const source = item.source === "slack" ? "Slack" : item.source === "email" ? "Email" : "Added by you";
+    const source = item.source === "slack" ? "Slack" : item.source === "email" ? "Email" : item.source === "meeting" ? "Meeting" : "Added by you";
     meta.append(node("span", item.direction === "mine" ? `to ${item.person}` : item.person),
       node("span", ` · ${source} · ${ago(item.said_at)}`, "faint"));
     if (item.followed_up) meta.append(node("span", ` · followed up ${ago(item.followed_up)}`, "faint"));

@@ -569,7 +569,12 @@ def run_menubar(settings: Settings) -> None:
 
         controller.guide_panel = GuidePanel(controller, local_service)
         guide_module.HUD = GuideHud(controller.guide_panel)
+        from app.assistant import meetings as meetings_module
         from app.desktop.desk import DeskBuddy, ExplainPanel
+        from app.desktop.meeting_panel import MeetingHud, MeetingPanel
+
+        controller.meeting_panel = MeetingPanel(controller, local_service)
+        meetings_module.HUD = MeetingHud(controller.meeting_panel)
 
         controller.explain_panel = ExplainPanel(controller, local_service)
         controller.desk_buddy = DeskBuddy(controller, local_service)

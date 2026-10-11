@@ -43,6 +43,8 @@ class AppSettings(BaseModel):
     dictation_shortcut: bool | None = None
     explain_shortcut: bool | None = None
     desk_buddy: bool | None = None
+    meetings_enabled: bool | None = None
+    meeting_keep_days: Literal[7, 30, 90] | None = None
     dictation_cleanup: bool | None = None
     dictation_pause_seconds: float | None = Field(default=None, ge=1, le=10)
     speech: Literal["local", "openai"] | None = None
@@ -103,6 +105,8 @@ def install(app: FastAPI, authorize, settings) -> None:
                 "talk_enabled": settings.talk_enabled,
                 "talk_model": settings.talk_model,
                 "talk_voice": settings.talk_voice,
+                "meetings_enabled": settings.meetings_enabled,
+                "meeting_keep_days": settings.meeting_retention_days,
                 "speech": settings.voice_stt_provider,
                 "dictation_cleanup": settings.dictation_cleanup,
                 "dictation_pause_seconds": settings.dictation_pause_seconds,
@@ -188,11 +192,15 @@ def install(app: FastAPI, authorize, settings) -> None:
             ("operator_ask", "OPERATOR_ASK"),
             ("learning_enabled", "LEARNING_ENABLED"),
             ("desk_buddy", "DESK_BUDDY"),
+            ("meetings_enabled", "MEETINGS_ENABLED"),
         ):
             value = getattr(payload, field)
             if value is not None:
                 live[key] = flag(value) if isinstance(value, bool) else value
                 setattr(settings, field, value)
+        if payload.meeting_keep_days is not None:
+            live["MEETING_RETENTION_DAYS"] = str(payload.meeting_keep_days)
+            settings.meeting_retention_days = payload.meeting_keep_days
         if not changes and not live:
             return {"saved": [], "restart_needed": request.app.state.restart_needed}
         try:

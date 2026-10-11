@@ -52,11 +52,15 @@
     $("bd-face").classList.toggle("alert", state.count > 0);
     $("bd-badge").hidden = !state.count;
     $("bd-badge").textContent = state.count > 9 ? "9+" : String(state.count);
+    $("bd-rec").hidden = !state.recording;
     const chip = $("bd-chip");
     const meeting = state.meeting;
     const soon = meeting && meeting.minutes <= 15;
-    chip.hidden = !soon;
-    if (soon) {
+    chip.hidden = !soon && !state.recording;
+    chip.classList.toggle("recording", Boolean(state.recording));
+    if (state.recording) {
+      chip.textContent = `● Taking notes · ${state.recording}`;
+    } else if (soon) {
       chip.textContent = meeting.now ? `Now · ${meeting.title}` : `${meeting.title} · ${minutesText(meeting.minutes)}`;
       chip.classList.toggle("urgent", meeting.minutes <= 5);
     }
@@ -123,6 +127,11 @@
     };
     if (state && state.talk) item("Talk to Bridge", () => mini.native({action: "buddy_talk"}));
     item("Ask Bridge…", () => mini.native({action: "buddy_ask"}));
+    if (state && state.recording) {
+      item("Stop meeting notes", () => mini.request("/api/v1/meetings/stop", "POST", {}).catch(() => {}));
+    } else if (state && state.notes) {
+      item("Take meeting notes", () => mini.request("/api/v1/meetings/start", "POST", {}).catch(() => {}));
+    }
     item("Open Bridge", () => mini.native({action: "open", view: "today"}));
     item("Hide from the desk", async () => {
       try { await mini.request("/api/v1/settings/app", "POST", {desk_buddy: false}); } catch { /* try again later */ }

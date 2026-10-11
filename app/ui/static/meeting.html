@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <title>Bridge</title>
+  <link rel="stylesheet" href="/ui/style.css">
+  <link rel="stylesheet" href="/ui/mini.css">
+  <script src="/ui/dom.js" defer></script>
+  <script src="/ui/mini.js" defer></script>
+  <script src="/ui/meeting-panel.js" defer></script>
+</head>
+<body class="mini">
+  <main class="mini-panel meeting-panel" id="mp" data-state="idle">
+    <div class="op-top">
+      <span id="mp-dot" class="mt-rec" aria-hidden="true"></span>
+      <div class="op-words">
+        <strong id="mp-title">Taking notes</strong>
+        <span id="mp-sub" class="faint"></span>
+      </div>
+      <span id="mp-clock" class="mono faint"></span>
+    </div>
+    <div id="mp-lines" class="mp-lines" aria-live="polite"></div>
+    <div id="mp-actions" class="row-actions"></div>
+  </main>
+</body>
+</html>

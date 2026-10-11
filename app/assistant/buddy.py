@@ -166,7 +166,11 @@ class Buddy:
 
     async def state(self) -> dict:
         needs = self.needs()
+        meetings = getattr(self.agent, "meetings", None)
+        recording = getattr(meetings, "current", None) if meetings is not None else None
         return {
+            "recording": recording["title"] if recording else None,
+            "notes": bool(meetings is not None and meetings.enabled and meetings.audio_factory),
             "enabled": bool(getattr(self.settings, "desk_buddy", True)),
             "talk": bool(getattr(self.settings, "talk_enabled", False)),
             "voice": self.voice(),

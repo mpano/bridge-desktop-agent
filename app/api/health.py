@@ -580,6 +580,44 @@ def install(app: FastAPI, authorize, settings) -> None:
                         "Point at anything and press ⌃⌥W.",
                     )
                 )
+        meetings = getattr(agent, "meetings", None)
+        if meetings is not None:
+            voice = {"label": "Voice settings", "view": "settings", "section": "voice"}
+            last = meetings.store.recent(1)
+            if not meetings.enabled:
+                add(item("On your Mac", "meetings", "Meeting notes", "off", "Off.", voice))
+            elif meetings.audio_factory is None or meetings.stt is None:
+                add(
+                    item(
+                        "On your Mac",
+                        "meetings",
+                        "Meeting notes",
+                        "warn",
+                        "On, but this Mac can't listen (needs the Bridge app and speech to text).",
+                        voice,
+                    )
+                )
+            elif last and (last[0].get("summary") or {}).get("failed"):
+                add(
+                    item(
+                        "On your Mac",
+                        "meetings",
+                        "Meeting notes",
+                        "warn",
+                        f"The summary of “{last[0]['title']}” couldn't be written.",
+                        {"label": "Meetings", "view": "meetings"},
+                    )
+                )
+            else:
+                add(
+                    item(
+                        "On your Mac",
+                        "meetings",
+                        "Meeting notes",
+                        "ok",
+                        "Recording now." if meetings.current else "Ready: “take notes”.",
+                    )
+                )
         if getattr(agent, "buddy", None) is not None:
             on = bool(getattr(settings, "desk_buddy", True))
             add(

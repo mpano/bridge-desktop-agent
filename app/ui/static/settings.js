@@ -261,8 +261,23 @@
         usage.querySelector(".set-hint").textContent = `${data.usage.minutes} minutes of conversation. Realtime voice costs more per minute than typing.`;
       }).catch(() => {});
     }
+    const keep = node("select", undefined, "small-select");
+    keep.setAttribute("aria-label", "Keep meeting notes for");
+    for (const days of [7, 30, 90]) {
+      const option = node("option", `${days} days`);
+      option.value = String(days);
+      option.selected = days === v.meeting_keep_days;
+      keep.append(option);
+    }
+    keep.addEventListener("change", () => save({meeting_keep_days: Number(keep.value)}));
+    const meetingRows = [row("Meeting notes",
+      v.meetings_enabled ? "On: “take notes” or the button on Today. Your mic and the call's sound are transcribed on this Mac (or by OpenAI if speech to text is set to OpenAI); audio is never saved; the words go to OpenAI for the summary."
+        : "Bridge can take notes in your meetings: live notes, then a summary, decisions, action items and a follow-up email.",
+      toggle("Meeting notes", v.meetings_enabled, (on) => save({meetings_enabled: on})))];
+    if (v.meetings_enabled) meetingRows.push(row("Keep meeting notes for", "Then they're deleted. You can delete any sooner.", keep));
     $("settings-voice").replaceChildren(
       ...talkRows,
+      ...meetingRows,
       row("Speech to text", v.speech === "local" ? "On this Mac with Whisper. Your voice never leaves the Mac." : "OpenAI transcribes your recordings.",
         segmented("Speech to text", [["local", "On this Mac"], ["openai", "OpenAI"]], v.speech, (key) => save({speech: key}))),
       row("Tidy up dictation", "Removes “um”s and applies spoken corrections. Sends the text, never audio, to OpenAI.",

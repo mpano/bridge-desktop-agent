@@ -10,6 +10,8 @@
 
   function tiles(x) {
     return [
+      {icon: "🎙", title: "Meeting notes", text: "Bridge listens to your meeting, then writes the summary, decisions, action items and a follow-up email.",
+        action: ["Set it up", () => ui().view("meetings")]},
       {icon: "🧭", title: "Show me how", text: "Say “show me how to …” and Bridge highlights each step on screen for you to do.",
         action: x.operator ? ["Try it", () => ui().ask("Show me how to turn on Night Shift")] : ["Turn on", () => ui().view("settings", "operator")]},
       {icon: "❓", title: "What's this? ⌃⌥W", text: "Point at any button, icon or error and press ⌃⌥W to hear what it is.",
@@ -23,7 +25,7 @@
         action: ["Add one", () => ui().view("automations")]},
       {icon: "📝", title: "Weekly report", text: "Every Friday, a draft of your status update from what you actually did.",
         action: ["See this week's", () => window.BridgeReport && window.BridgeReport.open()]},
-      {icon: "🎙", title: "Voices with faces", text: "Hear each voice, pick yours, and talk with an avatar that moves as it speaks.",
+      {icon: "🗣", title: "Voices with faces", text: "Hear each voice, pick yours, and talk with an avatar that moves as it speaks.",
         action: ["Pick a voice", () => ui().view("settings", "voice")]},
     ];
   }
