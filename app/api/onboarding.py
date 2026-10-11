@@ -82,6 +82,23 @@ def install(app: FastAPI, authorize, settings) -> None:
                 }
             except Exception:
                 pass
+        # Jira and GitHub connect with a token (or the gh sign-in), not a browser sign-in.
+        tokens = getattr(agent, "tokens", None)
+        if tokens is not None:
+            try:
+                for item in await tokens.catalog():
+                    connections["providers"].append(
+                        {
+                            "provider": item["provider"],
+                            "name": item["name"],
+                            "configured": True,
+                            "connected": item["account"] is not None,
+                            "kind": "token",
+                            "cli_available": item.get("cli_available", False),
+                        }
+                    )
+            except Exception:
+                pass
         days = agent.proactive_store.settings()
         return {
             "done": bool(days.get("onboarded")),
@@ -100,7 +117,14 @@ def install(app: FastAPI, authorize, settings) -> None:
                     "morning_plan",
                     "morning_time",
                     "meeting_prep",
+                    "evening_summary",
+                    "evening_time",
                 )
+            },
+            "extras": {
+                "talk": bool(getattr(settings, "talk_enabled", False)),
+                "operator": bool(getattr(settings, "operator_enabled", False)),
+                "phone": bool(getattr(getattr(agent, "phone", None), "enabled", False)),
             },
         }
 

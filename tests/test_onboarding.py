@@ -40,7 +40,13 @@ def test_state_starts_unfinished_without_a_key(setup):
         "morning_plan",
         "morning_time",
         "meeting_prep",
+        "evening_summary",
+        "evening_time",
     }
+    # The newer, optional parts are introduced too (all off until you turn them on).
+    assert data["extras"] == {"talk": False, "operator": False, "phone": False}
+    names = {p["provider"] for p in data["connections"]["providers"]}
+    assert {"jira", "github"} <= names
 
 
 def test_a_working_key_goes_to_the_keychain_not_a_file(setup, monkeypatch):

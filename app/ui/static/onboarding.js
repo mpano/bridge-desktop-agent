@@ -6,7 +6,7 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const ui = () => window.BridgeUI;
-  const STEPS = ["Welcome", "Model", "Mac permissions", "Your apps", "Shortcuts", "Your days", "Done"];
+  const STEPS = ["Welcome", "Model", "Mac permissions", "Your apps", "Shortcuts", "Your days", "Extras", "Done"];
   let step = 0;
   let state = null;
   let poll = null;
@@ -175,6 +175,15 @@
       const card = node("div", undefined, "card ob-app");
       card.append(node("strong", provider.name));
       if (provider.connected) card.append(node("span", "✓ Connected", "pill-state good"));
+      else if (provider.kind === "token" && provider.cli_available) {
+        card.append(button("Use my GitHub sign-in", "secondary small", async () => {
+          try {
+            await ui().request("/api/v1/connections/token", "POST", {provider: provider.provider, use_cli: true, allow_actions: true});
+            await load();
+            render();
+          } catch (error) { ui().notify(error.message, true); }
+        }));
+      } else if (provider.kind === "token") card.append(node("span", "Add it in Connections after setup", "pill-state"));
       else if (!provider.configured) card.append(node("span", "Needs setup", "pill-state"));
       else card.append(button("Connect", "secondary small", async () => {
         try {
@@ -240,13 +249,55 @@
     hours.append(hoursWords, hoursEnd);
     const morning = node("div", undefined, "set");
     const morningWords = node("div", undefined, "set-words");
-    morningWords.append(node("span", "Plan my day every weekday morning", "set-name"), node("span", `Ready at ${d.morning_time}, with a notification.`, "set-hint"));
-    morning.append(morningWords, flip("Plan my day every weekday morning", d.morning_plan, "morning_plan"));
+    morningWords.append(node("span", "Morning brief", "set-name"), node("span", `Weekdays at ${d.morning_time}: your day planned and your 3 most important things.`, "set-hint"));
+    morning.append(morningWords, flip("Morning brief", d.morning_plan, "morning_plan"));
+    const evening = node("div", undefined, "set");
+    const eveningWords = node("div", undefined, "set-words");
+    eveningWords.append(node("span", "Evening wrap-up", "set-name"), node("span", `Weekdays at ${d.evening_time}: what got done, what slipped, tomorrow at a glance.`, "set-hint"));
+    evening.append(eveningWords, flip("Evening wrap-up", d.evening_summary, "evening_summary"));
     const meetings = node("div", undefined, "set");
     const meetingWords = node("div", undefined, "set-words");
     meetingWords.append(node("span", "Heads-up before meetings", "set-name"), node("span", "A notification shortly before each meeting.", "set-hint"));
     meetings.append(meetingWords, flip("Heads-up before meetings", d.meeting_prep, "meeting_prep"));
-    card.append(hours, morning, meetings);
+    card.append(hours, morning, evening, meetings);
+    body.append(card);
+  }
+
+  function extras(body) {
+    body.append(...heading(`Step 6 of ${STEPS.length - 2}`, "A few more things Bridge can do", "All optional, and you can change them any time in Settings."));
+    const x = state.extras || {};
+    const save = async (changes) => {
+      try {
+        await ui().request("/api/v1/settings/app", "POST", changes);
+        await load();
+        render();
+      } catch (error) { ui().notify(error.message, true); }
+    };
+    const flip = (label, on, key) => {
+      const control = button("", on ? "switch on" : "switch", () => save({[key]: !on}));
+      control.setAttribute("role", "switch");
+      control.setAttribute("aria-checked", String(on));
+      control.setAttribute("aria-label", label);
+      control.append(node("span", undefined, "knob"));
+      return control;
+    };
+    const line = (name, hint, control) => {
+      const row = node("div", undefined, "set");
+      const words = node("div", undefined, "set-words");
+      words.append(node("span", name, "set-name"), node("span", hint, "set-hint"));
+      row.append(words);
+      if (control) row.append(control);
+      return row;
+    };
+    const card = node("div", undefined, "card group");
+    card.append(
+      line("Talk with Bridge", "“Hey Bridge” or ⌘⇧Space starts a real conversation you can interrupt. Your voice goes to OpenAI while you talk.",
+        flip("Talk with Bridge", x.talk, "talk_enabled")),
+      line("Use your Mac", "Bridge can click and type in your apps for a task you give it, and asks before anything important. Screenshots go to OpenAI while it works.",
+        flip("Use your Mac", x.operator, "operator_enabled")),
+      line("Bridge on your phone", x.phone ? "On." : "Today, Ask, Inbox and approvals on your iPhone, over your own Tailscale network. Set it up in Settings › Phone.",
+        x.phone ? node("span", "✓ On", "pill-state good") : null),
+    );
     body.append(card);
   }
 
@@ -274,10 +325,10 @@
     });
     const body = $("ob-body");
     body.replaceChildren();
-    [welcome, model, permissions, apps, shortcuts, days, done][step](body);
+    [welcome, model, permissions, apps, shortcuts, days, extras, done][step](body);
     const last = step === STEPS.length - 1;
     $("ob-back").hidden = step === 0 || last;
-    $("ob-later").hidden = ![3, 4].includes(step);
+    $("ob-later").hidden = ![3, 4, 6].includes(step);
     $("ob-next").textContent = step === 0 ? "Get started" : last ? "Open Today" : step === STEPS.length - 2 ? "Finish" : "Continue";
     // Permissions, sign-ins and shortcuts change outside this page: keep them current.
     clearInterval(poll);
@@ -289,7 +340,7 @@
     const focused = document.activeElement && body.contains(document.activeElement);
     if (focused) return;  // Never redraw under the user's cursor.
     body.replaceChildren();
-    [welcome, model, permissions, apps, shortcuts, days, done][step](body);
+    [welcome, model, permissions, apps, shortcuts, days, extras, done][step](body);
   }
 
   $("ob-next").addEventListener("click", () => (step === STEPS.length - 1 ? finish() : go(step + 1)));
