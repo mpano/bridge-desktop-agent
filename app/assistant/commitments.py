@@ -83,8 +83,8 @@ def grounded(quote: str, text: str) -> bool:
         return False
     if q in t:
         return True
-    words = q.split()
-    return sum(word in t.split() for word in words) / len(words) >= 0.85
+    words, present = q.split(), set(t.split())
+    return sum(word in present for word in words) / len(words) >= 0.85
 
 
 def local_date(value: str) -> datetime | None:

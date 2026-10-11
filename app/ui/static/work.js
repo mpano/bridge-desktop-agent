@@ -3,24 +3,10 @@
 // The Work card on Today: Jira issues assigned to you, pull requests waiting for your review,
 // and your own pull requests with their checks. Links open in your browser.
 (() => {
+  const {link, node} = window.BridgeDOM;
   const $ = (id) => document.getElementById(id);
   const ui = () => window.BridgeUI;
   let loading = false;
-
-  function node(tag, text, className) {
-    const element = document.createElement(tag);
-    if (text !== undefined && text !== null) element.textContent = text;
-    if (className) element.className = className;
-    return element;
-  }
-
-  function link(text, href, className) {
-    const element = node("a", text, className);
-    element.href = href;
-    element.target = "_blank";
-    element.rel = "noopener noreferrer";
-    return element;
-  }
 
   function row(main, meta, href, badge, tone) {
     const li = node("li", undefined, "work-item");

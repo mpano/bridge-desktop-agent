@@ -198,8 +198,6 @@ class Operator:
             getattr(self.settings, "operator_ask", "important") == "every",
         )
         self.current = run
-        if self.hud is not None:
-            self.hud.show()
         self.task = asyncio.get_running_loop().create_task(self._run(run))
         return run.view()
 
@@ -273,6 +271,10 @@ class Operator:
     async def _run(self, run: Run) -> None:
         try:
             run.status = "running"
+            if self.hud is not None:
+                # The panel appears and Bridge's own window steps aside (a task asked from
+                # Ask would otherwise start with Bridge in front, which it never operates).
+                await asyncio.to_thread(self.hud.show)
             front = await asyncio.to_thread(self.hands.frontmost)
             if self.blocked(front["app"], front["bundle_id"]):
                 raise OperatorError(
@@ -377,6 +379,8 @@ class Operator:
             run.finished = time.time()
             run.step = run.result
             self._save(run)
+            if self.hud is not None and hasattr(self.hud, "finished"):
+                await asyncio.to_thread(self.hud.finished)
             if self.notify is not None and run.status in {"done", "failed"}:
                 title = "Done on your Mac" if run.status == "done" else "Bridge stopped"
                 await self.notify(title, run.result, "chat")

@@ -4,30 +4,9 @@
 // signs the phone in, signed-in phones). On the phone: the You tab (Face ID, Home Screen,
 // notifications) and opening the right screen when a notification is tapped.
 (() => {
+  const {button, link, node} = window.BridgeDOM;
   const $ = (id) => document.getElementById(id);
   const ui = () => window.BridgeUI;
-
-  function node(tag, text, className) {
-    const element = document.createElement(tag);
-    if (text !== undefined && text !== null) element.textContent = text;
-    if (className) element.className = className;
-    return element;
-  }
-
-  function button(text, className, onClick) {
-    const element = node("button", text, className);
-    element.type = "button";
-    element.addEventListener("click", onClick);
-    return element;
-  }
-
-  function link(text, href) {
-    const element = node("a", text, "secondary small button-link");
-    element.href = href;
-    element.target = "_blank";
-    element.rel = "noopener";
-    return element;
-  }
 
   function row(name, hint, ...controls) {
     const line = node("div", undefined, "set");
@@ -100,14 +79,14 @@
       row("Tailscale on this Mac",
         !net.installed ? "A free private network between your own devices. Install it, then sign in."
           : net.running ? `Signed in${net.login ? ` as ${net.login}` : ""}.` : "Open Tailscale and sign in.",
-        net.running ? pill("Ready", "good") : net.installed ? pill("Not signed in", "warm") : link("Get Tailscale", "https://tailscale.com/download/mac")),
+        net.running ? pill("Ready", "good") : net.installed ? pill("Not signed in", "warm") : link("Get Tailscale", "https://tailscale.com/download/mac", "secondary small button-link")),
       row("Tailscale on your phone",
         phone ? `${phone.name} is in your Tailscale${phone.online ? "" : " but offline right now"}.`
           : "Install Tailscale on your phone and sign in with the same account.",
         phone ? pill(phone.online ? "Online" : "Offline", phone.online ? "good" : "") : pill("Not found", "warm")),
       row("HTTPS certificates",
         net.https ? "On: your phone gets a private, encrypted address." : "Needed for Face ID and notifications. In Tailscale's admin page, open DNS and turn on HTTPS Certificates.",
-        net.https ? pill("On", "good") : link("Open Tailscale DNS", data.admin_url)),
+        net.https ? pill("On", "good") : link("Open Tailscale DNS", data.admin_url, "secondary small button-link")),
       row("Let my phone use Bridge",
         on ? `On, at ${data.url.replace("https://", "")} — only your devices can reach it.`
           : "Shares Bridge with your own Tailscale devices through Tailscale Serve. Off removes it.",

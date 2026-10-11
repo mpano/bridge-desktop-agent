@@ -493,7 +493,7 @@ class MenuVoiceService:
             agent, voice_settings, on_event=self._on_event, on_result=self._on_result
         )
         self._voice = voice
-        voice.on_wake = self.on_wake
+        voice.on_wake = lambda: bool(self.on_wake is not None and self.on_wake())
         # stop() can race construction. Transfer the stop flag before opening the microphone.
         if self._stop.is_set():
             voice.stop()

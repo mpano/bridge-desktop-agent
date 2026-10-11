@@ -4,6 +4,7 @@
 // Slack. Mark one done, change its date, dismiss it, open it where it was said, or write a
 // follow-up in your own style and send it in the same thread. Built with textContent only.
 (() => {
+  const {button, node} = window.BridgeDOM;
   const $ = (id) => document.getElementById(id);
   const ui = () => window.BridgeUI;
   let data = null;
@@ -11,24 +12,6 @@
   let tab = "mine";
   let open = null;  // The promise whose follow-up editor is showing.
   let poll = null;
-
-  function node(tag, text, className) {
-    const element = document.createElement(tag);
-    if (text !== undefined && text !== null) element.textContent = text;
-    if (className) element.className = className;
-    return element;
-  }
-
-  function button(label, className, onClick, title) {
-    const element = node("button", label, className);
-    element.type = "button";
-    if (title) {
-      element.title = title;
-      element.setAttribute("aria-label", title);
-    }
-    element.addEventListener("click", onClick);
-    return element;
-  }
 
   function day(iso) {
     const [y, m, d] = iso.split("-").map(Number);

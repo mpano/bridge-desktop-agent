@@ -83,7 +83,7 @@ def install(app: FastAPI, authorize, from_phone) -> None:
     @app.post("/api/v1/talk/said", dependencies=[Depends(authorize)])
     async def said(payload: Said, request: Request):
         try:
-            talk(request).log(payload.session_id, payload.role, payload.text)
+            await talk(request).log(payload.session_id, payload.role, payload.text)
         except TalkError as exc:
             raise HTTPException(409, str(exc)) from None
         return {"saved": True}

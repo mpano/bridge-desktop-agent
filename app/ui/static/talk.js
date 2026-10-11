@@ -5,25 +5,12 @@
 // (the browser cancels Bridge's own voice, so you can interrupt it); Bridge's tools run on the
 // Mac through /api/v1/talk/tool, with the same approvals and privacy rules as Ask.
 window.BridgeTalk = (() => {
+  const {button, node} = window.BridgeDOM;
   const IDLE_SECONDS = 75;  // Quiet this long and the conversation ends by itself.
   let ui = null;            // {request, root, onEnd}
   let session = null;       // {id, pc, channel, stream, audio, started, ...}
   let lines = [];
   let state = "idle";
-
-  function node(tag, text, className) {
-    const element = document.createElement(tag);
-    if (text !== undefined && text !== null) element.textContent = text;
-    if (className) element.className = className;
-    return element;
-  }
-
-  function button(label, className, onClick) {
-    const element = node("button", label, className);
-    element.type = "button";
-    element.addEventListener("click", onClick);
-    return element;
-  }
 
   const WORDS = {
     connecting: "Connecting…",

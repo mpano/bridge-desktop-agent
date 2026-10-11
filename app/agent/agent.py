@@ -74,12 +74,13 @@ class Agent:
     def conversation(self) -> list[dict]:
         return list(self.transcript)
 
-    def log_spoken(self, role: str, text: str) -> None:
+    async def log_spoken(self, role: str, text: str) -> None:
         """A turn of a voice conversation: kept in the chat, and as context for typing next."""
-        if role == "user":
-            self._fresh_after_break()
-        self._log(role, text, spoken=True)
-        self.history = [*self.history[-18:], {"role": role, "content": text}]
+        async with self.lock:
+            if role == "user":
+                self._fresh_after_break()
+            self.history = [*self.history[-18:], {"role": role, "content": text}]
+            self._log(role, text, spoken=True)
 
     def new_chat(self) -> None:
         self.chat_id = uuid4().hex

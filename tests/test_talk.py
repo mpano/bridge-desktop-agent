@@ -179,8 +179,8 @@ def test_what_was_said_is_kept_and_minutes_counted(tmp_path):
     )
     session = asyncio.run(talk.start(from_phone=False))["session_id"]
     talk.sessions[session]["started"] -= 200  # A few minutes into the conversation.
-    talk.log(session, "user", "  What's   on today? ")
-    talk.log(session, "assistant", "Two meetings.")
+    asyncio.run(talk.log(session, "user", "  What's   on today? "))
+    asyncio.run(talk.log(session, "assistant", "Two meetings."))
     said = agent.conversation()
     assert [(m["role"], m["text"], m.get("spoken")) for m in said] == [
         ("user", "What's on today?", True),

@@ -171,6 +171,7 @@ class RepoWatcher:
         self.notify = None
         self._copies: tuple[float, dict] | None = None
         self._feed: tuple[float, dict] | None = None
+        self._refresh: asyncio.Task | None = None
         self._last_check = 0.0
         self.lock = asyncio.Lock()
         with self._db() as db:
@@ -416,9 +417,17 @@ class RepoWatcher:
         }
 
     async def feed(self, *, fresh: bool = False) -> dict:
+        """What's new in your repos. Today gets the last answer straight away and a stale one
+        is refreshed in the background (fetching every copy takes a while); fresh=True waits."""
+        if not fresh and self._feed is not None:
+            if self.clock() - self._feed[0] >= 5 * 60 and not self.lock.locked():
+                if self._refresh is None or self._refresh.done():
+                    self._refresh = asyncio.get_running_loop().create_task(self._gather())
+            return self._feed[1]
+        return await self._gather()
+
+    async def _gather(self) -> dict:
         async with self.lock:
-            if not fresh and self._feed and self.clock() - self._feed[0] < 5 * 60:
-                return self._feed[1]
             me = await self.github.c.me("github")
             repos = await self.repos()
             gate = asyncio.Semaphore(4)

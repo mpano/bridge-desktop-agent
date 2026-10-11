@@ -425,11 +425,46 @@ class OperatorHud:
 
     def __init__(self, panel: OperatorPanel):
         self.panel = panel
+        self.window_was_open = False
 
-    def show(self) -> None:
+    def _on_main(self, work, wait: float = 2.0) -> None:
+        import threading
+
         from PyObjCTools import AppHelper
 
-        AppHelper.callAfter(self.panel.appear)
+        done = threading.Event()
+
+        def run():
+            try:
+                work()
+            finally:
+                done.set()
+
+        AppHelper.callAfter(run)
+        done.wait(wait)
+
+    def show(self) -> None:
+        """The panel appears; Bridge's window steps aside so the right app is in front."""
+
+        def work():
+            self.panel.appear()
+            window = getattr(self.panel.controller, "window", None)
+            self.window_was_open = bool(window is not None and window.window.isVisible())
+            if self.window_was_open:
+                window.window.orderOut_(None)
+            AK.NSApplication.sharedApplication().deactivate()
+
+        self._on_main(work)
+        time.sleep(0.5)  # Let the app behind come to the front before the first look.
+
+    def finished(self) -> None:
+        """Bring Bridge's window back if it stepped aside for the task."""
+        if not self.window_was_open:
+            return
+        self.window_was_open = False
+        window = getattr(self.panel.controller, "window", None)
+        if window is not None:
+            self._on_main(lambda: window.show("chat"))
 
     def avoid(self, x: float, y: float) -> None:
         left, top, width, height = self.panel.rect

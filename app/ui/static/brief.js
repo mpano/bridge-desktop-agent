@@ -3,24 +3,11 @@
 // The brief at the top of Today: in the morning, your 3 for today and the day at a glance;
 // in the evening, what got done, what slipped (one tap to tomorrow) and tomorrow at a glance.
 (() => {
+  const {button, node} = window.BridgeDOM;
   const $ = (id) => document.getElementById(id);
   const ui = () => window.BridgeUI;
   let brief = null;
   let loading = false;
-
-  function node(tag, text, className) {
-    const element = document.createElement(tag);
-    if (text !== undefined && text !== null) element.textContent = text;
-    if (className) element.className = className;
-    return element;
-  }
-
-  function button(label, className, onClick) {
-    const element = node("button", label, className);
-    element.type = "button";
-    element.addEventListener("click", onClick);
-    return element;
-  }
 
   const time = (iso) => new Date(iso).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", hour12: false});
   // "today", "yesterday", "Friday" (this past week) or "2 Oct".

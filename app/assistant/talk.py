@@ -136,7 +136,9 @@ class Talk:
             raise TalkError("Add your OpenAI key in Settings first.")
         now = time.time()
         self.sessions = {
-            k: v for k, v in self.sessions.items() if now - v["started"] < SESSION_SECONDS
+            k: v
+            for k, v in self.sessions.items()
+            if not v["ended"] and now - v["started"] < SESSION_SECONDS
         }
         if len(self.sessions) >= MAX_SESSIONS:
             raise TalkError("Too many conversations are open. End one first.")
@@ -279,12 +281,12 @@ class Talk:
 
     # Keeping the conversation ---------------------------------------------------------------
 
-    def log(self, session_id: str, role: str, text: str) -> None:
+    async def log(self, session_id: str, role: str, text: str) -> None:
         """What was said, in your chats (Ask › Recent), like a typed conversation."""
         self._session(session_id)
         text = " ".join(str(text).split())[:4000]
         if text and role in {"user", "assistant"}:
-            self.agent.log_spoken(role, text)
+            await self.agent.log_spoken(role, text)
 
     def end(self, session_id: str, seconds: float) -> dict:
         session = self.sessions.get(session_id)

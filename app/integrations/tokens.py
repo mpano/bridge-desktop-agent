@@ -90,6 +90,7 @@ class TokenConnections:
         self.activity = activity
         self.http = http
         self.lock = asyncio.Lock()
+        self._cache: dict | None = None
         self._gh: tuple[float, str] | None = None
 
     # Connecting --------------------------------------------------------------------------
@@ -98,10 +99,15 @@ class TokenConnections:
         if self.activity is not None:
             self.activity.record(provider, event, ok=ok, detail=detail, account=who)
 
+    async def _load(self) -> dict:
+        """The Keychain entry, read once and then kept in memory (call with the lock held)."""
+        if self._cache is None:
+            self._cache = await asyncio.to_thread(self.store.load)
+        return self._cache
+
     async def accounts(self) -> dict:
         async with self.lock:
-            data = await asyncio.to_thread(self.store.load)
-        return data
+            return json.loads(json.dumps(await self._load()))
 
     async def catalog(self) -> list[dict]:
         data = await self.accounts()
@@ -178,19 +184,21 @@ class TokenConnections:
         )
         entry["user_id"] = me.get("accountId") if provider == "jira" else me.get("login")
         async with self.lock:
-            data = await asyncio.to_thread(self.store.load)
+            data = dict(await self._load())
             data[provider] = entry
             await asyncio.to_thread(self.store.save, data)
+            self._cache = data
         self._record(provider, "Connected", who=entry["identity"])
         return {"connected": True, "identity": entry["identity"]}
 
     async def disconnect(self, provider: str) -> dict:
         async with self.lock:
-            data = await asyncio.to_thread(self.store.load)
+            data = dict(await self._load())
             if provider not in data:
                 raise IntegrationError("Not connected.")
             removed = data.pop(provider)
             await asyncio.to_thread(self.store.save, data)
+            self._cache = data
         self._record(provider, "Disconnected", who=removed.get("identity", ""))
         what = "your API token at id.atlassian.com" if provider == "jira" else "the token on GitHub"
         return {"message": f"Removed from Bridge. You can also revoke {what}."}

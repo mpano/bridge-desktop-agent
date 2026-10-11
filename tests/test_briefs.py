@@ -134,7 +134,15 @@ def test_morning_brief_picks_three_and_keeps_the_pick_for_the_day(tmp_path):
             "headline": "Two things matter most, then a quiet afternoon.",
         }
     )
-    brief = asyncio.run(briefs.morning())
+
+    async def first_look():
+        # Today doesn't wait for the model: due dates first, the model's pick right after.
+        quick = await briefs.morning()
+        await briefs._picking
+        return quick, await briefs.morning()
+
+    quick, brief = asyncio.run(first_look())
+    assert quick["top"][0]["title"] == "Send Olivier the contract" and len(quick["top"]) == 3
     assert [item["title"] for item in brief["top"]] == [
         "Send Olivier the contract",
         "Sam Lee: Needs your OK to roll back",

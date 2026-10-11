@@ -11,6 +11,7 @@ model is the same short titles and summaries Bridge already made, never whole me
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import sqlite3
@@ -64,6 +65,7 @@ class Briefs:
         self.commitments, self.inbox, self.slack = commitments, inbox, slack_inbox
         self.day_planner = day_planner
         self.jira = self.github = None  # Work tools, when connected.
+        self._picking: asyncio.Task | None = None
         self.clock = clock or (lambda: datetime.now().astimezone())
         self.notify = None
         with self._db() as db:
@@ -154,7 +156,7 @@ class Briefs:
     async def morning(self, *, refresh: bool = False) -> dict:
         now = self.clock()
         today = now.date()
-        events = await self._events(today)
+        events, work = await asyncio.gather(self._events(today), self._work(today))
         promises = self._promises()
         due = [
             c
@@ -189,7 +191,7 @@ class Briefs:
                 "detail": "Urgent" if item["group"] == "urgent" else "Waiting for your reply",
                 "ref": {"message_id": item["id"].split(":", 1)[1]},
             }
-        for key, item in (await self._work(today)).items():
+        for key, item in work.items():
             candidates[key] = item
         for event in (events or [])[:8]:
             start = datetime.fromisoformat(event["start"])
@@ -202,9 +204,16 @@ class Briefs:
                 "ref": {"start": event["start"]},
             }
         saved = self._saved(today.isoformat(), "morning")
-        if refresh or saved is None:
+        if refresh:
             saved = await self._pick(today, candidates)
             self._save(today.isoformat(), "morning", saved)
+        elif saved is None:
+            # Don't make Today wait for the model: show due dates first, pick in the background.
+            saved = self._order(candidates)
+            if self._picking is None or self._picking.done():
+                self._picking = asyncio.get_running_loop().create_task(
+                    self._pick_and_save(today, candidates)
+                )
         top = [
             {**candidates[entry["id"]], "id": entry["id"], "why": entry["why"]}
             for entry in saved.get("top", [])
@@ -258,31 +267,36 @@ class Briefs:
             log.warning("Morning brief: couldn't read Jira.")
         return found
 
+    async def _pick_and_save(self, today: date, candidates: dict) -> None:
+        picked = await self._pick(today, candidates)
+        if self._saved(today.isoformat(), "morning") is None:
+            self._save(today.isoformat(), "morning", picked)
+
+    @staticmethod
+    def _order(candidates: dict) -> dict:
+        """Without the model: promises due, then what needs a reply, reviews, tickets, meetings."""
+        rank = {
+            "promise": 0,
+            "email": 1,
+            "slack": 1,
+            "review": 2,
+            "ticket": 2,
+            "waiting": 3,
+            "meeting": 4,
+        }
+        order = sorted(candidates, key=lambda key: (rank[candidates[key]["kind"]], key))
+        return {
+            "top": [{"id": key, "why": candidates[key]["detail"]} for key in order[:TOP]],
+            "headline": "",
+        }
+
     async def _pick(self, today: date, candidates: dict) -> dict:
         if not candidates:
             return {
                 "top": [],
                 "headline": "A clear day: nothing is due and nobody is waiting on you.",
             }
-        order = sorted(
-            candidates,
-            key=lambda key: (
-                {
-                    "promise": 0,
-                    "email": 1,
-                    "slack": 1,
-                    "review": 2,
-                    "ticket": 2,
-                    "waiting": 3,
-                    "meeting": 4,
-                }[candidates[key]["kind"]],
-                key,
-            ),
-        )
-        fallback = {
-            "top": [{"id": key, "why": candidates[key]["detail"]} for key in order[:TOP]],
-            "headline": "",
-        }
+        fallback = self._order(candidates)
         try:
             answer = await ask_json(
                 self.llm,
