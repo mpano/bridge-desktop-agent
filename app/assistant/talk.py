@@ -28,6 +28,21 @@ log = logging.getLogger(__name__)
 CLIENT_SECRETS = "https://api.openai.com/v1/realtime/client_secrets"
 MODELS = ("gpt-realtime-2.1", "gpt-realtime-mini")
 VOICES = ("marin", "cedar", "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse")
+# How each voice sounds, and its avatar's colours (Settings › Voice, and the conversation).
+VOICE_INFO = {
+    "marin": ("Warm and natural — the most lifelike", ("#6f7dff", "#b48cff")),
+    "cedar": ("Natural and grounded, a little deeper", ("#2fa58a", "#7fd1a7")),
+    "alloy": ("Balanced and neutral", ("#5b7290", "#a9bed6")),
+    "ash": ("Clear and confident", ("#3d4a63", "#8d9bb7")),
+    "ballad": ("Soft and expressive", ("#c26a9b", "#f0a8c8")),
+    "coral": ("Bright and friendly", ("#f06a5b", "#ffb08a")),
+    "echo": ("Calm and steady", ("#2b8bc6", "#7cc7ee")),
+    "sage": ("Gentle and thoughtful", ("#6f9a4b", "#c3df8c")),
+    "shimmer": ("Light and upbeat", ("#e0a21a", "#ffe07a")),
+    "verse": ("Lively and expressive", ("#8a4fe0", "#e07ad8")),
+}
+SPEECH = "https://api.openai.com/v1/audio/speech"
+SAMPLES = Path.home() / "Library/Application Support/Bridge/voice-samples"
 MAX_SESSIONS = 4
 SESSION_SECONDS = 30 * 60  # A conversation longer than this needs a new one.
 # Tools a conversation doesn't need (the model sees fewer, answers faster).
@@ -91,6 +106,59 @@ class Talk:
     @property
     def enabled(self) -> bool:
         return bool(getattr(self.settings, "talk_enabled", False))
+
+    def voices(self) -> list[dict]:
+        current = getattr(self.settings, "talk_voice", VOICES[0])
+        return [
+            {
+                "id": voice,
+                "name": voice.capitalize(),
+                "about": VOICE_INFO[voice][0],
+                "colors": list(VOICE_INFO[voice][1]),
+                "current": voice == current,
+                "recommended": voice in {"marin", "cedar"},
+            }
+            for voice in VOICES
+        ]
+
+    async def sample(self, voice: str, folder: Path | None = None) -> Path:
+        """A short recording of this voice (made once with OpenAI's speech model, then kept)."""
+        if voice not in VOICES:
+            raise TalkError("That voice doesn't exist.")
+        folder = folder or SAMPLES
+        path = folder / f"{voice}.mp3"
+        if path.is_file() and path.stat().st_size > 1000:
+            return path
+        key = self.settings.openai_api_key.get_secret_value()
+        if not key:
+            raise TalkError("Add your OpenAI key first.")
+        text = (
+            f"Hi, I'm {voice.capitalize()}. I can plan your day, sort your inbox, "
+            "and get things done on your Mac. Just ask."
+        )
+        client = self.http or httpx.AsyncClient(timeout=30)
+        try:
+            response = await client.post(
+                SPEECH,
+                headers={"Authorization": f"Bearer {key}"},
+                json={
+                    "model": "gpt-4o-mini-tts",
+                    "voice": voice,
+                    "input": text,
+                    "instructions": "Friendly, natural and relaxed, like a helpful colleague.",
+                    "response_format": "mp3",
+                },
+            )
+        except httpx.HTTPError:
+            raise TalkError("Couldn't reach OpenAI to play this voice.") from None
+        finally:
+            if self.http is None:
+                await client.aclose()
+        if response.status_code >= 400 or len(response.content) < 1000:
+            raise TalkError("OpenAI couldn't make a sample of this voice right now.")
+        folder.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(response.content)
+        return path
 
     def usage(self) -> dict:
         month = datetime.now().strftime("%Y-%m")

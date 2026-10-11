@@ -12,6 +12,12 @@ def private_listening_file(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def private_voice_samples(tmp_path, monkeypatch):
+    """Voice samples are kept in ~/Library; tests use a temporary folder."""
+    monkeypatch.setattr("app.assistant.talk.SAMPLES", tmp_path / "voice-samples")
+
+
+@pytest.fixture(autouse=True)
 def no_real_work_accounts(monkeypatch):
     """Tests never see your real Jira/GitHub sign-ins or your git copies."""
     from app.integrations import repos, tokens

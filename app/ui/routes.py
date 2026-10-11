@@ -102,6 +102,10 @@ def install_ui(app: FastAPI) -> None:
     async def talk_js():
         return FileResponse(STATIC / "talk.js", media_type="text/javascript")
 
+    @app.get("/ui/avatar.js", include_in_schema=False)
+    async def avatar_js():
+        return FileResponse(STATIC / "avatar.js", media_type="text/javascript")
+
     @app.get("/ui/talk-panel.js", include_in_schema=False)
     async def talk_panel_js():
         return FileResponse(STATIC / "talk-panel.js", media_type="text/javascript")

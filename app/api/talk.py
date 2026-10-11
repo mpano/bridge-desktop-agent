@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.assistant.talk import TalkError
@@ -65,6 +66,18 @@ def install(app: FastAPI, authorize, from_phone) -> None:
             "voice": found.settings.talk_voice,
             "usage": found.usage(),
         }
+
+    @app.get("/api/v1/talk/voices", dependencies=[Depends(authorize)])
+    async def voices(request: Request):
+        return {"voices": talk(request).voices()}
+
+    @app.get("/api/v1/talk/sample/{voice}", dependencies=[Depends(authorize)])
+    async def sample(voice: str, request: Request):
+        try:
+            path = await talk(request).sample(voice)
+        except TalkError as exc:
+            raise HTTPException(409, str(exc)) from None
+        return FileResponse(path, media_type="audio/mpeg")
 
     @app.post("/api/v1/talk/start", dependencies=[Depends(authorize)])
     async def start(payload: Start, request: Request):

@@ -111,6 +111,125 @@
     rows[2].lastChild.append(keys("⌃", "⌥", "D"), toggle("Dictate shortcut", s.dictation, (on) => save({dictation_shortcut: on})));
   }
 
+  // Bridge's voice: a card for each voice with its face, how it sounds and a ▶ to hear it.
+  // Built once and kept, so a preview keeps playing while the choice is saved.
+  let gallery = null;
+  let preview = null;  // {voice, audio, context, url, avatar, button}
+
+  function stopPreview() {
+    if (!preview) return;
+    preview.audio.pause();
+    if (preview.context) preview.context.close().catch(() => {});
+    URL.revokeObjectURL(preview.url);
+    preview.avatar.setState("idle");
+    preview.avatar.listenTo("speaking", null);
+    preview.button.textContent = "▶";
+    preview.button.setAttribute("aria-label", `Hear ${preview.name}`);
+    preview.card.classList.remove("playing");
+    preview = null;
+  }
+
+  async function play(voice, card, face, playButton) {
+    const same = preview && preview.voice === voice.id;
+    stopPreview();
+    if (same) return;
+    playButton.textContent = "…";
+    let blob;
+    try {
+      const response = await fetch(`/api/v1/talk/sample/${encodeURIComponent(voice.id)}`, {credentials: "same-origin"});
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(typeof body.detail === "string" ? body.detail : "Couldn't play this voice.");
+      }
+      blob = await response.blob();
+    } catch (error) {
+      playButton.textContent = "▶";
+      ui().notify(error.message || "Couldn't play this voice.", true);
+      return;
+    }
+    stopPreview();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    preview = {voice: voice.id, name: voice.name, audio, url, avatar: face, button: playButton, card, context: null};
+    if (window.AudioContext) {
+      try {
+        const context = new AudioContext();
+        const source = context.createMediaElementSource(audio);
+        source.connect(context.destination);
+        face.listenTo("speaking", window.BridgeAvatar.meter(context, source));
+        preview.context = context;
+      } catch { /* the face still moves, just not with the sound */ }
+    }
+    face.setState("speaking");
+    card.classList.add("playing");
+    playButton.textContent = "■";
+    playButton.setAttribute("aria-label", `Stop ${voice.name}`);
+    audio.addEventListener("ended", () => { if (preview && preview.audio === audio) stopPreview(); });
+    audio.play().catch(() => stopPreview());
+  }
+
+  function voiceGallery(current) {
+    if (!gallery) {
+      gallery = node("div", undefined, "set set-block");
+      const words = node("div", undefined, "set-words");
+      words.append(node("span", "Bridge's voice", "set-name"),
+        node("span", "Tap ▶ to hear a voice. Your choice is used from the next conversation.", "set-hint"));
+      const grid = node("div", undefined, "voice-grid");
+      grid.setAttribute("role", "radiogroup");
+      grid.setAttribute("aria-label", "Bridge's voice");
+      gallery.append(words, grid);
+      ui().request("/api/v1/talk/voices").then((found) => {
+        for (const voice of found.voices) {
+          const card = node("div", undefined, "voice-card");
+          card.dataset.voice = voice.id;
+          card.tabIndex = 0;
+          card.setAttribute("role", "radio");
+          const faceBox = node("div", undefined, "voice-face");
+          const face = window.BridgeAvatar.create(faceBox, voice.colors, {size: 56});
+          const text = node("div", undefined, "voice-words");
+          const title = node("div", undefined, "voice-title");
+          title.append(node("strong", voice.name));
+          if (voice.recommended) title.append(node("span", "Recommended", "voice-tag"));
+          text.append(title, node("span", voice.about, "voice-about"));
+          const playButton = node("button", "▶", "voice-play");
+          playButton.type = "button";
+          playButton.setAttribute("aria-label", `Hear ${voice.name}`);
+          playButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            play(voice, card, face, playButton);
+          });
+          const pick = () => {
+            if (card.classList.contains("chosen")) return;
+            markVoice(voice.id);
+            save({talk_voice: voice.id});
+          };
+          card.addEventListener("click", pick);
+          card.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              pick();
+            }
+          });
+          card.append(faceBox, text, playButton);
+          grid.append(card);
+        }
+        markVoice(gallery.dataset.current);
+      }).catch(() => grid.replaceChildren(node("p", "Couldn't load the voices.", "set-hint")));
+    }
+    markVoice(current);
+    return gallery;
+  }
+
+  function markVoice(current) {
+    if (!gallery) return;
+    gallery.dataset.current = current;
+    for (const card of gallery.querySelectorAll(".voice-card")) {
+      const chosen = card.dataset.voice === current;
+      card.classList.toggle("chosen", chosen);
+      card.setAttribute("aria-checked", String(chosen));
+    }
+  }
+
   function renderVoice() {
     const v = data.voice;
     const pause = node("select", undefined, "small-select");
@@ -127,17 +246,8 @@
         : "Talk back and forth with Bridge and interrupt it anytime. Your voice goes to OpenAI while a conversation is open.",
       toggle("Conversation mode", v.talk_enabled, (on) => save({talk_enabled: on})))];
     if (v.talk_enabled) {
-      const voice = node("select", undefined, "small-select");
-      voice.setAttribute("aria-label", "Bridge's voice");
-      for (const name of ["marin", "cedar", "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse"]) {
-        const option = node("option", name.charAt(0).toUpperCase() + name.slice(1));
-        option.value = name;
-        option.selected = name === v.talk_voice;
-        voice.append(option);
-      }
-      voice.addEventListener("change", () => save({talk_voice: voice.value}));
       talkRows.push(
-        row("Bridge's voice", "Used from the next conversation.", voice),
+        voiceGallery(v.talk_voice),
         row("Model", v.talk_model === "gpt-realtime-mini" ? "Faster and cheaper; a little less capable." : "The most capable voice model.",
           segmented("Model", [["gpt-realtime-2.1", "Best"], ["gpt-realtime-mini", "Faster & cheaper"]], v.talk_model, (key) => save({talk_model: key}))),
       );

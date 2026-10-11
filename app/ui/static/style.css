@@ -1494,38 +1494,56 @@ body.phone .brief-item .brief-words { flex-basis: calc(100% - 40px); }
 .repo-actions .link { padding: 0; font-size: 12.5px; margin-left: auto; }
 
 /* Talking with Bridge -------------------------------------------------------------------- */
-.talk { display: flex; flex-direction: column; gap: 12px; }
-.talk-head { display: flex; align-items: center; gap: 12px; }
-.talk-state { font-size: 15px; font-weight: 600; }
-.talk-orb { position: relative; width: 44px; height: 44px; flex-shrink: 0; }
-.talk-orb span {
-  position: absolute; inset: 0; border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent) 55%, white), var(--accent));
-  transition: transform .3s ease, opacity .3s ease;
-}
-.talk-orb span:nth-child(2), .talk-orb span:nth-child(3) { opacity: 0; }
-.talk[data-state="hearing"] .talk-orb span:nth-child(2) { opacity: .35; animation: talk-ring 1.2s ease-out infinite; }
-.talk[data-state="speaking"] .talk-orb span:first-child { animation: talk-breathe .9s ease-in-out infinite; }
-.talk[data-state="speaking"] .talk-orb span:nth-child(3) { opacity: .3; animation: talk-ring 1.6s ease-out infinite; }
-.talk[data-state="thinking"] .talk-orb span:first-child,
-.talk[data-state="working"] .talk-orb span:first-child,
-.talk[data-state="connecting"] .talk-orb span:first-child { animation: talk-think 1.4s ease-in-out infinite; }
-.talk[data-state="muted"] .talk-orb span:first-child,
-.talk[data-state="ended"] .talk-orb span:first-child,
-.talk[data-state="failed"] .talk-orb span:first-child { background: var(--line-strong); }
-@keyframes talk-ring { from { transform: scale(1); opacity: .45; } to { transform: scale(1.7); opacity: 0; } }
-@keyframes talk-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
-@keyframes talk-think { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
-@media (prefers-reduced-motion: reduce) { .talk-orb span { animation: none !important; } }
-.talk-lines { display: flex; flex-direction: column; gap: 6px; min-height: 40px; }
-.talk-line { margin: 0; font-size: 14px; line-height: 1.4; }
-.talk-line.user { color: var(--muted); }
-.talk-line.user::before { content: "You · "; color: var(--faint); font-size: 12px; }
-.talk-line.assistant { color: var(--text); }
-.talk-card { padding: 10px 12px; border-radius: 10px; background: var(--inset); border: 1px solid var(--line); font-size: 13.5px; max-height: 160px; overflow: auto; }
-.talk-card-text { margin: 0 0 8px; white-space: pre-wrap; color: var(--text); }
+.talk { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+.talk-stage { display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 4px; }
+.talk-avatar { width: 132px; height: 132px; filter: drop-shadow(0 10px 24px color-mix(in srgb, var(--text) 14%, transparent)); }
+.avatar-svg { display: block; overflow: visible; transition: opacity .4s ease, filter .4s ease; }
+.avatar-svg.dim { opacity: .55; filter: saturate(.25); }
+.talk-who-line { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.talk-name { font-size: 16px; letter-spacing: -.01em; }
+.talk-state { font-size: 12.5px; color: var(--muted); min-height: 1.2em; }
+.talk[data-state="hearing"] .talk-state, .talk[data-state="speaking"] .talk-state { color: var(--accent); }
+.talk-lines { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 52px; width: 100%; max-width: 420px; }
+.talk-line { margin: 0; font-size: 13px; line-height: 1.4; color: var(--faint); transition: color .3s ease, font-size .3s ease; }
+.talk-line.now { font-size: 16px; color: var(--text); font-weight: 500; }
+.talk-line.user.now { color: var(--muted); }
+.talk-who { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 6px; background: var(--inset); color: var(--faint); font-size: 11px; font-weight: 600; vertical-align: 2px; }
+.talk-card { width: 100%; max-width: 420px; text-align: left; padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 13.5px; max-height: 180px; overflow: auto; }
+.talk-card-text { margin: 0 0 10px; white-space: pre-wrap; color: var(--text); }
 .talk-card-text:last-child { margin-bottom: 0; }
-.talk-controls { display: flex; gap: 8px; justify-content: flex-end; }
+.talk-controls { display: flex; gap: 28px; justify-content: center; padding: 4px 0 2px; }
+.talk-btn { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 11.5px; cursor: pointer; }
+.talk-btn-circle { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 50%; background: var(--inset); border: 1px solid var(--line); transition: transform .15s ease, background .2s ease; }
+.talk-btn:hover .talk-btn-circle { transform: scale(1.06); }
+.talk-btn:active .talk-btn-circle { transform: scale(.96); }
+.talk-btn:focus-visible { outline: none; }
+.talk-btn:focus-visible .talk-btn-circle { box-shadow: 0 0 0 3px var(--focus); }
+.talk-btn svg { width: 22px; height: 22px; fill: none; stroke: var(--text); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.talk-mute.on .talk-btn-circle { background: var(--text); }
+.talk-mute.on svg { stroke: var(--bg); }
+.talk-end .talk-btn-circle { background: #e5484d; border-color: transparent; }
+.talk-end svg { fill: #fff; stroke: #fff; stroke-width: 1; }
+.talk[data-state="ended"] .talk-end, .talk[data-state="failed"] .talk-end,
+.talk[data-state="ended"] .talk-mute, .talk[data-state="failed"] .talk-mute { opacity: .4; pointer-events: none; }
+@keyframes talk-think { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+
+/* Choosing Bridge's voice */
+.set-block { flex-direction: column; align-items: stretch; }
+.voice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: 10px; }
+.voice-card { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; text-align: left; transition: border-color .2s ease, box-shadow .2s ease, transform .15s ease; }
+.voice-card:hover { border-color: var(--line-strong); transform: translateY(-1px); }
+.voice-card:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+.voice-card.chosen { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 6px 18px color-mix(in srgb, var(--accent) 16%, transparent); }
+.voice-face { width: 56px; height: 56px; flex-shrink: 0; }
+.voice-words { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.voice-title { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.voice-title strong { font-size: 14px; }
+.voice-card.chosen .voice-title strong::after { content: " ✓"; color: var(--accent); }
+.voice-tag { font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 6px; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.voice-about { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.voice-play { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--inset); color: var(--text); font-size: 12px; cursor: pointer; display: grid; place-items: center; padding: 0; }
+.voice-play:hover { background: var(--surface-hover); }
+.voice-card.playing .voice-play { background: var(--accent); color: #fff; border-color: transparent; }
 .danger-soft { color: var(--red); border: 1px solid color-mix(in srgb, var(--red) 35%, transparent); background: none; }
 .talk-panel #t-talk { flex: 1; }
 .talk-sheet { position: fixed; inset: 0; z-index: 40; display: grid; place-items: end center; padding: 20px; background: color-mix(in srgb, var(--bg) 55%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
@@ -1609,3 +1627,8 @@ body.phone .talk-sheet { padding: 12px 12px calc(88px + env(safe-area-inset-bott
 .learn-head, .learn-proposals > .label { padding: 12px 16px 0; margin: 0; }
 .learn-pad { padding: 0 16px 12px; }
 @media (max-width: 900px) { .learn-week { grid-template-columns: repeat(2, 1fr); } }
+.voice-face .avatar-svg { width: 100%; height: 100%; }
+@media (max-width: 480px) {
+  .voice-card { gap: 10px; padding: 10px; }
+  .voice-face { width: 44px; height: 44px; }
+}

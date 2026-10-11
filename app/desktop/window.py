@@ -85,6 +85,10 @@ class WindowDelegate(NSObject):
             WK.WKPermissionDecisionGrant if local and microphone else WK.WKPermissionDecisionDeny
         )
 
+    # A page that just loaded knows nothing yet: tell it about the microphone again.
+    def webView_didFinishNavigation_(self, web, navigation):
+        self.owner._voice_sent = None
+
     def webView_didFailProvisionalNavigation_withError_(self, web, navigation, error):
         self.owner.loaded = False
 

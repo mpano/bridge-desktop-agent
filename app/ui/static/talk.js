@@ -11,6 +11,8 @@ window.BridgeTalk = (() => {
   let session = null;       // {id, pc, channel, stream, audio, started, ...}
   let lines = [];
   let state = "idle";
+  let avatar = null;        // The animated face (avatar.js).
+  let audioContext = null;
 
   const WORDS = {
     connecting: "Connecting…",
@@ -31,13 +33,46 @@ window.BridgeTalk = (() => {
     const root = ui.root;
     root.querySelector(".talk-state").textContent = WORDS[state] || "";
     root.dataset.state = state;
+    if (avatar) avatar.setState(state);
+    // Captions: what's being said now, large; the line before it, faded.
+    const recent = lines.slice(-3);
     const list = root.querySelector(".talk-lines");
-    list.replaceChildren(...lines.slice(-4).map((line) => {
-      const item = node("p", line.text, `talk-line ${line.role}`);
+    list.replaceChildren(...recent.map((line, index) => {
+      const latest = index === recent.length - 1;
+      const item = node("p", undefined, `talk-line ${line.role}${latest ? " now" : ""}`);
+      if (line.role === "user") item.append(node("span", "You", "talk-who"));
+      item.append(document.createTextNode(line.text));
       return item;
     }));
-    const mute = root.querySelector(".talk-mute");
-    if (mute) mute.textContent = session && session.muted ? "Unmute" : "Mute";
+    const muteButton = root.querySelector(".talk-mute");
+    if (muteButton) {
+      const muted = Boolean(session && session.muted);
+      muteButton.classList.toggle("on", muted);
+      muteButton.setAttribute("aria-label", muted ? "Unmute" : "Mute");
+      muteButton.title = muted ? "Unmute" : "Mute";
+      muteButton.querySelector(".talk-btn-label").textContent = muted ? "Unmute" : "Mute";
+    }
+  }
+
+  // Bridge's voice and face for this conversation (the colours of the voice you picked).
+  async function dressAvatar() {
+    try {
+      const data = await ui.request("/api/v1/talk/voices");
+      const voice = data.voices.find((item) => item.current) || data.voices[0];
+      if (!voice || !ui) return;
+      if (avatar) avatar.setColors(voice.colors);
+      ui.root.querySelector(".talk-name").textContent = voice.name;
+    } catch { /* keep the default look */ }
+  }
+
+  // Live loudness of Bridge's voice and your microphone, for the avatar.
+  function meterStream(kind, stream) {
+    if (!avatar || !window.AudioContext) return;
+    try {
+      audioContext = audioContext || new AudioContext();
+      if (audioContext.state === "suspended") audioContext.resume().catch(() => {});
+      avatar.listenTo(kind, window.BridgeAvatar.meter(audioContext, audioContext.createMediaStreamSource(stream)));
+    } catch { /* the avatar falls back to a gentle animation */ }
   }
 
   function setState(next) {
@@ -88,6 +123,7 @@ window.BridgeTalk = (() => {
     lines = [];
     showCard("");
     setState("connecting");
+    dressAvatar();
     let made;
     try {
       made = await ui.request("/api/v1/talk/start", "POST", {name: options.name || ""});
@@ -99,7 +135,10 @@ window.BridgeTalk = (() => {
     const pc = new RTCPeerConnection();
     const audio = document.createElement("audio");
     audio.autoplay = true;
-    pc.ontrack = (event) => { audio.srcObject = event.streams[0]; };
+    pc.ontrack = (event) => {
+      audio.srcObject = event.streams[0];
+      meterStream("speaking", event.streams[0]);
+    };
     session = {id: made.session_id, pc, audio, started: Date.now(), lastActivity: Date.now(), calls: 0, muted: false, ending: false,
       tokens: {input: 0, cached: 0, output: 0}};
     try {
@@ -111,6 +150,7 @@ window.BridgeTalk = (() => {
       return;
     }
     session.stream.getTracks().forEach((track) => pc.addTrack(track, session.stream));
+    meterStream("listening", session.stream);
     const channel = pc.createDataChannel("oai-events");
     session.channel = channel;
     channel.addEventListener("message", (event) => {
@@ -249,30 +289,63 @@ window.BridgeTalk = (() => {
       try { ending.pc.close(); } catch { /* closing */ }
       if (ending.stream) ending.stream.getTracks().forEach((track) => track.stop());
       ending.audio.srcObject = null;
+      if (avatar) {
+        avatar.listenTo("speaking", null);
+        avatar.listenTo("listening", null);
+      }
+      if (audioContext) {
+        audioContext.close().catch(() => {});
+        audioContext = null;
+      }
       const seconds = (Date.now() - ending.started) / 1000;
       ui.request("/api/v1/talk/end", "POST", {session_id: ending.id, seconds, tokens: ending.tokens}).catch(() => {});
     }
-    setState(message ? "ended" : "ended");
+    setState("ended");
     if (message) showCard(message);
     if (ui && ui.onEnd) ui.onEnd(message);
   }
 
-  // The markup both pages use.
+  // Round buttons with a drawn icon (mic or phone-down) and a label underneath.
+  const ICONS = {
+    mic: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM6 11a6 6 0 0 0 12 0M12 17v4M9 21h6",
+    end: "M4 14c4.5-4 11.5-4 16 0l-1.6 2.6-3.4-1.2v-2.3a10 10 0 0 0-6 0v2.3l-3.4 1.2z",
+  };
+
+  function roundButton(icon, label, className, onClick) {
+    const element = button("", `talk-btn ${className}`, onClick, label);
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", ICONS[icon]);
+    svg.append(path);
+    const circle = node("span", undefined, "talk-btn-circle");
+    circle.append(svg);
+    element.append(circle, node("span", label, "talk-btn-label"));
+    return element;
+  }
+
+  // The markup both pages use: the avatar in the middle, captions under it, controls below.
   function mount(root) {
     root.classList.add("talk");
     root.replaceChildren();
-    const orb = node("div", undefined, "talk-orb");
-    orb.setAttribute("aria-hidden", "true");
-    orb.append(node("span"), node("span"), node("span"));
-    const head = node("div", undefined, "talk-head");
-    head.append(orb, node("span", "", "talk-state"));
-    const lines = node("div", undefined, "talk-lines");
-    lines.setAttribute("aria-live", "polite");
+    if (avatar) avatar.destroy();
+    const stage = node("div", undefined, "talk-stage");
+    const face = node("div", undefined, "talk-avatar");
+    avatar = window.BridgeAvatar ? window.BridgeAvatar.create(face, undefined, {size: 132}) : null;
+    const who = node("div", undefined, "talk-who-line");
+    who.append(node("strong", "Bridge", "talk-name"), node("span", "", "talk-state"));
+    stage.append(face, who);
+    const captions = node("div", undefined, "talk-lines");
+    captions.setAttribute("aria-live", "polite");
     const card = node("div", undefined, "talk-card");
     card.hidden = true;
     const controls = node("div", undefined, "talk-controls");
-    controls.append(button("Mute", "secondary small talk-mute", mute), button("End", "danger-soft small talk-end", () => stop("")));
-    root.append(head, lines, card, controls);
+    controls.append(
+      roundButton("mic", "Mute", "talk-mute", mute),
+      roundButton("end", "End", "talk-end", () => stop("")),
+    );
+    root.append(stage, captions, card, controls);
   }
 
   return {start, stop: () => stop(""), mount, active: () => Boolean(session), state: () => state};

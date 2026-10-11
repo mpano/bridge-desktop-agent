@@ -324,7 +324,7 @@ class TalkPanel(FloatingPage):
     work in other apps and closes when the conversation ends."""
 
     PAGE = "talk.html"
-    WIDTH, HEIGHT = 380, 300
+    WIDTH, HEIGHT = 380, 470
     allow_microphone = True
 
     def configure(self, config) -> None:

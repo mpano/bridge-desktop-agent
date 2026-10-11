@@ -54,6 +54,7 @@ PHONE_PATHS = {
     ("GET", "/api/v1/approvals"),
     ("GET", "/api/v1/brief"),
     ("GET", "/api/v1/talk"),
+    ("GET", "/api/v1/talk/voices"),
     ("POST", "/api/v1/talk/start"),
     ("POST", "/api/v1/talk/tool"),
     ("POST", "/api/v1/talk/approve"),

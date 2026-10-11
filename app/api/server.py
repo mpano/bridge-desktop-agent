@@ -152,7 +152,7 @@ def create_app(
                 "default-src 'none'; script-src 'self'; style-src 'self'; "
                 "connect-src 'self' https://api.openai.com; img-src 'self'; base-uri 'none'; "
                 "form-action 'none'; frame-ancestors 'none'; "
-                "manifest-src 'self'; worker-src 'self'"
+                "manifest-src 'self'; worker-src 'self'; media-src 'self' blob:"
             )
         return response
 

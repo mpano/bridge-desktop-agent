@@ -247,3 +247,55 @@ def test_routes_and_settings(tmp_path, monkeypatch):
         )
         policy = client.get("/").headers["content-security-policy"]
         assert "connect-src 'self' https://api.openai.com" in policy
+
+
+class Speech:
+    def __init__(self):
+        self.seen = []
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        self.seen.append(json.loads(request.content))
+        return httpx.Response(200, content=b"ID3" + b"\x00" * 2000)
+
+
+def test_voices_have_a_face_and_a_sample_made_once(tmp_path):
+    agent, config, _ = agent_with_tools(tmp_path, talk_voice="cedar")
+    speech = Speech()
+    talk = Talk(
+        tmp_path / "db",
+        agent,
+        config,
+        http=httpx.AsyncClient(transport=httpx.MockTransport(speech)),
+    )
+    voices = talk.voices()
+    assert [v["id"] for v in voices][:2] == ["marin", "cedar"] and len(voices) == 10
+    assert [v["id"] for v in voices if v["current"]] == ["cedar"]
+    assert all(len(v["colors"]) == 2 and v["about"] for v in voices)
+    assert {v["id"] for v in voices if v["recommended"]} == {"marin", "cedar"}
+
+    folder = tmp_path / "samples"
+    first = asyncio.run(talk.sample("coral", folder))
+    again = asyncio.run(talk.sample("coral", folder))
+    assert first == again == folder / "coral.mp3" and len(speech.seen) == 1
+    assert speech.seen[0]["voice"] == "coral" and speech.seen[0]["model"] == "gpt-4o-mini-tts"
+    with pytest.raises(TalkError, match="doesn't exist"):
+        asyncio.run(talk.sample("../etc", folder))
+
+
+def test_voice_routes_and_avatar(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    agent, config, _ = agent_with_tools(tmp_path)
+    agent.talk.http = httpx.AsyncClient(transport=httpx.MockTransport(Speech()))
+    headers = {"Authorization": "Bearer token"}
+    with TestClient(create_app(config, agent, enable_ui=True)) as client:
+        assert len(client.get("/api/v1/talk/voices", headers=headers).json()["voices"]) == 10
+        played = client.get("/api/v1/talk/sample/sage", headers=headers)
+        assert played.status_code == 200 and played.headers["content-type"] == "audio/mpeg"
+        assert client.get("/api/v1/talk/sample/robot", headers=headers).status_code == 409
+        assert client.get("/api/v1/talk/sample/sage").status_code == 401
+        assert "BridgeAvatar" in client.get("/ui/avatar.js").text
+        assert "/ui/avatar.js" in client.get("/ui/talk.html").text
+        assert "media-src 'self' blob:" in client.get("/").headers["content-security-policy"]
+    config.openai_api_key = type(config.openai_api_key)("")
+    with pytest.raises(TalkError, match="OpenAI key"):
+        asyncio.run(agent.talk.sample("ash", tmp_path / "empty"))
