@@ -38,7 +38,7 @@
       <button type="button" data-view="automations"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.5 3.5 9H8l-1 5.5L12.5 7H8z"/></svg>Automations</button>
       <button type="button" data-view="connections"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 9.5l3-3M5 8l-1.3 1.3a2.3 2.3 0 0 0 3.3 3.3L8.3 11.3M11 8l1.3-1.3a2.3 2.3 0 0 0-3.3-3.3L7.7 4.7"/></svg>Connections</button>
       <button type="button" data-view="memory"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h8v11l-4-2.6-4 2.6z"/></svg>Memory</button>
-      <button type="button" data-view="settings"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h6.5M12 4.5h1.5M2.5 11.5H4M7 11.5h6.5M10.5 3v3M5.5 10v3"/></svg>Settings</button>
+      <button type="button" data-view="settings"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h6.5M12 4.5h1.5M2.5 11.5H4M7 11.5h6.5M10.5 3v3M5.5 10v3"/></svg><span class="grow">Settings</span><span id="health-dot" class="health-dot" hidden title="Something needs attention"></span></button>
     </nav>
     <div class="sidebar-footer">
       <button id="account-chip" type="button" class="account-chip" hidden><span id="account-initials" aria-hidden="true"></span><span class="who"><span id="account-name"></span><span class="where"><span class="local-dot"></span><span id="provider-summary">Running on this Mac</span></span></span></button>
@@ -250,6 +250,7 @@
         <div class="settings-layout">
           <nav class="settings-nav" aria-label="Settings sections">
             <h1 id="settings-title">Settings</h1>
+            <button type="button" data-section="health">Health</button>
             <button type="button" data-section="general">General</button>
             <button type="button" data-section="shortcuts">Shortcuts</button>
             <button type="button" data-section="voice">Voice & dictation</button>
@@ -263,7 +264,8 @@
           </nav>
           <div class="settings-body">
             <div id="restart-banner" class="restart-banner" hidden><span>Saved. These changes apply after Bridge restarts.</span><button type="button" id="restart-now" class="primary small">Restart Bridge</button></div>
-            <section class="settings-section" data-panel="general" aria-label="General">
+            <section class="settings-section" data-panel="health" aria-label="Health" hidden><h2>Health</h2><p id="health-summary" class="lede">Checking…</p><div id="settings-health"></div><button type="button" id="health-recheck" class="secondary small">Check again</button></section>
+            <section class="settings-section" data-panel="general" aria-label="General" hidden>
               <h2>General</h2>
               <form id="preferences-form" class="card settings-card"><h2>Default applications</h2><p>Use an installed application's name. Changes apply to new requests.</p><label for="default-browser">Browser</label><input id="default-browser" required maxlength="150" placeholder="Google Chrome"><label for="default-editor">Project editor</label><input id="default-editor" required maxlength="150" placeholder="Visual Studio Code"><button type="submit" class="primary">Review changes</button></form>
               <p class="hint">Bridge follows your Mac's light or dark appearance.</p>

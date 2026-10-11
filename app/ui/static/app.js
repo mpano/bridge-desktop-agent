@@ -1036,6 +1036,7 @@
       return;
     }
     await refreshAll();
+    if (window.BridgeSettings) setTimeout(window.BridgeSettings.checkHealth, 4000);  // The Settings dot.
     // First launch (or setup never finished): the guided setup; otherwise Today.
     if (window.BridgeOnboarding) await window.BridgeOnboarding.startIfNeeded();
     else view("today");

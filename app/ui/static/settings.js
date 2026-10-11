@@ -73,6 +73,7 @@
     document.querySelectorAll(".settings-section").forEach((panel) => { panel.hidden = panel.dataset.panel !== section; });
     if (section === "account") ui().refreshAccount();
     if (section === "phone" && window.BridgePhone) window.BridgePhone.showSettings();
+    if (section === "health") renderHealth();
     refresh();
   }
 
@@ -277,6 +278,77 @@
     }
   }
 
+  // Health: every part of Bridge, whether it works, and the one tap that fixes it.
+  const STATES = {ok: ["Working", "good"], warn: ["Check", "warm"], error: ["Broken", "bad"], off: ["Off", ""]};
+
+  function fixButton(fix) {
+    if (!fix) return null;
+    if (fix.url) {
+      const open = node("a", fix.label, "secondary small button-link");
+      open.href = fix.url;
+      return open;
+    }
+    const press = node("button", fix.label, "secondary small");
+    press.type = "button";
+    press.addEventListener("click", async () => {
+      if (fix.view) {
+        ui().view(fix.view, fix.section);
+        return;
+      }
+      press.disabled = true;
+      try {
+        await ui().request(fix.action, "POST");
+        ui().notify("Started. Check again in a moment.");
+      } catch (error) {
+        ui().notify(error.message, true);
+      }
+      setTimeout(renderHealth, 2500);
+    });
+    return press;
+  }
+
+  async function renderHealth() {
+    let data;
+    try {
+      data = await ui().request("/api/v1/health");
+    } catch (error) {
+      $("health-summary").textContent = error.message;
+      return;
+    }
+    healthDot(data);
+    const problems = data.errors + data.warnings;
+    $("health-summary").textContent = !problems ? "Everything is working."
+      : data.errors ? `${data.errors} ${data.errors === 1 ? "thing is" : "things are"} broken${data.warnings ? `, and ${data.warnings} to check` : ""}. Each has a fix below.`
+      : `${data.warnings} ${data.warnings === 1 ? "thing" : "things"} to check below.`;
+    const box = $("settings-health");
+    box.replaceChildren();
+    const areas = [...new Set(data.checks.map((c) => c.area))];
+    for (const area of areas) {
+      const card = node("div", undefined, "card group health-group");
+      card.append(node("p", area, "label health-area"));
+      const items = data.checks.filter((c) => c.area === area)
+        .sort((a, b) => ["error", "warn", "ok", "off"].indexOf(a.state) - ["error", "warn", "ok", "off"].indexOf(b.state));
+      for (const check of items) {
+        const [text, tone] = STATES[check.state] || STATES.off;
+        const end = node("span", undefined, "set-end");
+        end.append(pill(text, tone));
+        const fix = fixButton(check.fix);
+        if (fix && check.state !== "ok") end.append(fix);
+        card.append(row(check.name, check.detail, end));
+      }
+      box.append(card);
+    }
+  }
+
+  function healthDot(data) {
+    const dot = document.getElementById("health-dot");
+    if (dot) dot.hidden = !data.errors;
+  }
+
+  async function checkHealthQuietly() {
+    try { healthDot(await ui().request("/api/v1/health")); } catch { /* not now */ }
+  }
+
   async function renderOperator() {
     const box = $("settings-operator");
     if (!box || !data.operator) return;
@@ -351,5 +423,6 @@
   });
 
   document.addEventListener("bridge-voice", () => { if (data && section === "voice") renderVoice(); });
-  window.BridgeSettings = {show, refresh, current: () => section};
+  $("health-recheck").addEventListener("click", renderHealth);
+  window.BridgeSettings = {show, refresh, current: () => section, checkHealth: checkHealthQuietly};
 })();
