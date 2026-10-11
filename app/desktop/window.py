@@ -72,6 +72,19 @@ class WindowDelegate(NSObject):
     ):
         handler(self.owner.alert(str(message), buttons=("OK", "Cancel")) == 0)
 
+    # Talk in Ask asks for the microphone: allowed for Bridge's own page only.
+    def webView_requestMediaCapturePermissionForOrigin_initiatedByFrame_type_decisionHandler_(
+        self, web, origin, frame, kind, handler
+    ):
+        local = (
+            str(origin.host()) in {"localhost", "127.0.0.1"}
+            and int(origin.port()) == self.owner.port
+        )
+        microphone = kind == WK.WKMediaCaptureTypeMicrophone
+        handler(
+            WK.WKPermissionDecisionGrant if local and microphone else WK.WKPermissionDecisionDeny
+        )
+
     def webView_didFailProvisionalNavigation_withError_(self, web, navigation, error):
         self.owner.loaded = False
 

@@ -68,6 +68,8 @@ class MenuBarController:
         self.dictation = None
         self.command_bar = None
         self.command_shortcut = None
+        self.talk = None  # The live conversation panel (Conversation mode).
+        self.settings = None
         self.dictation_shortcut = None
         self.shortcut_status = "Shortcut off"
         icon = Path(__file__).with_name("assets") / "bridge-menubar.png"
@@ -211,8 +213,25 @@ class MenuBarController:
         self.refresh(None)
         return submitted
 
+    def talking(self) -> bool:
+        return bool(self.talk is not None and getattr(self.settings, "talk_enabled", False))
+
+    def wake_to_talk(self) -> bool:
+        """From the wake-word thread: open a conversation on the main thread."""
+        if self.quitting or not self.talking():
+            return False
+        from PyObjCTools import AppHelper
+
+        AppHelper.callAfter(self.talk.start)
+        return True
+
     def shortcut_action(self, _=None) -> None:
-        if self.quitting or self.voice is None:
+        if self.quitting:
+            return
+        if self.talking():
+            self.talk.toggle()
+            return
+        if self.voice is None:
             return
         if not self.voice.active and self.voice.pending_review is None:
             self.speak_once()
@@ -519,12 +538,16 @@ def run_menubar(settings: Settings) -> None:
         NSApplication.sharedApplication().setActivationPolicy_(
             NSApplicationActivationPolicyAccessory
         )
-        from app.desktop.floating import CommandBar, MenuPanel
+        from app.desktop.floating import CommandBar, MenuPanel, TalkPanel
         from app.desktop.panel import install_main_menu
         from app.desktop.window import BridgeWindow
 
         controller.panel = MenuPanel(controller, local_service)
         controller.command_bar = CommandBar(controller, local_service)
+        controller.talk = TalkPanel(controller, local_service)
+        controller.settings = settings
+        if controller.voice is not None:
+            controller.voice.on_wake = controller.wake_to_talk
         controller.window = BridgeWindow(controller, local_service)
         # Notifications come from Bridge itself; clicking one opens the right screen.
         try:

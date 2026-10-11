@@ -25,6 +25,7 @@ from app.api.schemas import (
     MemoryRequest,
     MessageRequest,
 )
+from app.api.talk import install as install_talk
 from app.api.today import install as install_today
 from app.api.work import install as install_work
 from app.bootstrap import build_agent
@@ -121,7 +122,7 @@ def create_app(
         if request.url.path == "/" or request.url.path.startswith("/ui/"):
             response.headers["Content-Security-Policy"] = (
                 "default-src 'none'; script-src 'self'; style-src 'self'; "
-                "connect-src 'self'; img-src 'self'; base-uri 'none'; "
+                "connect-src 'self' https://api.openai.com; img-src 'self'; base-uri 'none'; "
                 "form-action 'none'; frame-ancestors 'none'; "
                 "manifest-src 'self'; worker-src 'self'"
             )
@@ -190,6 +191,7 @@ def create_app(
     install_commitments(app, authorize)
     install_briefs(app, authorize)
     install_work(app, authorize)
+    install_talk(app, authorize, from_phone)
     install_inbox(app, authorize)
     install_automations(app, authorize)
     install_app_settings(app, authorize, settings)

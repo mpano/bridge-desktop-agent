@@ -48,6 +48,14 @@ class AppSettings(BaseModel):
     share_screen: bool | None = None
     blocked_apps: list[str] | None = Field(default=None, max_length=30)
     keep_chats_days: Literal[0, 7, 30] | None = None
+    talk_enabled: bool | None = None
+    talk_model: Literal["gpt-realtime-2.1", "gpt-realtime-mini"] | None = None
+    talk_voice: (
+        Literal[
+            "marin", "cedar", "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse"
+        ]
+        | None
+    ) = None
 
     @field_validator("blocked_apps")
     @classmethod
@@ -85,6 +93,9 @@ def install(app: FastAPI, authorize, settings) -> None:
                 "dictation": settings.dictation_shortcut_enabled,
             },
             "voice": {
+                "talk_enabled": settings.talk_enabled,
+                "talk_model": settings.talk_model,
+                "talk_voice": settings.talk_voice,
                 "speech": settings.voice_stt_provider,
                 "dictation_cleanup": settings.dictation_cleanup,
                 "dictation_pause_seconds": settings.dictation_pause_seconds,
@@ -155,13 +166,22 @@ def install(app: FastAPI, authorize, settings) -> None:
         live: dict[str, str] = {}
         if payload.keep_chats_days is not None:
             live["CHAT_RETENTION_DAYS"] = str(payload.keep_chats_days)
+        for field, key in (
+            ("talk_enabled", "TALK_ENABLED"),
+            ("talk_model", "TALK_MODEL"),
+            ("talk_voice", "TALK_VOICE"),
+        ):
+            value = getattr(payload, field)
+            if value is not None:
+                live[key] = flag(value) if isinstance(value, bool) else value
+                setattr(settings, field, value)
         if not changes and not live:
             return {"saved": [], "restart_needed": request.app.state.restart_needed}
         try:
             await asyncio.to_thread(update_env, env_path(), {**changes, **live})
         except OSError:
             raise HTTPException(500, "Couldn't save your settings file.") from None
-        if live:
+        if payload.keep_chats_days is not None:
             settings.chat_retention_days = payload.keep_chats_days
             store = getattr(request.app.state.agent, "chats", None)
             if store is not None:

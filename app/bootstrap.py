@@ -15,6 +15,7 @@ from app.assistant.day_plan import DayPlanner
 from app.assistant.focus import FocusMode, FocusStore
 from app.assistant.replies import ReplyDrafter
 from app.assistant.slack_triage import SlackInbox
+from app.assistant.talk import Talk
 from app.assistant.triage import InboxTriage
 from app.integrations.accounts import AccountManager
 from app.integrations.activity import SQLiteActivity
@@ -251,6 +252,7 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     )
     agent.accounts = accounts
     agent.tokens, agent.jira, agent.github, agent.repos = tokens, jira, github, repos
+    agent.talk = Talk(settings.database_path, agent, settings)
     agent.memories = facts
     agent.use_chats(ChatStore(settings.database_path, days=settings.chat_retention_days))
 

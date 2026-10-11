@@ -141,6 +141,8 @@ class MenuVoiceService:
         # Set by the menu bar: notify when a typed request finishes while the panel is hidden.
         self.notifier: Callable[[str, str], Awaitable[None]] | None = None
         self.panel_visible = True
+        # Set by the menu bar: returns True when "Hey Bridge" started a live conversation.
+        self.on_wake: Callable[[], bool] | None = None
         self.wake_phrase = (
             "Hey Bridge" if settings.voice_wake_word_model_path is None else "your model’s phrase"
         )
@@ -491,6 +493,7 @@ class MenuVoiceService:
             agent, voice_settings, on_event=self._on_event, on_result=self._on_result
         )
         self._voice = voice
+        voice.on_wake = self.on_wake
         # stop() can race construction. Transfer the stop flag before opening the microphone.
         if self._stop.is_set():
             voice.stop()

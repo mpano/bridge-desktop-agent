@@ -119,7 +119,33 @@
       pause.append(option);
     }
     pause.addEventListener("change", () => save({dictation_pause_seconds: Number(pause.value)}));
+    const talkRows = [row("Conversation mode",
+      v.talk_enabled ? "On: “Hey Bridge” and ⌘⇧Space start a live conversation you can interrupt. Your voice goes to OpenAI while you talk."
+        : "Talk back and forth with Bridge and interrupt it anytime. Your voice goes to OpenAI while a conversation is open.",
+      toggle("Conversation mode", v.talk_enabled, (on) => save({talk_enabled: on})))];
+    if (v.talk_enabled) {
+      const voice = node("select", undefined, "small-select");
+      voice.setAttribute("aria-label", "Bridge's voice");
+      for (const name of ["marin", "cedar", "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse"]) {
+        const option = node("option", name.charAt(0).toUpperCase() + name.slice(1));
+        option.value = name;
+        option.selected = name === v.talk_voice;
+        voice.append(option);
+      }
+      voice.addEventListener("change", () => save({talk_voice: voice.value}));
+      talkRows.push(
+        row("Bridge's voice", "Used from the next conversation.", voice),
+        row("Model", v.talk_model === "gpt-realtime-mini" ? "Faster and cheaper; a little less capable." : "The most capable voice model.",
+          segmented("Model", [["gpt-realtime-2.1", "Best"], ["gpt-realtime-mini", "Faster & cheaper"]], v.talk_model, (key) => save({talk_model: key}))),
+      );
+      const usage = row("This month", "Loading…", null);
+      talkRows.push(usage);
+      ui().request("/api/v1/talk").then((data) => {
+        usage.querySelector(".set-hint").textContent = `${data.usage.minutes} minutes of conversation. Realtime voice costs more per minute than typing.`;
+      }).catch(() => {});
+    }
     $("settings-voice").replaceChildren(
+      ...talkRows,
       row("Speech to text", v.speech === "local" ? "On this Mac with Whisper. Your voice never leaves the Mac." : "OpenAI transcribes your recordings.",
         segmented("Speech to text", [["local", "On this Mac"], ["openai", "OpenAI"]], v.speech, (key) => save({speech: key}))),
       row("Tidy up dictation", "Removes “um”s and applies spoken corrections. Sends the text, never audio, to OpenAI.",
@@ -168,6 +194,7 @@
       row("What's on your screen", p.share_screen ? "Only when you say “this”, and only the window behind Bridge." : "Off: Bridge can read the window for you, but not tell OpenAI what it says.",
         toggle("Share screen content with OpenAI", p.share_screen, (on) => save({share_screen: on}))),
       row("Your voice", data.voice.speech === "local" ? "Transcribed on this Mac, then deleted." : "Sent to OpenAI for transcription.", data.voice.speech === "local" ? stays() : goes()),
+      ...(data.voice.talk_enabled ? [row("Conversations", "Conversation mode is on: while you talk with Bridge, your voice streams to OpenAI.", goes())] : []),
       row("Sign-ins, history and files", "Account tokens live in your Mac's Keychain.", stays()),
       keepChatsRow(p.keep_chats_days),
       row("Model", p.openai_key ? `OpenAI · ${p.model}` : "No OpenAI key yet — add it to .env.", pill(p.openai_key ? "key in .env" : "missing", p.openai_key ? "" : "warm")),

@@ -20,8 +20,10 @@ window.BridgeMini = (() => {
     return data;
   }
 
+  const opened = location.hash;  // The app's link, before sign-in tidies it away.
+
   async function signIn() {
-    const match = location.hash.match(/launch=([A-Za-z0-9_-]+)/);
+    const match = opened.match(/launch=([A-Za-z0-9_-]+)/);
     if (!match) return;
     history.replaceState(null, "", location.pathname);
     await request("/api/v1/session/launch", "POST", {ticket: match[1]}).catch(() => {});
@@ -72,5 +74,5 @@ window.BridgeMini = (() => {
 
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") native({action: "hide"}); });
 
-  return {native, request, run, decide, describe, node, button, shown, onShown, ready: signIn()};
+  return {native, request, run, decide, describe, node, button, shown, onShown, opened, ready: signIn()};
 })();

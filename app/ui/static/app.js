@@ -83,6 +83,7 @@
     if (name === "today" && signedIn && window.BridgeToday) window.BridgeToday.refresh();
     if (name === "inbox" && signedIn && window.BridgeInbox) window.BridgeInbox.refresh();
     if (name === "automations" && signedIn && window.BridgeAutomations) window.BridgeAutomations.refresh();
+    if (name === "chat" && signedIn) refreshTalk();
     if (name === "chat" && signedIn) {
       setTimeout(() => {
         if (!phoneMode()) peekScreen();
@@ -1455,6 +1456,31 @@
     $("recent-chats").hidden = false;
     $("ask-history").setAttribute("aria-expanded", "true");
   }
+
+  // Talking with Bridge, from Ask (on the phone, and in the Bridge window).
+  async function refreshTalk() {
+    try {
+      const data = await request("/api/v1/talk");
+      $("ask-talk").hidden = !data.enabled || !window.BridgeTalk || !navigator.mediaDevices;
+    } catch {
+      $("ask-talk").hidden = true;
+    }
+  }
+  $("ask-talk").addEventListener("click", () => {
+    const talk = window.BridgeTalk;
+    if (talk.active()) return;
+    $("talk-sheet").hidden = false;
+    talk.mount($("talk-box"));
+    talk.start({
+      request,
+      root: $("talk-box"),
+      name: (authStatus && authStatus.owner && authStatus.owner.name) || "",
+      onEnd: (message) => {
+        loadConversation().catch(() => {});
+        setTimeout(() => { if (!talk.active()) $("talk-sheet").hidden = true; }, message ? 4000 : 600);
+      },
+    });
+  });
 
   $("ask-history").addEventListener("click", () => {
     if (!$("recent-chats").hidden) return closeRecent();

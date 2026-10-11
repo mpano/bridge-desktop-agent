@@ -23,6 +23,7 @@
   <script src="/ui/promises.js" defer></script>
   <script src="/ui/brief.js" defer></script>
   <script src="/ui/work.js" defer></script>
+  <script src="/ui/talk.js" defer></script>
   <script src="/ui/phone.js" defer></script>
 </head>
 <body>
@@ -330,6 +331,7 @@
       <section id="view-chat" class="view ask" hidden aria-labelledby="ask-title">
         <header class="ask-head">
           <div><p id="ask-when" class="label">Ask</p><h1 id="ask-title">New conversation</h1></div>
+          <button type="button" id="ask-talk" class="primary small" hidden><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8a2 2 0 0 1 2 2v3.5a2 2 0 0 1-4 0V3.8a2 2 0 0 1 2-2zM3.5 8a4.5 4.5 0 0 0 9 0M8 12.5v1.8"/></svg>Talk</button>
           <button type="button" id="ask-history" class="secondary small" aria-expanded="false" aria-controls="recent-chats">Recent</button>
           <button type="button" id="reset-chat" class="secondary small">New</button>
           <section id="recent-chats" class="recent-chats card" role="dialog" aria-label="Recent chats" hidden>
@@ -394,6 +396,7 @@
         <button type="button" id="phone-sign-out" class="secondary wide">Sign out of this phone</button>
       </section>
     </fieldset>
+    <div id="talk-sheet" class="talk-sheet" role="dialog" aria-label="Conversation with Bridge" hidden><div id="talk-box" class="card"></div></div>
     <nav id="tabbar" class="tabbar" aria-label="Main navigation" hidden>
       <button type="button" data-view="today"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5a1.5 1.5 0 0 1 1.5-1.5h8a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5zM2.5 6.5h11"/></svg><span>Today</span></button>
       <button type="button" data-view="chat"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11v7.5H7.5L4.5 13.5V11h-2z"/></svg><span>Ask</span></button>

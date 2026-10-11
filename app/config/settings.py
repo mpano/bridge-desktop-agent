@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     dictation_pause_seconds: float = Field(default=2.5, ge=1, le=10)
     # Days Ask keeps recent chats on this Mac; 0 keeps none.
     chat_retention_days: int = Field(default=7, ge=0, le=365)
+    # Talking with Bridge (OpenAI Realtime): off until you turn it on; audio goes to OpenAI.
+    talk_enabled: bool = False
+    talk_model: Literal["gpt-realtime-2.1", "gpt-realtime-mini"] = "gpt-realtime-2.1"
+    talk_voice: str = Field(default="marin", pattern=r"^[a-z]{2,20}$")
     voice_tts_voice: str | None = None
     voice_tts_rate: int | None = Field(default=None, ge=80, le=500)
     voice_background_enabled: bool = False

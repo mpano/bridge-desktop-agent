@@ -67,6 +67,22 @@ class PageDelegate(NSObject):
     def webViewWebContentProcessDidTerminate_(self, web):
         self.owner.loaded = False
 
+    # The talk panel's page asks for the microphone: allowed for Bridge's own page only.
+    def webView_requestMediaCapturePermissionForOrigin_initiatedByFrame_type_decisionHandler_(
+        self, web, origin, frame, kind, handler
+    ):
+        local = (
+            str(origin.host()) in {"localhost", "127.0.0.1"}
+            and int(origin.port()) == self.owner.port
+        )
+        allowed = getattr(self.owner, "allow_microphone", False)
+        microphone = kind == WK.WKMediaCaptureTypeMicrophone
+        handler(
+            WK.WKPermissionDecisionGrant
+            if local and allowed and microphone
+            else WK.WKPermissionDecisionDeny
+        )
+
     def windowDidResignKey_(self, notification):
         self.owner.resigned()
 
@@ -103,6 +119,7 @@ class FloatingPage:
         config = WK.WKWebViewConfiguration.alloc().init()
         config.setWebsiteDataStore_(WK.WKWebsiteDataStore.defaultDataStore())
         config.userContentController().addScriptMessageHandler_name_(self.messages, "bridge")
+        self.configure(config)
         self.web = WK.WKWebView.alloc().initWithFrame_configuration_(
             NSMakeRect(0, 0, self.WIDTH, self.HEIGHT), config
         )
@@ -117,13 +134,17 @@ class FloatingPage:
         content.addSubview_(self.web)
         self.web.setFrame_(content.bounds())
 
+    def configure(self, config) -> None:
+        """Pages that need more (the talk panel) adjust the web view's setup here."""
+
     # Loading ------------------------------------------------------------------------------
 
-    def load(self) -> bool:
+    def load(self, extra: str = "") -> bool:
         status = self.service.status
         if status.state != ServiceState.RUNNING or not status.url:
             return False
-        url = f"http://localhost:{self.port}/ui/{self.PAGE}#launch={self.service.tickets.issue()}"
+        ticket = self.service.tickets.issue()
+        url = f"http://localhost:{self.port}/ui/{self.PAGE}#launch={ticket}{extra}"
         self.web.loadRequest_(NSURLRequest.requestWithURL_(NSURL.URLWithString_(url)))
         self.loaded, self.loaded_at = True, time.monotonic()
         return True
@@ -294,5 +315,59 @@ class CommandBar(FloatingPage):
             self.window.setFrame_display_(
                 NSMakeRect(frame.origin.x, top - height, self.WIDTH, height), True
             )
+            return
+        super().on_message(message)
+
+
+class TalkPanel(FloatingPage):
+    """A live conversation with Bridge, at the top of the screen. It stays open while you
+    work in other apps and closes when the conversation ends."""
+
+    PAGE = "talk.html"
+    WIDTH, HEIGHT = 380, 300
+    allow_microphone = True
+
+    def configure(self, config) -> None:
+        # Bridge's voice plays as soon as it answers, without a click first.
+        config.setMediaTypesRequiringUserActionForPlayback_(WK.WKAudiovisualMediaTypeNone)
+
+    def place(self) -> None:
+        screen = AK.NSScreen.mainScreen().visibleFrame()
+        x = screen.origin.x + screen.size.width - self.WIDTH - 16
+        top = screen.origin.y + screen.size.height - 10
+        self.window.setFrameOrigin_(NSMakePoint(x, top - self.HEIGHT))
+
+    def resigned(self) -> None:
+        pass  # Keep talking while you click around in other apps.
+
+    @property
+    def active(self) -> bool:
+        return self.visible
+
+    def start(self) -> None:
+        """Open the panel and start talking (or keep the conversation that's going)."""
+        if self.controller.quitting:
+            return
+        if not self.loaded or time.monotonic() - self.loaded_at > FRESH_SECONDS:
+            if not self.load("&start=1"):
+                return
+            self.place()
+            self.window.orderFrontRegardless()
+            return
+        self.place()
+        self.window.orderFrontRegardless()
+        self.send("window.BridgeTalkPanel && window.BridgeTalkPanel.start()")
+
+    def stop(self) -> None:
+        self.send("window.BridgeTalkPanel && window.BridgeTalkPanel.stop()")
+
+    def toggle(self) -> None:
+        if self.visible:
+            self.stop()
+        else:
+            self.start()
+
+    def on_message(self, message: dict) -> None:
+        if message.get("action") == "talk_ended":
             return
         super().on_message(message)

@@ -146,6 +146,10 @@ class VoiceService:
             await detector.wait(self.stop_event)
             if self.stop_event.is_set():
                 break
+            # Conversation mode: "Hey Bridge" opens a live conversation instead of one command.
+            on_wake = getattr(self, "on_wake", None)
+            if on_wake is not None and on_wake():
+                continue
             if not getattr(self.settings, "voice_start_sound", False):
                 with contextlib.suppress(RuntimeError):
                     self._emit("speaking", "Wake word detected. Wait for ‘Yes?’ then speak.")

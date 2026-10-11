@@ -15,6 +15,9 @@ class ToolRegistry:
             raise ValueError("Unknown tool requested")
         return self._tools[name]
 
+    def tools(self) -> list[Tool]:
+        return list(self._tools.values())
+
     def definitions(self) -> list[dict]:
         return [tool.definition() for tool in self._tools.values() if tool.expose_to_llm]
 
