@@ -111,6 +111,15 @@ def install(app: FastAPI, authorize) -> None:
         if payload.status is not None:
             changes["status"] = payload.status
             changes["closed_by"] = None if payload.status == "open" else "you"
+            learning = getattr(request.app.state.agent, "learning", None)
+            if payload.status == "dismissed" and learning is not None:
+                item = find(request, payload.id)
+                learning.record(
+                    "promises",
+                    "not_a_promise",
+                    item["what"],
+                    {"quote": item["quote"], "what": item["what"], "direction": item["direction"]},
+                )
         if payload.due is not None:
             changes["due"] = payload.due.isoformat() if payload.due else None
             changes["nudged"] = None

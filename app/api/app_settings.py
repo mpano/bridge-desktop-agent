@@ -51,6 +51,7 @@ class AppSettings(BaseModel):
     talk_enabled: bool | None = None
     operator_enabled: bool | None = None
     operator_ask: Literal["important", "every"] | None = None
+    learning_enabled: bool | None = None
     talk_model: Literal["gpt-realtime-2.1", "gpt-realtime-mini"] | None = None
     talk_voice: (
         Literal[
@@ -179,6 +180,7 @@ def install(app: FastAPI, authorize, settings) -> None:
             ("talk_voice", "TALK_VOICE"),
             ("operator_enabled", "OPERATOR_ENABLED"),
             ("operator_ask", "OPERATOR_ASK"),
+            ("learning_enabled", "LEARNING_ENABLED"),
         ):
             value = getattr(payload, field)
             if value is not None:

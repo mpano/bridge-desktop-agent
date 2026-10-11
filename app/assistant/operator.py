@@ -23,6 +23,8 @@ from uuid import uuid4
 
 import httpx
 
+from app.llm import prompts
+
 log = logging.getLogger(__name__)
 RESPONSES = "https://api.openai.com/v1/responses"
 MAX_ACTIONS = 50
@@ -292,7 +294,7 @@ class Operator:
                 {
                     "model": model,
                     "tools": [{"type": "computer"}],
-                    "instructions": INSTRUCTIONS,
+                    "instructions": INSTRUCTIONS + prompts.lessons("operator"),
                     "truncation": "auto",
                     "input": [
                         {
@@ -366,7 +368,7 @@ class Operator:
                     {
                         "model": model,
                         "tools": [{"type": "computer"}],
-                        "instructions": INSTRUCTIONS,
+                        "instructions": INSTRUCTIONS + prompts.lessons("operator"),
                         "truncation": "auto",
                         "previous_response_id": response["id"],
                         "input": outputs,
@@ -383,6 +385,14 @@ class Operator:
             run.finished = time.time()
             run.step = run.result
             self._save(run)
+            learning = getattr(self, "learning", None)
+            if learning is not None and run.status == "failed":
+                learning.record(
+                    "operator",
+                    run.status,
+                    run.task,
+                    {"task": run.task, "result": run.result, "steps": run.steps[-8:]},
+                )
             if self.hud is not None and hasattr(self.hud, "finished"):
                 await asyncio.to_thread(self.hud.finished)
             if self.notify is not None and run.status in {"done", "failed"}:

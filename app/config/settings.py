@@ -71,6 +71,8 @@ class Settings(BaseSettings):
     model_fast: str = Field(default="", pattern=r"^([a-z0-9.-]{3,40})?$")
     monthly_budget: float = Field(default=0, ge=0, le=100000)
     budget_mode: Literal["warn", "save"] = "warn"
+    # Learn from your corrections (app/assistant/learning.py).
+    learning_enabled: bool = True
     voice_tts_voice: str | None = None
     voice_tts_rate: int | None = Field(default=None, ge=80, le=500)
     voice_background_enabled: bool = False

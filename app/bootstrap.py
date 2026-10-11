@@ -13,6 +13,7 @@ from app.assistant.chats import ChatStore
 from app.assistant.commitments import CommitmentStore, CommitmentTracker
 from app.assistant.day_plan import DayPlanner
 from app.assistant.focus import FocusMode, FocusStore
+from app.assistant.learning import Learning
 from app.assistant.operator import Operator
 from app.assistant.replies import ReplyDrafter
 from app.assistant.slack_triage import SlackInbox
@@ -366,4 +367,11 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     agent.operator.usage = usage
     agent.talk.meter = usage
     agent.proactive.usage = usage
+    learning = Learning(settings.database_path, llm, settings)
+    learning.commitments = commitments
+    learning.notify = notify
+    agent.learning = learning
+    agent.operator.learning = learning
+    agent.proactive.learning = learning
+    prompts.lessons_provider = learning.lessons
     return agent

@@ -21,6 +21,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from app.assistant.replies import address_of, reply_subject, strip_quoted
+from app.llm import prompts
 from app.llm.structured import ask_json
 from app.llm.usage import task as llm_task
 
@@ -515,7 +516,9 @@ class CommitmentTracker:
             payload.append(entry)
         with llm_task("promises"):
             answer = await ask_json(
-                self.llm, FIND, {"today": today.isoformat(), "messages": payload}
+                self.llm,
+                FIND + prompts.lessons("promises"),
+                {"today": today.isoformat(), "messages": payload},
             )
         if not isinstance(answer, dict):
             return 0, 0
@@ -633,7 +636,9 @@ class CommitmentTracker:
         }
         with llm_task("drafts"):
             body = (
-                await self.llm.complete(FOLLOW_UP, json.dumps(data, ensure_ascii=False))
+                await self.llm.complete(
+                    FOLLOW_UP + prompts.lessons("drafts"), json.dumps(data, ensure_ascii=False)
+                )
             ).strip()
         if not body:
             raise ValueError("The model returned an empty draft. Try again.")

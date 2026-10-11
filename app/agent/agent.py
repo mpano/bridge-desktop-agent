@@ -138,7 +138,21 @@ class Agent:
         if self.background and not self.background.done():
             raise ValueError("A background request is already active.")
         pending = self.confirmations.consume(token)
+        if not approved:
+            self._declined(pending)
         return self._start_background(pending.context, pending=pending, approved=approved)
+
+    def _declined(self, pending) -> None:
+        """You said no to an action Bridge chose: something to learn from."""
+        learning = getattr(self, "learning", None)
+        if learning is not None:
+            arguments = json.dumps(pending.call.arguments, ensure_ascii=False, default=str)
+            learning.record(
+                "actions",
+                "declined",
+                f"Declined {pending.call.name}",
+                {"tool": pending.call.name, "arguments": arguments[:600]},
+            )
 
     def _start_background(
         self,
@@ -191,6 +205,18 @@ class Agent:
         finally:
             state["status"] = (state["result"] or {}).get("status", "interrupted")
             result = state["result"] or {}
+            learning = getattr(self, "learning", None)
+            if learning is not None and message and state["status"] == "failed":
+                learning.record(
+                    "ask",
+                    "failed",
+                    message,
+                    {
+                        "request": message,
+                        "answer": result.get("message") or "",
+                        "tools": [step.get("tool") for step in context.steps],
+                    },
+                )
             self._log(
                 "assistant",
                 result.get("message") or "Stopped.",
@@ -295,6 +321,8 @@ class Agent:
     async def confirm(self, token: str, approved: bool) -> dict:
         async with self.lock:
             pending = self.confirmations.consume(token)
+            if not approved:
+                self._declined(pending)
             return await self._continue_confirmation(pending, approved)
 
     async def _continue_confirmation(self, pending: Pending, approved: bool) -> dict:

@@ -14,6 +14,7 @@ from app.api.commitments import install as install_commitments
 from app.api.health import install as install_health
 from app.api.inbox import install as install_inbox
 from app.api.launch import LaunchTickets
+from app.api.learning import install as install_learning
 from app.api.mcp import install as install_mcp
 from app.api.onboarding import install as install_onboarding
 from app.api.operator import install as install_operator
@@ -223,6 +224,7 @@ def create_app(
     install_health(app, authorize, settings)
     install_mcp(app, authorize, settings)
     install_usage(app, authorize, settings)
+    install_learning(app, authorize)
     install_inbox(app, authorize)
     install_automations(app, authorize)
     install_app_settings(app, authorize, settings)

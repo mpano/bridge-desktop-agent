@@ -14,6 +14,7 @@ import time
 from datetime import datetime
 from types import SimpleNamespace
 
+from app.llm import prompts
 from app.llm.structured import ask_json
 from app.llm.usage import labelled
 from app.llm.usage import task as llm_task
@@ -278,7 +279,11 @@ class SlackInbox:
             "the_users_recent_slack_messages": await self.style(me),
         }
         with llm_task("drafts"):
-            body = (await self.llm.complete(DRAFT, json.dumps(data, ensure_ascii=False))).strip()
+            body = (
+                await self.llm.complete(
+                    DRAFT + prompts.lessons("drafts"), json.dumps(data, ensure_ascii=False)
+                )
+            ).strip()
         if not body:
             raise ValueError("The model returned an empty draft. Try again.")
         self.drafts[item["message_id"]] = body

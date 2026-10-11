@@ -1592,3 +1592,20 @@ body.phone .talk-sheet { padding: 12px 12px calc(88px + env(safe-area-inset-bott
 .usage-amount { width: 90px; }
 #usage-budget { margin-top: 16px; }
 @media (max-width: 900px) { .usage-columns { grid-template-columns: 1fr; } }
+
+/* Learning ------------------------------------------------------------------------------- */
+.feedback { display: flex; gap: 2px; margin-top: 4px; opacity: .55; }
+.message:hover .feedback { opacity: 1; }
+.feedback-btn { padding: 2px 6px; font-size: 13px; }
+.feedback-form { display: flex; gap: 6px; width: min(420px, 100%); }
+.feedback-form input { flex: 1; padding: 5px 8px; font-size: 13px; }
+.learn-week { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
+.learn-stat { display: flex; flex-direction: column; gap: 2px; }
+.learn-stat strong { font-size: 22px; }
+.learn-stat .muted { font-size: 12.5px; }
+.learn-stat .faint { font-size: 11.5px; }
+.good-text { color: var(--green) !important; }
+#learning-week, .learn-proposals, #learning-active { margin-bottom: 16px; }
+.learn-head, .learn-proposals > .label { padding: 12px 16px 0; margin: 0; }
+.learn-pad { padding: 0 16px 12px; }
+@media (max-width: 900px) { .learn-week { grid-template-columns: repeat(2, 1fr); } }

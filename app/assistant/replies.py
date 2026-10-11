@@ -12,6 +12,7 @@ import re
 import time
 from types import SimpleNamespace
 
+from app.llm import prompts
 from app.llm.usage import labelled
 
 STYLE_SECONDS = 3600
@@ -103,7 +104,8 @@ class ReplyDrafter:
             "the_users_recent_sent_emails": await self.style(),
         }
         text = await self.llm.complete(
-            INSTRUCTIONS, json.dumps(data, ensure_ascii=False, default=str)
+            INSTRUCTIONS + prompts.lessons("drafts"),
+            json.dumps(data, ensure_ascii=False, default=str),
         )
         body = text.strip()
         if not body:

@@ -174,12 +174,16 @@ def install(app: FastAPI, authorize) -> None:
     async def send(payload: SendRequest, request: Request):
         agent = bridge(request)
         _group, item = find(agent, payload.message_id)
+        learning = getattr(agent, "learning", None)
         if is_slack(item):
             # The conversation and thread come from the message itself, never the page.
+            draft = agent.slack_inbox.drafts.get(item["message_id"])
             try:
                 await agent.slack_inbox.send(item, payload.body)
             except Exception as exc:
                 raise HTTPException(502, str(exc) or "Slack didn't accept the reply.") from None
+            if learning is not None:
+                learning.draft_sent("slack", item.get("from", ""), draft, payload.body)
             return {"sent": True, "to": item["subject"], "followup": None}
         to = address_of(item["from"])
         if not to or not item.get("reply_message_id") or not item.get("thread_id"):
@@ -204,5 +208,7 @@ def install(app: FastAPI, authorize) -> None:
                 name, to, item["subject"][:120], due.isoformat()
             )
             followup = {"name": made.name, "due": made.due}
-        agent.replies.drafts.pop(item["message_id"], None)
+        draft = agent.replies.drafts.pop(item["message_id"], None)
+        if learning is not None:
+            learning.draft_sent("email", item["from"].split("<")[0].strip(), draft, payload.body)
         return {"sent": True, "to": to, "message_id": sent.get("message_id"), "followup": followup}

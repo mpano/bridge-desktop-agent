@@ -485,6 +485,7 @@
         details.append(node("summary", "Technical details"), node("pre", JSON.stringify(steps, null, 2)));
         body.append(details);
       }
+      if (meta.request_id) body.append(feedbackRow(meta.request_id));
       card.append(avatar, body);
     }
     if (meta.at) {
@@ -494,6 +495,38 @@
     }
     $("conversation").append(card);
     scrollThread();
+  }
+
+  // 👍 / 👎 under an answer: a 👎 (with what was wrong) is something Bridge learns from.
+  function feedbackRow(requestId) {
+    const row = node("div", undefined, "feedback");
+    const send = async (good, note = "") => {
+      try {
+        await request("/api/v1/learning/feedback", "POST", {request_id: requestId, good, note});
+      } catch { /* not important enough to interrupt */ }
+      row.replaceChildren(node("span", good ? "Thanks!" : "Thanks — Bridge will learn from this.", "faint"));
+    };
+    const up = node("button", "👍", "ghost feedback-btn");
+    up.type = "button";
+    up.setAttribute("aria-label", "Good answer");
+    up.addEventListener("click", () => send(true));
+    const down = node("button", "👎", "ghost feedback-btn");
+    down.type = "button";
+    down.setAttribute("aria-label", "Not right");
+    down.addEventListener("click", () => {
+      const form = node("form", undefined, "feedback-form");
+      const input = node("input");
+      input.maxLength = 500;
+      input.placeholder = "What was wrong? (optional)";
+      const ok = node("button", "Send", "secondary small");
+      ok.type = "submit";
+      form.append(input, ok);
+      form.addEventListener("submit", (event) => { event.preventDefault(); send(false, input.value.trim()); });
+      row.replaceChildren(form);
+      input.focus();
+    });
+    row.append(up, down);
+    return row;
   }
 
   function scrollThread() {

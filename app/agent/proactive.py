@@ -46,6 +46,7 @@ class Proactive:
         self.briefs = None  # The morning brief and evening wrap-up, on time.
         self.repos = None  # Teammates' pushes, releases and broken main in your repos.
         self.usage = None  # Budget alerts.
+        self.learning = None  # Friday: what Bridge learned from your corrections.
         self._last_watch_check = 0.0
 
     async def run(self) -> None:
@@ -63,6 +64,8 @@ class Proactive:
                     await self.repos.check()
                 if self.usage is not None:
                     await self.usage.check_budget()
+                if self.learning is not None:
+                    await self.learning.check()
                 if loop.time() - self._last_watch_check >= WATCH_CHECK_SECONDS:
                     self._last_watch_check = loop.time()
                     await self.check_watches()
