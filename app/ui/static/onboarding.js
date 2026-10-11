@@ -197,12 +197,13 @@
   }
 
   function shortcuts(body) {
-    body.append(...heading(`Step 4 of ${STEPS.length - 2}`, "Three shortcuts, from any app", "Try each one now — it's the fastest way to remember them. They tick themselves when Bridge sees you use them."));
+    body.append(...heading(`Step 4 of ${STEPS.length - 2}`, "Four shortcuts, from any app", "Try each one now — it's the fastest way to remember them. They tick themselves when Bridge sees you use them."));
     const used = state.usage || {};
     for (const [key, combo, name, task] of [
       ["talk", "⌘⇧Space", "Talk to Bridge", "Press it and say “what's on my calendar today?”"],
       ["act", "⌃⌥Space", "Act on what you see", "Select some text anywhere, press it, then choose Summarize."],
       ["dictate", "⌃⌥D", "Dictate anywhere", "Click into a text box, press it and say a sentence."],
+      ["explain", "⌃⌥W", "What's this?", "Point at any toolbar icon and press it: Bridge says what it does."],
     ]) {
       const done = Boolean(used[key]) || tried.has(key);
       const row = node("div", undefined, `ob-try${done ? " tried" : ""}`);
@@ -293,8 +294,10 @@
     card.append(
       line("Talk with Bridge", "“Hey Bridge” or ⌘⇧Space starts a real conversation you can interrupt. Your voice goes to OpenAI while you talk.",
         flip("Talk with Bridge", x.talk, "talk_enabled")),
-      line("Use your Mac", "Bridge can click and type in your apps for a task you give it, and asks before anything important. Screenshots go to OpenAI while it works.",
+      line("Use your Mac & Show me how", "Bridge can do a task in your apps for you (asking before anything important), or show you how, highlighting each step. Screenshots go to OpenAI while it works.",
         flip("Use your Mac", x.operator, "operator_enabled")),
+      line("Bridge on your desk", "Your Bridge in a corner of the screen: your next meeting, what needs you, click to talk. Drag it anywhere.",
+        flip("Bridge on your desk", x.desk, "desk_buddy")),
       line("Bridge on your phone", x.phone ? "On." : "Today, Ask, Inbox and approvals on your iPhone, over your own Tailscale network. Set it up in Settings › Phone.",
         x.phone ? node("span", "✓ On", "pill-state good") : null),
     );

@@ -44,7 +44,13 @@ def test_state_starts_unfinished_without_a_key(setup):
         "evening_time",
     }
     # The newer, optional parts are introduced too (all off until you turn them on).
-    assert data["extras"] == {"talk": False, "operator": False, "phone": False}
+    assert data["extras"] == {
+        "talk": False,
+        "operator": False,
+        "phone": False,
+        "desk": True,
+        "screen": False,
+    }
     names = {p["provider"] for p in data["connections"]["providers"]}
     assert {"jira", "github"} <= names
 
@@ -112,3 +118,25 @@ def test_finishing_is_remembered_and_shortcut_use_is_seen(setup):
         == 422
     )
     assert client.get("/ui/onboarding.js").status_code == 200
+
+
+def test_new_in_bridge_shows_once_to_people_who_already_set_up(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    settings = Settings(_env_file=None, database_path=tmp_path / "db", api_token="local-test-token")
+    agent = build_agent(settings, llm=AsyncMock(), runner=AsyncMock())
+    app = create_app(settings, agent, enable_ui=True)
+    with TestClient(app, base_url="http://127.0.0.1:8000") as client:
+        fresh = client.get("/api/v1/whats-new", headers=headers()).json()
+        assert fresh["show"] is False  # Not before Setup: Setup shows these itself.
+        agent.proactive_store.update_settings(onboarded=True)  # Set up before this version.
+        before = client.get("/api/v1/whats-new", headers=headers()).json()
+        assert before["show"] is True and before["version"] == onboarding.WHATS_NEW
+        assert before["extras"]["desk"] is True and before["extras"]["screen"] is False
+        client.post("/api/v1/whats-new/seen", headers=headers())
+        assert client.get("/api/v1/whats-new", headers=headers()).json()["show"] is False
+
+        # Finishing Setup now counts as having seen what's new.
+        agent.proactive_store.update_settings(onboarded=False, whats_new_seen="")
+        client.post("/api/v1/onboarding/done", json={"done": True}, headers=headers())
+        assert client.get("/api/v1/whats-new", headers=headers()).json()["show"] is False
+        assert "BridgeWhatsNew" in client.get("/ui/whatsnew.js").text

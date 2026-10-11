@@ -19,6 +19,9 @@ PermissionKey = Literal[
 ]
 
 
+WHATS_NEW = "2026.10"  # Bump when the "New in Bridge" card should show again.
+
+
 class KeyInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     key: str = Field(min_length=20, max_length=300, pattern=r"^sk-[A-Za-z0-9_\-]+$")
@@ -121,12 +124,35 @@ def install(app: FastAPI, authorize, settings) -> None:
                     "evening_time",
                 )
             },
-            "extras": {
-                "talk": bool(getattr(settings, "talk_enabled", False)),
-                "operator": bool(getattr(settings, "operator_enabled", False)),
-                "phone": bool(getattr(getattr(agent, "phone", None), "enabled", False)),
-            },
+            "extras": extras(agent),
         }
+
+    def extras(agent) -> dict:
+        from app.assistant.explain import screen_shared
+
+        return {
+            "talk": bool(getattr(settings, "talk_enabled", False)),
+            "operator": bool(getattr(settings, "operator_enabled", False)),
+            "phone": bool(getattr(getattr(agent, "phone", None), "enabled", False)),
+            "desk": bool(getattr(settings, "desk_buddy", True)),
+            "screen": screen_shared(settings),
+        }
+
+    @app.get("/api/v1/whats-new", dependencies=[Depends(authorize)])
+    async def whats_new(request: Request):
+        """New features, shown once on Today to people who finished Setup before them."""
+        agent = request.app.state.agent
+        days = agent.proactive_store.settings()
+        return {
+            "version": WHATS_NEW,
+            "show": bool(days.get("onboarded")) and days.get("whats_new_seen") != WHATS_NEW,
+            "extras": extras(agent),
+        }
+
+    @app.post("/api/v1/whats-new/seen", dependencies=[Depends(authorize)])
+    async def whats_new_seen(request: Request):
+        request.app.state.agent.proactive_store.update_settings(whats_new_seen=WHATS_NEW)
+        return {"seen": WHATS_NEW}
 
     @app.post("/api/v1/onboarding/openai-key", dependencies=[Depends(authorize)])
     async def save_key(payload: KeyInput, request: Request):
@@ -177,5 +203,8 @@ def install(app: FastAPI, authorize, settings) -> None:
 
     @app.post("/api/v1/onboarding/done", dependencies=[Depends(authorize)])
     async def done(payload: DoneInput, request: Request):
-        request.app.state.agent.proactive_store.update_settings(onboarded=payload.done)
+        # Setup already shows what's new, so the Today card doesn't repeat it.
+        request.app.state.agent.proactive_store.update_settings(
+            onboarded=payload.done, whats_new_seen=WHATS_NEW
+        )
         return {"done": payload.done}

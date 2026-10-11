@@ -26,6 +26,7 @@
   <script src="/ui/brief.js" defer></script>
   <script src="/ui/report.js" defer></script>
   <script src="/ui/recipes.js" defer></script>
+  <script src="/ui/whatsnew.js" defer></script>
   <script src="/ui/work.js" defer></script>
   <script src="/ui/talk.js" defer></script>
   <script src="/ui/apps.js" defer></script>
@@ -125,6 +126,10 @@
             <button type="button" data-ask="What's on my calendar this week?">This week</button>
           </div>
         </form>
+        <section id="whats-new" class="card whats-new" aria-labelledby="whats-new-title" hidden>
+          <div class="card-head"><div><p class="label">New in Bridge</p><h2 id="whats-new-title">A few things you can try</h2></div><button type="button" id="whats-new-close" class="ghost small">Got it</button></div>
+          <div id="whats-new-tiles" class="wn-tiles"></div>
+        </section>
         <section id="brief-card" class="card brief" aria-labelledby="brief-title" hidden>
           <div class="brief-head"><p id="brief-label" class="label"></p><button type="button" id="brief-refresh" class="link small">Refresh</button><button type="button" id="brief-hide" class="ghost small" aria-label="Hide until tomorrow">×</button></div>
           <h2 id="brief-title"></h2>

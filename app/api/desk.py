@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -35,6 +37,9 @@ def install(app: FastAPI, authorize) -> None:
 
     @app.post("/api/v1/explain/look", dependencies=[Depends(authorize)])
     async def look(payload: Point, request: Request):
+        usage = getattr(request.app.state, "usage", None)
+        if usage is not None:
+            usage["explain"] = time.time()  # Setup ticks the shortcut off.
         try:
             return await explainer(request).look(payload.x, payload.y)
         except ExplainError as exc:

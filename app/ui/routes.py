@@ -142,6 +142,10 @@ def install_ui(app: FastAPI) -> None:
     async def work_js():
         return FileResponse(STATIC / "work.js", media_type="text/javascript")
 
+    @app.get("/ui/whatsnew.js", include_in_schema=False)
+    async def whatsnew_js():
+        return FileResponse(STATIC / "whatsnew.js", media_type="text/javascript")
+
     @app.get("/ui/recipes.js", include_in_schema=False)
     async def recipes_js():
         return FileResponse(STATIC / "recipes.js", media_type="text/javascript")

@@ -33,6 +33,7 @@ DEFAULTS = {
     "weekly_report": True,
     "weekly_report_time": "16:00",
     "weekly_report_to": "",
+    "whats_new_seen": "",
 }
 
 

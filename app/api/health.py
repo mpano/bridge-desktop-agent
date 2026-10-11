@@ -407,6 +407,194 @@ def install(app: FastAPI, authorize, settings) -> None:
                     )
                 )
 
+        # Automations ----------------------------------------------------------------------
+        automations = {"label": "Automations", "view": "automations"}
+        controller = getattr(agent, "proactive_controller", None)
+        recipes = getattr(agent, "recipes", None)
+        if controller is not None and store is not None:
+            owned = recipes.watch_ids() if recipes is not None else set()
+            watches = [w for w in store.watches() if w.id not in owned]
+            broken = [w for w in watches if w.last_error]
+            if not watches:
+                add(
+                    item(
+                        "Automations",
+                        "watchers",
+                        "Watchers",
+                        "off",
+                        "Not watching anything. Try “tell me when PR 412 is merged”.",
+                        automations,
+                    )
+                )
+            elif broken:
+                add(
+                    item(
+                        "Automations",
+                        "watchers",
+                        "Watchers",
+                        "warn",
+                        f"“{broken[0].label}” can't be checked: {broken[0].last_error}",
+                        automations,
+                    )
+                )
+            else:
+                add(
+                    item(
+                        "Automations",
+                        "watchers",
+                        "Watchers",
+                        "ok",
+                        f"Watching {len(watches)} thing{'s' if len(watches) > 1 else ''}.",
+                    )
+                )
+        if recipes is not None:
+            listed = recipes.overview()
+            failed = [
+                r
+                for r in listed["recent"]
+                if r["status"] == "failed" and time.time() - (r["decided"] or 0) < 86400
+            ]
+            problems = [r for r in listed["recipes"] if r["problem"]]
+            if not listed["recipes"]:
+                add(
+                    item("Automations", "recipes", "Recipes", "off", "No recipes yet.", automations)
+                )
+            elif problems:
+                add(
+                    item(
+                        "Automations",
+                        "recipes",
+                        "Recipes",
+                        "warn",
+                        f"“{problems[0]['name']}”: {problems[0]['problem']}",
+                        automations,
+                    )
+                )
+            elif failed:
+                add(
+                    item(
+                        "Automations",
+                        "recipes",
+                        "Recipes",
+                        "warn",
+                        f"“{failed[0]['recipe']}” didn't finish: {failed[0]['result']}",
+                        automations,
+                    )
+                )
+            elif listed["waiting"]:
+                add(
+                    item(
+                        "Automations",
+                        "recipes",
+                        "Recipes",
+                        "warn",
+                        f"{len(listed['waiting'])} waiting for your OK.",
+                        {"label": "Today", "view": "today"},
+                    )
+                )
+            else:
+                n = len(listed["recipes"])
+                add(
+                    item(
+                        "Automations",
+                        "recipes",
+                        "Recipes",
+                        "ok",
+                        f"{n} recipe{'s' if n > 1 else ''}, all fine.",
+                    )
+                )
+        if store is not None and getattr(agent, "reports", None) is not None:
+            s = store.settings()
+            on = s.get("weekly_report")
+            add(
+                item(
+                    "Automations",
+                    "report",
+                    "Weekly report",
+                    "ok" if on else "off",
+                    f"Drafted Fridays at {s.get('weekly_report_time', '16:00')}." if on else "Off.",
+                    None if on else automations,
+                )
+            )
+
+        # On your Mac ------------------------------------------------------------------------
+        guides = getattr(agent, "guides", None)
+        if guides is not None and operator is not None:
+            if not operator.enabled:
+                add(
+                    item(
+                        "On your Mac",
+                        "guide",
+                        "Show me how",
+                        "off",
+                        "Needs “Use your Mac” (Bridge has to see the screen).",
+                        {"label": "Turn on", "view": "settings", "section": "operator"},
+                    )
+                )
+            else:
+                last = guides.recent()[:1]
+                failed = last and last[0]["status"] == "failed"
+                add(
+                    item(
+                        "On your Mac",
+                        "guide",
+                        "Show me how",
+                        "warn" if failed else "ok",
+                        "The last guide stopped early. Try again."
+                        if failed
+                        else "Ready: “show me how to …”.",
+                    )
+                )
+        if getattr(agent, "explainer", None) is not None:
+            from app.assistant.explain import screen_shared
+
+            if not getattr(settings, "explain_shortcut_enabled", True):
+                add(
+                    item(
+                        "On your Mac",
+                        "explain",
+                        "What's this? (⌃⌥W)",
+                        "off",
+                        "Shortcut off.",
+                        {"label": "Shortcuts", "view": "settings", "section": "shortcuts"},
+                    )
+                )
+            elif not screen_shared(settings):
+                add(
+                    item(
+                        "On your Mac",
+                        "explain",
+                        "What's this? (⌃⌥W)",
+                        "warn",
+                        "Needs your OK to show OpenAI what's on screen.",
+                        {"label": "Privacy", "view": "settings", "section": "privacy"},
+                    )
+                )
+            else:
+                add(
+                    item(
+                        "On your Mac",
+                        "explain",
+                        "What's this? (⌃⌥W)",
+                        "ok",
+                        "Point at anything and press ⌃⌥W.",
+                    )
+                )
+        if getattr(agent, "buddy", None) is not None:
+            on = bool(getattr(settings, "desk_buddy", True))
+            add(
+                item(
+                    "On your Mac",
+                    "desk",
+                    "Bridge on your desk",
+                    "ok" if on else "off",
+                    "In the corner of your screen. Drag it anywhere." if on else "Hidden.",
+                    None
+                    if on
+                    else {"label": "Shortcuts", "view": "settings", "section": "shortcuts"},
+                )
+            )
+
         summary = {
             "errors": sum(c["state"] == "error" for c in checks),
             "warnings": sum(c["state"] == "warn" for c in checks),
