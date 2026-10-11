@@ -20,6 +20,7 @@ from app.api.mcp import install as install_mcp
 from app.api.onboarding import install as install_onboarding
 from app.api.operator import install as install_operator
 from app.api.phone import install as install_phone
+from app.api.reports import install as install_reports
 from app.api.schemas import (
     AgentResponse,
     ChatDelete,
@@ -220,6 +221,7 @@ def create_app(
     install_today(app, authorize)
     install_commitments(app, authorize)
     install_briefs(app, authorize)
+    install_reports(app, authorize)
     install_work(app, authorize)
     install_talk(app, authorize, from_phone)
     install_operator(app, authorize)

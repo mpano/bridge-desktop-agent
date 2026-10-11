@@ -16,6 +16,7 @@ from app.assistant.focus import FocusMode, FocusStore
 from app.assistant.learning import Learning
 from app.assistant.operator import Operator
 from app.assistant.replies import ReplyDrafter
+from app.assistant.reports import Reports
 from app.assistant.slack_triage import SlackInbox
 from app.assistant.talk import Talk
 from app.assistant.triage import InboxTriage
@@ -55,6 +56,7 @@ from app.tools.productivity import (
 )
 from app.tools.productivity import commitments as commitment_tools
 from app.tools.productivity import memory as memory_tools
+from app.tools.productivity import report as report_tools
 from app.tools.registry import ToolRegistry
 from app.tools.screen import context as screen_context
 from app.tools.screen import screenshot
@@ -379,6 +381,22 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     agent.watchers = watchers
     agent.proactive.watchers = watchers
     proactive_controller.watchers = watchers
+    reports = Reports(
+        settings.database_path,
+        llm=llm,
+        proactive_store=proactive_store,
+        commitments=commitments,
+        calendar=calendar_controller,
+        github=github,
+        jira=jira,
+        gmail=gmail_service,
+        slack=SlackService(accounts) if connected else None,
+    )
+    reports.notify = notify
+    reports.usage = usage
+    report_tools.register(registry, reports)
+    agent.reports = reports
+    agent.proactive.reports = reports
     proactive_controller.proactive = agent.proactive
     prompts.lessons_provider = learning.lessons
     return agent

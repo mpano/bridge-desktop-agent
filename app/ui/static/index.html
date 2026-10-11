@@ -24,6 +24,7 @@
   <script src="/ui/onboarding.js" defer></script>
   <script src="/ui/promises.js" defer></script>
   <script src="/ui/brief.js" defer></script>
+  <script src="/ui/report.js" defer></script>
   <script src="/ui/work.js" defer></script>
   <script src="/ui/talk.js" defer></script>
   <script src="/ui/apps.js" defer></script>
@@ -127,6 +128,10 @@
           <div class="brief-head"><p id="brief-label" class="label"></p><button type="button" id="brief-refresh" class="link small">Refresh</button><button type="button" id="brief-hide" class="ghost small" aria-label="Hide until tomorrow">×</button></div>
           <h2 id="brief-title"></h2>
           <div id="brief-body"></div>
+        </section>
+        <section id="report-card" class="card report" aria-labelledby="report-label" hidden>
+          <div class="brief-head"><p id="report-label" class="label"></p><button type="button" id="report-rewrite" class="link small">Rewrite</button><button type="button" id="report-hide" class="ghost small" aria-label="Hide this week's report">×</button></div>
+          <div id="report-body"></div>
         </section>
         <div class="today-grid">
           <section class="card day" aria-labelledby="day-title">

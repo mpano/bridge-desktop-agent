@@ -50,6 +50,7 @@ class Proactive:
         self.usage = None  # Budget alerts.
         self.learning = None  # Friday: what Bridge learned from your corrections.
         self.watchers = None  # GitHub, Jira and app watchers (app/assistant/watchers.py).
+        self.reports = None  # Friday: the weekly report draft.
         self._last_watch_check = 0.0
 
     async def run(self) -> None:
@@ -69,6 +70,8 @@ class Proactive:
                     await self.usage.check_budget()
                 if self.learning is not None:
                     await self.learning.check()
+                if self.reports is not None:
+                    await self.reports.check()
                 if loop.time() - self._last_watch_check >= WATCH_CHECK_SECONDS:
                     self._last_watch_check = loop.time()
                     await self.check_watches()

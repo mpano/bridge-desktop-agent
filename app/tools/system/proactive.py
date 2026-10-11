@@ -127,8 +127,10 @@ class SettingsInput(Input):
     morning_time: str | None = Field(default=None, description="24-hour HH:MM")
     work_start: str | None = Field(default=None, description="Workday start, 24-hour HH:MM")
     work_end: str | None = Field(default=None, description="Workday end, 24-hour HH:MM")
+    weekly_report: bool | None = Field(default=None, description="Friday weekly report draft")
+    weekly_report_time: str | None = Field(default=None, description="Friday, 24-hour HH:MM")
 
-    @field_validator("evening_time", "morning_time", "work_start", "work_end")
+    @field_validator("evening_time", "morning_time", "work_start", "work_end", "weekly_report_time")
     @classmethod
     def clock(cls, value):
         if value is None:

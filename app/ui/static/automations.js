@@ -105,6 +105,11 @@
     evening.append(node("span", "Weekdays at"), timeInput("Evening wrap-up time", s.evening_time, (value) => save({evening_time: value})));
     grid.append(routine("Evening wrap-up", "What got done, what slipped (move it to tomorrow with one tap) and tomorrow at a glance, so you can close the day.", s.evening_summary, "evening_summary", evening));
 
+    const weekly = node("div", undefined, "routine-setting");
+    weekly.append(node("span", "Fridays at"), timeInput("Weekly report time", s.weekly_report_time, (value) => save({weekly_report_time: value})),
+      button("Open this week's", "link small", () => window.BridgeReport && window.BridgeReport.open()));
+    grid.append(routine("Weekly report", "Bridge drafts your status update from what you merged, reviewed and closed and the promises you kept. You edit it, then copy it or send it to Slack or email.", s.weekly_report, "weekly_report", weekly));
+
     const hours = node("div", undefined, "routine-setting");
     const from = timeInput("Workday starts", s.work_start, (value) => save({work_start: value}));
     const to = timeInput("Workday ends", s.work_end, (value) => save({work_end: value}));

@@ -30,6 +30,9 @@ DEFAULTS = {
     "morning_schedule_id": 0,
     "onboarded": False,
     "briefs_v1": False,
+    "weekly_report": True,
+    "weekly_report_time": "16:00",
+    "weekly_report_to": "",
 }
 
 

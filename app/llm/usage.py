@@ -66,6 +66,7 @@ TASKS = {
     "drafts": ("Reply drafts", "smart"),
     "screen": ("Reading your screen", "smart"),
     "learning": ("Learning from your corrections", "smart"),
+    "report": ("Weekly report", "smart"),
     "inbox": ("Sorting email", "fast"),
     "slack": ("Sorting Slack", "fast"),
     "promises": ("Finding promises", "fast"),

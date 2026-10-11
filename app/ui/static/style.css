@@ -1643,3 +1643,24 @@ body.phone .talk-sheet { padding: 12px 12px calc(88px + env(safe-area-inset-bott
   .voice-card { gap: 10px; padding: 10px; }
   .voice-face { width: 44px; height: 44px; }
 }
+
+/* Weekly report */
+.report .brief-head { display: flex; align-items: center; gap: 8px; }
+.report .brief-head .label { flex: 1; margin: 0; }
+.report-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding-top: 6px; }
+.report-empty .hint { margin: 0; }
+.report-stats { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+.report-stat { padding: 4px 10px; border-radius: 99px; background: var(--inset); border: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+.report-stat strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.report-text { width: 100%; min-height: 160px; resize: vertical; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--inset); color: var(--text); font: 14px/1.55 inherit; font-family: inherit; box-sizing: border-box; }
+.report-text:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus); }
+.report-links { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 8px; font-size: 12px; }
+.report-link { color: var(--accent); text-decoration: none; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.report-link:hover { text-decoration: underline; }
+.report-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.report-saved { flex: 1; font-size: 12px; min-width: 120px; }
+.report-send { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.report-to { width: 230px; max-width: 100%; }
+.report-confirm { font-size: 13px; font-weight: 600; }
+.report-sent { margin: 10px 0 0; font-size: 12.5px; color: var(--green); }
+body.phone .report-to { width: 100%; }
