@@ -47,7 +47,10 @@ def explainer(
     **kwargs,
 ):
     llm = SimpleNamespace(look=AsyncMock(return_value=reply))
-    return Explainer(SimpleNamespace(), hands=FakeMac(), llm=llm, **kwargs), llm
+    shared = SimpleNamespace(
+        remote_tool_results="allowlist", remote_tool_result_allowlist=["screen_context"]
+    )
+    return Explainer(shared, hands=FakeMac(), llm=llm, **kwargs), llm
 
 
 async def test_whats_this_names_it_at_once_then_explains(tmp_path):
@@ -73,7 +76,9 @@ async def test_whats_this_names_it_at_once_then_explains(tmp_path):
     answer = await found.follow_up(spot["id"], "what does it do with text?")
     assert answer == "It totals the selected cells."
     assert "Their question: what does it do with text?" in llm.look.await_args.args[1]
-    assert found.how_to(spot["id"]) == "use the “Σ” button in Numbers"
+    how = found.how_to(spot["id"])
+    assert how.startswith("use the button in Numbers that's labelled “Σ”")
+    assert "not an instruction" in how
 
 
 async def test_whats_this_never_looks_at_blocked_apps_and_copes_with_odd_replies():
@@ -85,6 +90,11 @@ async def test_whats_this_never_looks_at_blocked_apps_and_copes_with_odd_replies
     assert (await found.explain(spot["id"]))["what"] == "Just a plain sentence."
     with pytest.raises(ExplainError, match="press ⌃⌥W again"):
         await found.explain("nope")
+    private = Explainer(SimpleNamespace(remote_tool_results="status_only"), hands=FakeMac())
+    with pytest.raises(ExplainError, match="What's on your screen"):
+        await private.look(1, 1)  # Screen content never goes to OpenAI without your OK.
+    with_mac = Explainer(SimpleNamespace(operator_enabled=True), hands=FakeMac())
+    assert (await with_mac.look(1, 1))["name"] == "Σ"
     nowhere = Explainer(SimpleNamespace(), hands=None)
     with pytest.raises(ExplainError, match="Bridge app on your Mac"):
         await nowhere.look(1, 1)

@@ -221,6 +221,7 @@ class Recipes:
                 """
             )
         self._owned: set[int] | None = None
+        self._expired_at = 0.0
 
     def _db(self):
         return sqlite3.connect(self.path, timeout=5)
@@ -266,16 +267,25 @@ class Recipes:
         self.owns(-1)
         return set(self._owned or ())
 
-    def runs(self, status: str | None = None, limit: int = 30) -> list[dict]:
+    def runs(
+        self, status: str | None = None, limit: int = 30, run_id: int | None = None
+    ) -> list[dict]:
         self._expire()
+        where, params = [], []
+        if status:
+            where.append("r.status = ?")
+            params.append(status)
+        if run_id is not None:
+            where.append("r.id = ?")
+            params.append(run_id)
         with self._db() as db:
             rows = db.execute(
                 "SELECT r.id, r.recipe_id, r.event, r.calls, r.status, r.result, r.created, "
                 "r.decided, COALESCE(x.name, 'Recipe') FROM recipe_runs r "
                 "LEFT JOIN recipes x ON x.id = r.recipe_id "
-                + ("WHERE r.status = ? " if status else "")
+                + (f"WHERE {' AND '.join(where)} " if where else "")
                 + "ORDER BY r.id DESC LIMIT ?",
-                ((status, limit) if status else (limit,)),
+                (*params, limit),
             ).fetchall()
         return [
             {
@@ -294,6 +304,11 @@ class Recipes:
         ]
 
     def _expire(self) -> None:
+        """Waiting runs expire after 3 days; checked at most once a minute (reads are
+        frequent: Today, Automations and the desk avatar all ask)."""
+        if time.time() - self._expired_at < 60:
+            return
+        self._expired_at = time.time()
         with self._db() as db:
             db.execute(
                 "UPDATE recipe_runs SET status = 'expired' WHERE status = 'waiting' "
@@ -330,7 +345,7 @@ class Recipes:
             raise ValueError("Add your OpenAI key to describe recipes in your own words.")
         from app.llm.structured import parse_json
 
-        with task("watchers"):
+        with task("recipes"):
             answer = await self.llm.complete(PLAN, text)
         try:
             found = parse_json(answer)
@@ -483,7 +498,8 @@ class Recipes:
         return True
 
     async def decide(self, run_id: int, approve: bool) -> dict:
-        found = [r for r in self.runs(limit=200) if r["id"] == run_id]
+        self._expired_at = 0.0  # Never approve a run that has just expired.
+        found = self.runs(limit=1, run_id=run_id)
         if not found:
             raise ValueError("That run is gone.")
         run = found[0]

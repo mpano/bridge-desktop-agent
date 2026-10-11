@@ -536,10 +536,21 @@ class Guides:
                 if command in {"stop", "rest"}:
                     return command
                 if command == "do":
-                    await self._do(action, scale)
+                    try:
+                        await self._do(action, scale)
+                    except OperatorError as exc:
+                        # Bridge won't do this one (a password field, an app it never
+                        # operates): say so and keep guiding; you can still do it yourself.
+                        guide.note = str(exc)
+                        await self._overlay(step)
+                        before = await asyncio.to_thread(self.hands.activity)
+                        continue
                     break
             now = await asyncio.to_thread(self.hands.activity)
-            clicked = now["clicks"] > before["clicks"] and not await self._on_panel()
+            clicked = now["clicks"] > before["clicks"]
+            if clicked and await self._on_panel():
+                # A click on the guide panel (Read aloud, Copy…) isn't the step.
+                before["clicks"], clicked = now["clicks"], False
             keyed = now["keys"] > before["keys"]
             scrolled = now["scrolls"] > before["scrolls"]
             if kind in {"click", "double_click", "drag"} and clicked:
@@ -557,8 +568,8 @@ class Guides:
                     last_keys, typed_at = now["keys"], time.time()
                 elif time.time() - typed_at > TYPING_PAUSE:
                     break
-            if kind in {"click", "double_click", "drag"} and keyed:
-                break  # You did it with the keyboard (e.g. the shortcut): fine.
+            if kind in {"click", "double_click"} and keyed and step.get("tip"):
+                break  # A menu item with a shortcut: you used the shortcut instead. Fine.
             if time.time() - idle_since > IDLE_SECONDS:
                 return "stop"
             try:

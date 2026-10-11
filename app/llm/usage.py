@@ -73,6 +73,7 @@ TASKS = {
     "promises": ("Finding promises", "fast"),
     "brief": ("Morning brief", "fast"),
     "watchers": ("Watchers", "fast"),
+    "recipes": ("Creating recipes", "smart"),
     "text": ("Dictation and text actions", "fast"),
     "talk": ("Conversations (voice)", "voice"),
     "operator": ("Using your Mac", "operator"),

@@ -70,10 +70,19 @@ window.BridgeAvatar = (() => {
     }
     paint(colors);
 
+    // Smooth (every frame) only while sound is moving the face; otherwise ~12 frames a
+    // second, plenty for breathing and blinking. Hidden: just check back now and then.
+    const LIVELY = new Set(["speaking", "hearing", "listening"]);
+    function next(delay) {
+      if (!running) return;
+      if (delay) setTimeout(() => requestAnimationFrame(frame), delay);
+      else requestAnimationFrame(frame);
+    }
+
     function frame(now) {
       if (!running) return;
       if (!svg.isConnected || !svg.getClientRects().length) {  // Hidden: skip the drawing.
-        requestAnimationFrame(frame);
+        next(500);
         return;
       }
       const t = now / 1000;
@@ -115,7 +124,7 @@ window.BridgeAvatar = (() => {
       ring.setAttribute("transform", `translate(60 60) scale(${grow.toFixed(4)}) translate(-60 -60)`);
       ring.setAttribute("opacity", hearing ? (0.25 + shown * 0.6).toFixed(2) : state === "speaking" ? "0.25" : "0.12");
       svg.classList.toggle("dim", state === "muted" || state === "ended" || state === "failed");
-      requestAnimationFrame(frame);
+      next(LIVELY.has(state) ? 0 : 80);
     }
     requestAnimationFrame(frame);
 

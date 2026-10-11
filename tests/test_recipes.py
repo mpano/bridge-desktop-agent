@@ -139,6 +139,7 @@ async def test_automatic_skip_pause_and_expiry(bridge):
     await proactive.check_watches()
     with sqlite3.connect(bridge.config.database_path) as db:
         db.execute("UPDATE recipe_runs SET created = ?", (time.time() - 4 * 86400,))
+    recipes._expired_at = 0.0  # A minute later (expiry is checked at most once a minute).
     assert recipes.overview()["waiting"] == []
     assert recipes.runs(limit=1)[0]["status"] == "expired"
 

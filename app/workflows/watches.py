@@ -74,6 +74,7 @@ class Watch:
 class ProactiveStore:
     def __init__(self, path: Path | str):
         self.path = str(path)
+        self._pruned_at = 0.0
         with self._db() as db:
             db.executescript(
                 """
@@ -141,10 +142,12 @@ class ProactiveStore:
     def watches(self, *, everything: bool = False) -> list[Watch]:
         """Active watches; with everything=True also the ones that finished recently."""
         with self._db() as db:
-            db.execute(
-                "DELETE FROM watches WHERE status != 'active' AND COALESCE(fired_at, ?) < ?",
-                (time.time(), time.time() - HISTORY_DAYS * 86400),
-            )
+            if time.time() - self._pruned_at > 3600:  # Old finished watches, hourly.
+                self._pruned_at = time.time()
+                db.execute(
+                    "DELETE FROM watches WHERE status != 'active' AND COALESCE(fired_at, ?) < ?",
+                    (time.time(), time.time() - HISTORY_DAYS * 86400),
+                )
             rows = db.execute(
                 f"SELECT {self.COLUMNS} FROM watches "
                 + ("" if everything else "WHERE status = 'active' ")
