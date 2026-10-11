@@ -65,6 +65,7 @@ TASKS = {
     "plan": ("Planning your day", "smart"),
     "drafts": ("Reply drafts", "smart"),
     "screen": ("Reading your screen", "smart"),
+    "explain": ("What's this?", "smart"),
     "learning": ("Learning from your corrections", "smart"),
     "report": ("Weekly report", "smart"),
     "inbox": ("Sorting email", "fast"),

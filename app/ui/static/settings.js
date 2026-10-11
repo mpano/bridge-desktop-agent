@@ -104,11 +104,15 @@
       row("Talk to Bridge", "Starts listening right away, from any app.", node("span", undefined, "set-end")),
       row("Act on what you see", "Summarize, translate or rewrite the selected text — or the whole window.", node("span", undefined, "set-end")),
       row("Dictate", "Speak, and Bridge types clean text where your cursor is.", node("span", undefined, "set-end")),
+      row("What's this?", "Point at anything on screen and Bridge explains what it is and what it does.", node("span", undefined, "set-end")),
+      row("Bridge on your desk", "Your Bridge in a corner of the screen: next meeting, what needs you, click to talk. Drag it anywhere.", node("span", undefined, "set-end")),
     );
     const rows = $("settings-shortcuts").children;
     rows[0].lastChild.append(keys("⌘", "⇧", "Space"), toggle("Talk to Bridge shortcut", s.voice, (on) => save({voice_shortcut: on})));
     rows[1].lastChild.append(keys("⌃", "⌥", "Space"), toggle("Act on what you see shortcut", s.text_actions, (on) => save({text_actions_shortcut: on})));
     rows[2].lastChild.append(keys("⌃", "⌥", "D"), toggle("Dictate shortcut", s.dictation, (on) => save({dictation_shortcut: on})));
+    rows[3].lastChild.append(keys("⌃", "⌥", "W"), toggle("What's this? shortcut", s.explain, (on) => save({explain_shortcut: on})));
+    rows[4].lastChild.append(toggle("Bridge on your desk", s.desk_buddy, (on) => save({desk_buddy: on})));
   }
 
   // Bridge's voice: a card for each voice with its face, how it sounds and a ▶ to hear it.

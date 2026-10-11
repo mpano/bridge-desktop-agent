@@ -79,6 +79,27 @@ class OpenAILLMClient:
         self._record(name, model, response)
         return response.output_text.strip()
 
+    async def look(self, instructions: str, text: str, png: bytes) -> str:
+        """One plain answer about a picture and some words. Nothing is stored."""
+        image = "data:image/png;base64," + base64.b64encode(png).decode()
+        name, model = self._model()
+        response = await self._openai().responses.create(
+            model=model,
+            instructions=instructions,
+            input=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": text},
+                        {"type": "input_image", "image_url": image, "detail": "high"},
+                    ],
+                }
+            ],
+            store=False,
+        )
+        self._record(name, model, response)
+        return response.output_text.strip()
+
     async def generate_response(self, history, tools):
         self._openai()
         name, model = self._model()

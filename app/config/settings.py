@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     dictation_shortcut_enabled: bool = True
     # ⌥Space: the command bar, to ask Bridge from any app.
     command_bar_shortcut_enabled: bool = True
+    # ⌃⌥W: "What's this?" - explain whatever is under the pointer.
+    explain_shortcut_enabled: bool = True
+    # Bridge's avatar in a corner of the screen (meetings, what needs you, click to talk).
+    desk_buddy: bool = True
     dictation_cleanup: bool = True
     dictation_max_seconds: float = Field(default=120, ge=10, le=300)
     dictation_pause_seconds: float = Field(default=2.5, ge=1, le=10)

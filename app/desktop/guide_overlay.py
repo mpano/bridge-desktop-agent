@@ -159,7 +159,8 @@ class GuideOverlay:
         tip = step.get("tip") or ""
         if step.get("keys"):
             tip = tip or "Press the keys together"
-        layers.append(self._label(f"{step.get('n', '')}. {text}", tip, near, screen))
+        if text:  # "What's this?" highlights without a label (its card says it all).
+            layers.append(self._label(f"{step.get('n', '')}. {text}", tip, near, screen))
         for item in layers:
             layer.addSublayer_(item)
         self.window.orderFrontRegardless()

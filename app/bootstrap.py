@@ -9,9 +9,11 @@ from app.agent.planner import Planner
 from app.agent.proactive import Proactive
 from app.agent.scheduler import Scheduler
 from app.assistant.briefs import Briefs
+from app.assistant.buddy import Buddy
 from app.assistant.chats import ChatStore
 from app.assistant.commitments import CommitmentStore, CommitmentTracker
 from app.assistant.day_plan import DayPlanner
+from app.assistant.explain import Explainer
 from app.assistant.focus import FocusMode, FocusStore
 from app.assistant.guide import Guides
 from app.assistant.learning import Learning
@@ -298,7 +300,10 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
 
     agent.phone = PhoneAccess(settings.database_path)
 
+    agent.buddy = Buddy(agent, settings)
+
     async def notify(title: str, message: str, view: str = "today") -> None:
+        agent.buddy.heard(title, message, view)  # The desk avatar reacts.
         await notifications.post_notification(runner, title, message, view)
         await agent.phone.notify(title, message, view)  # When you're away from the Mac.
 
@@ -370,6 +375,9 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     )
     agent.guides.executor = agent.executor
     guide_tools.register(registry, agent.guides)
+    agent.explainer = Explainer(
+        settings, hands=agent.operator.hands, llm=llm, blocked=agent.operator.blocked
+    )
     agent.briefs = briefs
     agent.proactive.briefs = briefs
     try:

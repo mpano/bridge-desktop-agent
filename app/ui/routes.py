@@ -94,6 +94,22 @@ def install_ui(app: FastAPI) -> None:
     async def operator_js():
         return FileResponse(STATIC / "operator.js", media_type="text/javascript")
 
+    @app.get("/ui/explain.js", include_in_schema=False)
+    async def explain_js():
+        return FileResponse(STATIC / "explain.js", media_type="text/javascript")
+
+    @app.get("/ui/explain.html", include_in_schema=False)
+    async def explain_html():
+        return FileResponse(STATIC / "explain.html")
+
+    @app.get("/ui/buddy.js", include_in_schema=False)
+    async def buddy_js():
+        return FileResponse(STATIC / "buddy.js", media_type="text/javascript")
+
+    @app.get("/ui/buddy.html", include_in_schema=False)
+    async def buddy_html():
+        return FileResponse(STATIC / "buddy.html")
+
     @app.get("/ui/guide.js", include_in_schema=False)
     async def guide_js():
         return FileResponse(STATIC / "guide.js", media_type="text/javascript")

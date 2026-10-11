@@ -41,6 +41,8 @@ class AppSettings(BaseModel):
     voice_shortcut: bool | None = None
     text_actions_shortcut: bool | None = None
     dictation_shortcut: bool | None = None
+    explain_shortcut: bool | None = None
+    desk_buddy: bool | None = None
     dictation_cleanup: bool | None = None
     dictation_pause_seconds: float | None = Field(default=None, ge=1, le=10)
     speech: Literal["local", "openai"] | None = None
@@ -94,6 +96,8 @@ def install(app: FastAPI, authorize, settings) -> None:
                 "voice": settings.voice_shortcut_enabled,
                 "text_actions": settings.text_actions_shortcut_enabled,
                 "dictation": settings.dictation_shortcut_enabled,
+                "explain": settings.explain_shortcut_enabled,
+                "desk_buddy": settings.desk_buddy,
             },
             "voice": {
                 "talk_enabled": settings.talk_enabled,
@@ -143,6 +147,8 @@ def install(app: FastAPI, authorize, settings) -> None:
         flag = lambda value: "true" if value else "false"  # noqa: E731
         if payload.voice_shortcut is not None:
             changes["VOICE_SHORTCUT_ENABLED"] = flag(payload.voice_shortcut)
+        if payload.explain_shortcut is not None:
+            changes["EXPLAIN_SHORTCUT_ENABLED"] = flag(payload.explain_shortcut)
         if payload.text_actions_shortcut is not None:
             changes["TEXT_ACTIONS_SHORTCUT_ENABLED"] = flag(payload.text_actions_shortcut)
         if payload.dictation_shortcut is not None:
@@ -181,6 +187,7 @@ def install(app: FastAPI, authorize, settings) -> None:
             ("operator_enabled", "OPERATOR_ENABLED"),
             ("operator_ask", "OPERATOR_ASK"),
             ("learning_enabled", "LEARNING_ENABLED"),
+            ("desk_buddy", "DESK_BUDDY"),
         ):
             value = getattr(payload, field)
             if value is not None:

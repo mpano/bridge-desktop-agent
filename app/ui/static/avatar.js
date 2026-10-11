@@ -51,7 +51,9 @@ window.BridgeAvatar = (() => {
     const mouth = el("rect", {x: 51, y: 72, width: 18, height: 4, rx: 2, fill: "#fff", opacity: 0.92});
     face.append(left, right, mouth);
     head.append(ball, shine, face);
-    svg.append(defs, ring, head);
+    const snore = el("text", {x: 88, y: 30, "font-size": 16, "font-weight": 700, fill: "#fff", opacity: 0, class: "avatar-z"});
+    snore.textContent = "z";
+    svg.append(defs, ring, head, snore);
     container.replaceChildren(svg);
 
     let state = "idle";
@@ -81,11 +83,12 @@ window.BridgeAvatar = (() => {
       else if (state === "speaking") target = 0.35 + 0.25 * Math.abs(Math.sin(t * 7.3)) * Math.abs(Math.sin(t * 3.1));
       shown += (target - shown) * 0.35;
 
-      // Breathing, and a lean when speaking.
-      const breathe = state === "speaking" ? 1 + shown * 0.05 : 1 + Math.sin(t * 1.6) * 0.012;
+      const asleep = state === "sleeping";
+      // Breathing (slow when asleep), and a lean when speaking.
+      const breathe = state === "speaking" ? 1 + shown * 0.05 : 1 + Math.sin(t * (asleep ? 0.8 : 1.6)) * (asleep ? 0.02 : 0.012);
       head.setAttribute("transform", `translate(60 60) scale(${breathe.toFixed(4)}) translate(-60 -60)`);
       // Mouth: open with the voice; a small smile otherwise.
-      const open = state === "speaking" ? 4 + shown * 16 : state === "thinking" || state === "working" ? 3 : 4;
+      const open = state === "speaking" ? 4 + shown * 16 : state === "thinking" || state === "working" || asleep ? 3 : 4;
       mouth.setAttribute("height", open.toFixed(2));
       mouth.setAttribute("y", (74 - open / 2).toFixed(2));
       mouth.setAttribute("width", state === "speaking" ? (16 + shown * 6).toFixed(2) : "18");
@@ -94,8 +97,10 @@ window.BridgeAvatar = (() => {
       const look = state === "thinking" || state === "working" || state === "connecting"
         ? `translate(${(3 + Math.sin(t * 2) * 1.5).toFixed(2)} -4)` : "translate(0 0)";
       face.setAttribute("transform", look);
-      let eye = 13;
-      if (now > blinkAt) {
+      let eye = asleep ? 2 : 13;
+      snore.setAttribute("opacity", asleep ? (0.35 + 0.35 * Math.sin(t * 1.2)).toFixed(2) : "0");
+      snore.setAttribute("y", asleep ? (30 - ((t * 6) % 14)).toFixed(1) : "30");
+      if (!asleep && now > blinkAt) {
         const phase = (now - blinkAt) / 140;
         eye = phase < 1 ? 13 * (1 - phase) + 1.5 * phase : phase < 2 ? 1.5 + 11.5 * (phase - 1) : 13;
         if (phase >= 2) blinkAt = now + 2200 + Math.random() * 3800;

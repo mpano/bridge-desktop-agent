@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <title>Bridge</title>
+  <link rel="stylesheet" href="/ui/style.css">
+  <link rel="stylesheet" href="/ui/mini.css">
+  <script src="/ui/dom.js" defer></script>
+  <script src="/ui/mini.js" defer></script>
+  <script src="/ui/explain.js" defer></script>
+</head>
+<body class="mini">
+  <main class="mini-panel explain-panel" id="ex" data-state="idle">
+    <div class="ex-top">
+      <span id="ex-kind" class="ex-kind"></span>
+      <strong id="ex-name" class="ex-name grow"></strong>
+      <button type="button" id="ex-close" class="ghost icon-btn" aria-label="Close" title="Close (Esc)">×</button>
+    </div>
+    <p id="ex-app" class="faint ex-app"></p>
+    <div id="ex-body" class="ex-body" role="status" aria-live="polite"></div>
+    <form id="ex-ask" class="ex-ask" hidden>
+      <label for="ex-question" class="sr-only">Ask about it</label>
+      <input id="ex-question" maxlength="500" autocomplete="off" placeholder="Ask about it…">
+      <button type="submit" class="primary small">Ask</button>
+    </form>
+    <div id="ex-actions" class="ex-actions"></div>
+  </main>
+</body>
+</html>

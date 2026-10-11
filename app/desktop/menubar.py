@@ -213,6 +213,15 @@ class MenuBarController:
         self.refresh(None)
         return submitted
 
+    def explain_here(self, _=None) -> None:
+        """⌃⌥W: "What's this?" for whatever is under the pointer."""
+        panel = getattr(self, "explain_panel", None)
+        if self.quitting or panel is None:
+            return
+        from app.desktop.desk import pointer
+
+        panel.show_at(*pointer())
+
     def talking(self) -> bool:
         return bool(self.talk is not None and getattr(self.settings, "talk_enabled", False))
 
@@ -560,6 +569,10 @@ def run_menubar(settings: Settings) -> None:
 
         controller.guide_panel = GuidePanel(controller, local_service)
         guide_module.HUD = GuideHud(controller.guide_panel)
+        from app.desktop.desk import DeskBuddy, ExplainPanel
+
+        controller.explain_panel = ExplainPanel(controller, local_service)
+        controller.desk_buddy = DeskBuddy(controller, local_service)
         controller.settings = settings
         if controller.voice is not None:
             controller.voice.on_wake = controller.wake_to_talk
@@ -628,6 +641,19 @@ def run_menubar(settings: Settings) -> None:
                 fallback="shortcut in use",
             )
             controller.command_shortcut.start()
+        if settings.explain_shortcut_enabled:
+            from app.desktop.hotkey import CONTROL, KEY_W, OPTION, GlobalVoiceShortcut
+
+            controller.explain_shortcut = GlobalVoiceShortcut(
+                controller.explain_here,
+                key=KEY_W,
+                modifiers=CONTROL | OPTION,
+                identifier=5,
+                label="⌃⌥W",
+                purpose="to explain what's under the pointer",
+                fallback="shortcut in use",
+            )
+            controller.explain_shortcut.start()
         if settings.dictation_shortcut_enabled:
             from app.desktop.dictation import Dictation, DictationHud
             from app.desktop.hotkey import CONTROL, KEY_D, OPTION, GlobalVoiceShortcut

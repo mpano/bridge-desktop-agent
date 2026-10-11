@@ -225,6 +225,53 @@ class MacHands:
         Quartz.CGImageDestinationFinalize(destination)
         return bytes(out), Quartz.CGImageGetWidth(image), Quartz.CGImageGetHeight(image)
 
+    def capture(self, rect: tuple[float, float, float, float], mark=None) -> bytes:
+        """A sharp PNG of part of the screen (Quartz points), with an optional ring where the
+        pointer is, so a model can tell exactly what you mean. Nothing is kept on disk."""
+        x, y, width, height = (int(round(v)) for v in rect)
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "part.png"
+            subprocess.run(
+                [
+                    "/usr/sbin/screencapture",
+                    "-x",
+                    "-t",
+                    "png",
+                    f"-R{x},{y},{width},{height}",
+                    str(path),
+                ],
+                check=False,
+                timeout=10,
+                capture_output=True,
+            )
+            if not path.is_file() or path.stat().st_size == 0:
+                raise RuntimeError("Allow Screen Recording for Bridge so it can see the screen.")
+            data = path.read_bytes()
+        if mark is None:
+            return data
+        source = Quartz.CGImageSourceCreateWithData(data, None)
+        image = Quartz.CGImageSourceCreateImageAtIndex(source, 0, None)
+        pixels_w, pixels_h = Quartz.CGImageGetWidth(image), Quartz.CGImageGetHeight(image)
+        scale = pixels_w / max(width, 1)
+        space = Quartz.CGColorSpaceCreateDeviceRGB()
+        context = Quartz.CGBitmapContextCreate(
+            None, pixels_w, pixels_h, 8, 0, space, Quartz.kCGImageAlphaPremultipliedLast
+        )
+        Quartz.CGContextDrawImage(context, Quartz.CGRectMake(0, 0, pixels_w, pixels_h), image)
+        px, py = (mark[0] - x) * scale, pixels_h - (mark[1] - y) * scale
+        radius = 14 * scale
+        Quartz.CGContextSetRGBStrokeColor(context, 1.0, 0.18, 0.33, 0.95)
+        Quartz.CGContextSetLineWidth(context, 3 * scale)
+        Quartz.CGContextStrokeEllipseInRect(
+            context, Quartz.CGRectMake(px - radius, py - radius, radius * 2, radius * 2)
+        )
+        marked = Quartz.CGBitmapContextCreateImage(context)
+        out = Quartz.CFDataCreateMutable(None, 0)
+        destination = Quartz.CGImageDestinationCreateWithData(out, "public.png", 1, None)
+        Quartz.CGImageDestinationAddImage(destination, marked, None)
+        Quartz.CGImageDestinationFinalize(destination)
+        return bytes(out)
+
     def frontmost(self) -> dict:
         app = NSWorkspace.sharedWorkspace().frontmostApplication()
         if app is None:
@@ -274,6 +321,9 @@ class MacHands:
         }
         target = parent if role != _text(_ax(element, "AXRole")) else element
         found["frame"] = _frame(target)
+        found["help"] = _text(_ax(target, "AXHelp"))
+        value = _ax(target, "AXValue")
+        found["value"] = _text(value) if isinstance(value, (str, int, float)) else ""
         if role == "AXMenuItem":
             found["shortcut"] = _shortcut(target)
         if role in {"AXTextField", "AXTextArea", "AXComboBox", "AXSearchField"} and not label:
