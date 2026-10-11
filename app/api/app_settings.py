@@ -49,6 +49,8 @@ class AppSettings(BaseModel):
     blocked_apps: list[str] | None = Field(default=None, max_length=30)
     keep_chats_days: Literal[0, 7, 30] | None = None
     talk_enabled: bool | None = None
+    operator_enabled: bool | None = None
+    operator_ask: Literal["important", "every"] | None = None
     talk_model: Literal["gpt-realtime-2.1", "gpt-realtime-mini"] | None = None
     talk_voice: (
         Literal[
@@ -123,6 +125,11 @@ def install(app: FastAPI, authorize, settings) -> None:
                 "model": settings.openai_model,
                 "openai_key": bool(settings.openai_api_key.get_secret_value()),
             },
+            "operator": {
+                "enabled": settings.operator_enabled,
+                "ask": settings.operator_ask,
+                "model": settings.operator_model,
+            },
             "permissions": permissions,
             "restart_needed": request.app.state.restart_needed,
             "can_restart": bool(os.environ.get("BRIDGE_APP_BUNDLE")),
@@ -170,6 +177,8 @@ def install(app: FastAPI, authorize, settings) -> None:
             ("talk_enabled", "TALK_ENABLED"),
             ("talk_model", "TALK_MODEL"),
             ("talk_voice", "TALK_VOICE"),
+            ("operator_enabled", "OPERATOR_ENABLED"),
+            ("operator_ask", "OPERATOR_ASK"),
         ):
             value = getattr(payload, field)
             if value is not None:

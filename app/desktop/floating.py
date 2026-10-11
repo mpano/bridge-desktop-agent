@@ -371,3 +371,74 @@ class TalkPanel(FloatingPage):
         if message.get("action") == "talk_ended":
             return
         super().on_message(message)
+
+
+class OperatorPanel(FloatingPage):
+    """While Bridge uses your Mac: each step, Go ahead / Stop, at the bottom of the screen.
+    Left out of screenshots, never takes the keyboard, and moves aside if a click needs the
+    spot it's in."""
+
+    PAGE = "operator.html"
+    WIDTH, HEIGHT = 420, 150
+    at_top = False
+    rect = (0.0, 0.0, 0.0, 0.0)  # Quartz points (x, y, width, height), top-left origin.
+
+    def __init__(self, controller, service):
+        super().__init__(controller, service)
+        self.window.setSharingType_(AK.NSWindowSharingNone)
+
+    def place(self) -> None:
+        screen = AK.NSScreen.mainScreen()
+        visible = screen.visibleFrame()
+        full = screen.frame()
+        x = visible.origin.x + (visible.size.width - self.WIDTH) / 2
+        if self.at_top:
+            y = visible.origin.y + visible.size.height - self.HEIGHT - 8
+        else:
+            y = visible.origin.y + 16
+        self.window.setFrame_display_(NSMakeRect(x, y, self.WIDTH, self.HEIGHT), True)
+        top = full.size.height - (y + self.HEIGHT)
+        self.rect = (x, top, float(self.WIDTH), float(self.HEIGHT))
+
+    def appear(self) -> None:
+        if self.controller.quitting:
+            return
+        if not self.loaded:
+            self.load()
+        self.at_top = False
+        self.place()
+        self.window.orderFrontRegardless()
+
+    def move_aside(self) -> None:
+        self.at_top = not self.at_top
+        self.place()
+
+    def resigned(self) -> None:
+        pass  # Stay visible while Bridge works in other apps.
+
+    def show(self) -> None:
+        self.appear()
+
+
+class OperatorHud:
+    """The operator's handle on the panel, from any thread."""
+
+    def __init__(self, panel: OperatorPanel):
+        self.panel = panel
+
+    def show(self) -> None:
+        from PyObjCTools import AppHelper
+
+        AppHelper.callAfter(self.panel.appear)
+
+    def avoid(self, x: float, y: float) -> None:
+        left, top, width, height = self.panel.rect
+        margin = 24
+        if (
+            left - margin <= x <= left + width + margin
+            and top - margin <= y <= top + height + margin
+        ):
+            from PyObjCTools import AppHelper
+
+            AppHelper.callAfter(self.panel.move_aside)
+            time.sleep(0.3)

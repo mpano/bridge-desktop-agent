@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     talk_enabled: bool = False
     talk_model: Literal["gpt-realtime-2.1", "gpt-realtime-mini"] = "gpt-realtime-2.1"
     talk_voice: str = Field(default="marin", pattern=r"^[a-z]{2,20}$")
+    # Using your Mac (computer use): off until you turn it on; screenshots go to OpenAI.
+    operator_enabled: bool = False
+    operator_ask: Literal["important", "every"] = "important"
+    operator_model: str = Field(default="gpt-6.1-sol", pattern=r"^[a-z0-9.-]{3,40}$")
     voice_tts_voice: str | None = None
     voice_tts_rate: int | None = Field(default=None, ge=80, le=500)
     voice_background_enabled: bool = False

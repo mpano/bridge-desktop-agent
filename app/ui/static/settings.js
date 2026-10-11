@@ -277,6 +277,48 @@
     }
   }
 
+  async function renderOperator() {
+    const box = $("settings-operator");
+    if (!box || !data.operator) return;
+    const o = data.operator;
+    const perms = (data.permissions || []).filter((p) => /accessibility|screen/i.test(p.name));
+    const rows = [
+      row("Let Bridge use your Mac",
+        o.enabled ? "On. Screenshots of your screen go to OpenAI while Bridge works on a task. Move the mouse to pause it; Stop ends it."
+          : "Off. When on, Bridge can click and type in your apps for a task you give it, and asks before anything important.",
+        toggle("Let Bridge use your Mac", o.enabled, (on) => save({operator_enabled: on}))),
+    ];
+    if (o.enabled) {
+      rows.push(row("Ask me before", o.ask === "every" ? "Every click and keystroke waits for your Go ahead." : "Sending, deleting, buying, submitting, Return in chat apps, ⌘Q — the steps with consequences.",
+        segmented("Ask me before", [["important", "Important steps"], ["every", "Every step"]], o.ask, (key) => save({operator_ask: key}))));
+      for (const p of perms) {
+        const end = node("span", undefined, "set-end");
+        end.append(pill(p.state === "allowed" ? "Allowed" : "Needed", p.state === "allowed" ? "good" : "warm"));
+        if (p.state !== "allowed") {
+          const open = node("a", "Open Settings", "secondary small button-link");
+          open.href = p.settings_url;
+          end.append(open);
+        }
+        rows.push(row(p.name, p.state === "allowed" ? "" : "Bridge needs this to see the screen and to click and type.", end));
+      }
+      rows.push(row("Never", "Password managers, Keychain, System Settings, Bridge itself, and apps you block in Privacy. Bridge never types into password fields.", null));
+    }
+    box.replaceChildren(...rows);
+    const recent = $("settings-operator-recent");
+    recent.hidden = !o.enabled;
+    if (!o.enabled) return;
+    try {
+      const info = await ui().request("/api/v1/operator");
+      recent.replaceChildren();
+      recent.hidden = !info.recent.length;
+      for (const item of info.recent.slice(0, 6)) {
+        const when = new Date(item.started * 1000).toLocaleString([], {weekday: "short", hour: "2-digit", minute: "2-digit"});
+        recent.append(row(item.task, `${when} · ${item.result || item.status} · ${item.actions} steps`,
+          pill(item.status === "done" ? "Done" : item.status === "stopped" ? "Stopped" : "Didn't finish", item.status === "done" ? "good" : "")));
+      }
+    } catch { recent.hidden = true; }
+  }
+
   function render() {
     if (!data) return;
     $("restart-banner").hidden = !data.restart_needed;
@@ -285,6 +327,7 @@
     renderVoice();
     renderPrivacy();
     renderPermissions();
+    renderOperator();
   }
 
   document.querySelectorAll(".settings-nav [data-section]").forEach((button) => {

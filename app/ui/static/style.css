@@ -1534,3 +1534,17 @@ body.phone .brief-item .brief-words { flex-basis: calc(100% - 40px); }
 body.phone .talk-sheet { padding: 12px 12px calc(88px + env(safe-area-inset-bottom)); }
 #ask-talk { display: inline-flex; align-items: center; gap: 6px; }
 #ask-talk[hidden] { display: none; }
+
+/* Using your Mac: the status panel -------------------------------------------------------- */
+.op-panel { gap: 8px; padding: 12px 14px; }
+.op-top { display: flex; align-items: center; gap: 10px; }
+.op-words { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.op-words strong { font-size: 13.5px; }
+.op-words span { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.op-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex-shrink: 0; animation: talk-think 1.2s ease-in-out infinite; }
+.op-panel[data-state="approval"] .op-dot, .op-panel[data-state="paused"] .op-dot { background: var(--amber); animation: none; }
+.op-panel[data-state="done"] .op-dot { background: var(--green); animation: none; }
+.op-panel[data-state="failed"] .op-dot, .op-panel[data-state="stopped"] .op-dot { background: var(--line-strong); animation: none; }
+.op-step { margin: 0; font-size: 13px; color: var(--text); }
+.op-ask { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 10px; background: var(--amber-soft); color: var(--text); font-size: 13px; font-weight: 600; }
+.op-ask .row-actions { margin: 0; }

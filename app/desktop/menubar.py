@@ -538,13 +538,23 @@ def run_menubar(settings: Settings) -> None:
         NSApplication.sharedApplication().setActivationPolicy_(
             NSApplicationActivationPolicyAccessory
         )
-        from app.desktop.floating import CommandBar, MenuPanel, TalkPanel
+        from app.desktop.floating import (
+            CommandBar,
+            MenuPanel,
+            OperatorHud,
+            OperatorPanel,
+            TalkPanel,
+        )
         from app.desktop.panel import install_main_menu
         from app.desktop.window import BridgeWindow
 
         controller.panel = MenuPanel(controller, local_service)
         controller.command_bar = CommandBar(controller, local_service)
         controller.talk = TalkPanel(controller, local_service)
+        controller.operator_panel = OperatorPanel(controller, local_service)
+        from app.assistant import operator as operator_module
+
+        operator_module.HUD = OperatorHud(controller.operator_panel)
         controller.settings = settings
         if controller.voice is not None:
             controller.voice.on_wake = controller.wake_to_talk

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <title>Bridge</title>
+  <link rel="stylesheet" href="/ui/style.css">
+  <link rel="stylesheet" href="/ui/mini.css">
+  <script src="/ui/mini.js" defer></script>
+  <script src="/ui/operator.js" defer></script>
+</head>
+<body class="mini">
+  <main class="mini-panel op-panel" id="op" data-state="idle">
+    <div class="op-top">
+      <span class="op-dot" aria-hidden="true"></span>
+      <div class="op-words">
+        <strong id="op-title">Bridge is using your Mac</strong>
+        <span id="op-task" class="faint"></span>
+      </div>
+      <button type="button" id="op-stop" class="danger-soft small">Stop</button>
+    </div>
+    <p id="op-step" class="op-step" role="status" aria-live="polite"></p>
+    <div id="op-ask" class="op-ask" hidden>
+      <span id="op-ask-text"></span>
+      <div class="row-actions"><button type="button" id="op-yes" class="primary small">Go ahead</button><button type="button" id="op-no" class="ghost small">Stop</button></div>
+    </div>
+  </main>
+</body>
+</html>

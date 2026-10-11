@@ -13,6 +13,7 @@ from app.assistant.chats import ChatStore
 from app.assistant.commitments import CommitmentStore, CommitmentTracker
 from app.assistant.day_plan import DayPlanner
 from app.assistant.focus import FocusMode, FocusStore
+from app.assistant.operator import Operator
 from app.assistant.replies import ReplyDrafter
 from app.assistant.slack_triage import SlackInbox
 from app.assistant.talk import Talk
@@ -53,6 +54,7 @@ from app.tools.productivity import memory as memory_tools
 from app.tools.registry import ToolRegistry
 from app.tools.screen import context as screen_context
 from app.tools.screen import screenshot
+from app.tools.screen.context import is_blocked
 from app.tools.spotify import spotify
 from app.tools.system import (
     apps,
@@ -60,6 +62,7 @@ from app.tools.system import (
     discovery,
     mac,
     notifications,
+    operate,
     processes,
     schedules,
     shortcuts,
@@ -73,6 +76,20 @@ from app.workflows import retention
 from app.workflows.schedules import ScheduleStore
 from app.workflows.store import SQLiteWorkflows
 from app.workflows.watches import ProactiveStore
+
+BRIDGE_BUNDLE = "app.bridge.desktop-agent"  # Bridge never operates itself (its own approvals).
+
+
+def mac_hands():
+    """The real mouse, keyboard and screen, on a Mac."""
+    if sys.platform != "darwin":
+        return None
+    try:
+        from app.desktop.operator_mac import MacHands
+
+        return MacHands()
+    except Exception:
+        return None
 
 
 def shared_tools(allowlist: list[str]) -> set[str]:
@@ -311,6 +328,16 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     briefs.jira, briefs.github = jira, github
     repos.notify = notify
     agent.proactive.repos = repos
+    agent.operator = Operator(
+        settings.database_path,
+        settings,
+        hands=mac_hands(),
+        blocked=lambda app, bundle_id: is_blocked(
+            app, bundle_id, [*settings.screen_context_blocked_apps, BRIDGE_BUNDLE]
+        ),
+        notify=notify,
+    )
+    operate.register(registry, agent.operator)
     agent.briefs = briefs
     agent.proactive.briefs = briefs
     try:

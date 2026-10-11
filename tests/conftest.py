@@ -21,3 +21,10 @@ def no_real_work_accounts(monkeypatch):
     monkeypatch.setattr(tokens.KeychainTokens, "save", lambda self, data: store.update(data))
     monkeypatch.setattr(tokens, "GH_CANDIDATES", ())
     monkeypatch.setattr(repos, "find_copies", lambda home, extra=(), depth=3: {})
+
+
+@pytest.fixture(autouse=True)
+def no_real_mouse_and_keyboard(monkeypatch):
+    """Tests never get the real Mac's mouse, keyboard or screen (computer use)."""
+    monkeypatch.setattr("app.bootstrap.mac_hands", lambda: None)
+    monkeypatch.setattr("app.assistant.operator.HUD", None)
