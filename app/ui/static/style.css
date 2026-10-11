@@ -1571,3 +1571,24 @@ body.phone .talk-sheet { padding: 12px 12px calc(88px + env(safe-area-inset-bott
 .mcp-custom summary { font-size: 13px; color: var(--muted); }
 .mcp-tools { padding: 4px 0 12px 12px; display: flex; flex-direction: column; gap: 4px; }
 .mcp-tool .set-hint { max-height: 3.9em; overflow: hidden; }
+
+/* Usage & models ------------------------------------------------------------------------- */
+.usage-total { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.usage-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.usage-big { font-size: 30px; font-weight: 750; letter-spacing: -.03em; }
+.usage-track { height: 6px; border-radius: 99px; background: var(--inset); overflow: hidden; }
+.usage-track.big { height: 10px; }
+.usage-fill { height: 100%; border-radius: 99px; background: var(--accent); }
+.usage-fill.near { background: var(--amber); }
+.usage-fill.over { background: var(--red); }
+.usage-days { display: flex; align-items: flex-end; gap: 3px; height: 50px; }
+.usage-day { flex: 1; max-width: 18px; border-radius: 3px 3px 0 0; background: color-mix(in srgb, var(--accent) 70%, transparent); }
+.usage-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.usage-list { display: flex; flex-direction: column; gap: 10px; }
+.usage-list .label { margin: 0; }
+.usage-row { display: flex; flex-direction: column; gap: 4px; }
+.usage-words { display: flex; justify-content: space-between; gap: 8px; font-size: 13.5px; }
+.usage-note { font-size: 11.5px; }
+.usage-amount { width: 90px; }
+#usage-budget { margin-top: 16px; }
+@media (max-width: 900px) { .usage-columns { grid-template-columns: 1fr; } }

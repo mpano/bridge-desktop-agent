@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 from urllib.parse import urlsplit
 
+from app.llm.usage import labelled
 from app.security.risk import RiskLevel
 from app.tools.base import Input, Tool
 
@@ -86,6 +87,7 @@ class ScreenContextController:
             return await self._result(app["name"] or window["owner"], window, seen)
         raise ValueError("I can't see any app window on screen.")
 
+    @labelled("screen")
     async def _result(self, name: str, window: dict, seen: dict) -> dict:
         text, source, hint = seen.get("text", ""), "accessibility", ""
         if len(text) < LITTLE_TEXT:

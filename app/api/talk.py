@@ -37,9 +37,16 @@ class Said(Body):
     text: str = Field(min_length=1, max_length=8000)
 
 
+class Tokens(Body):
+    input: int = Field(default=0, ge=0, le=50_000_000)
+    cached: int = Field(default=0, ge=0, le=50_000_000)
+    output: int = Field(default=0, ge=0, le=50_000_000)
+
+
 class End(Body):
     session_id: str = SESSION
     seconds: float = Field(ge=0, le=7200)
+    tokens: Tokens | None = None
 
 
 def install(app: FastAPI, authorize, from_phone) -> None:
@@ -90,4 +97,5 @@ def install(app: FastAPI, authorize, from_phone) -> None:
 
     @app.post("/api/v1/talk/end", dependencies=[Depends(authorize)])
     async def end(payload: End, request: Request):
-        return {"usage": talk(request).end(payload.session_id, payload.seconds)}
+        tokens = payload.tokens.model_dump() if payload.tokens else None
+        return {"usage": talk(request).end(payload.session_id, payload.seconds, tokens)}

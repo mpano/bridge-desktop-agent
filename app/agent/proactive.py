@@ -45,6 +45,7 @@ class Proactive:
         self.commitments = None  # Promises you made and are owed; re-checked and nudged here.
         self.briefs = None  # The morning brief and evening wrap-up, on time.
         self.repos = None  # Teammates' pushes, releases and broken main in your repos.
+        self.usage = None  # Budget alerts.
         self._last_watch_check = 0.0
 
     async def run(self) -> None:
@@ -60,6 +61,8 @@ class Proactive:
                     await self.briefs.check()
                 if self.repos is not None:
                     await self.repos.check()
+                if self.usage is not None:
+                    await self.usage.check_budget()
                 if loop.time() - self._last_watch_check >= WATCH_CHECK_SECONDS:
                     self._last_watch_check = loop.time()
                     await self.check_watches()

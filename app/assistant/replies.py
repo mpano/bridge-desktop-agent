@@ -12,6 +12,8 @@ import re
 import time
 from types import SimpleNamespace
 
+from app.llm.usage import labelled
+
 STYLE_SECONDS = 3600
 INSTRUCTIONS = """You write an email reply that the user will review and send as themselves.
 You get the email to answer (and earlier messages in the thread), snippets of emails the user
@@ -85,6 +87,7 @@ class ReplyDrafter:
         self._style = (time.time(), examples)
         return examples
 
+    @labelled("drafts")
     async def draft(self, item: dict, name: str = "") -> str:
         if item["message_id"] in self.drafts:
             return self.drafts[item["message_id"]]

@@ -15,6 +15,8 @@ from datetime import datetime
 from types import SimpleNamespace
 
 from app.llm.structured import ask_json
+from app.llm.usage import labelled
+from app.llm.usage import task as llm_task
 
 log = logging.getLogger(__name__)
 DAYS = 2
@@ -149,6 +151,7 @@ class SlackInbox:
 
         return [item for item in await asyncio.gather(*(latest(dm) for dm in dms)) if item]
 
+    @labelled("slack")
     async def triage(self) -> dict | None:
         me = await self.me()
         if me is None:
@@ -274,7 +277,8 @@ class SlackInbox:
             "earlier_in_thread": await self.thread(item),
             "the_users_recent_slack_messages": await self.style(me),
         }
-        body = (await self.llm.complete(DRAFT, json.dumps(data, ensure_ascii=False))).strip()
+        with llm_task("drafts"):
+            body = (await self.llm.complete(DRAFT, json.dumps(data, ensure_ascii=False))).strip()
         if not body:
             raise ValueError("The model returned an empty draft. Try again.")
         self.drafts[item["message_id"]] = body

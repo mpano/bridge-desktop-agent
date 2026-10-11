@@ -20,6 +20,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from app.llm.structured import ask_json
+from app.llm.usage import labelled
 
 log = logging.getLogger(__name__)
 TOP = 3
@@ -210,7 +211,9 @@ class Briefs:
         elif saved is None:
             # Don't make Today wait for the model: show due dates first, pick in the background.
             saved = self._order(candidates)
-            if self._picking is None or self._picking.done():
+            usage = getattr(self, "usage", None)
+            paused = usage is not None and not usage.allow_background("brief")
+            if not paused and (self._picking is None or self._picking.done()):
                 self._picking = asyncio.get_running_loop().create_task(
                     self._pick_and_save(today, candidates)
                 )
@@ -290,6 +293,7 @@ class Briefs:
             "headline": "",
         }
 
+    @labelled("brief")
     async def _pick(self, today: date, candidates: dict) -> dict:
         if not candidates:
             return {

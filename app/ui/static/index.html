@@ -26,6 +26,7 @@
   <script src="/ui/work.js" defer></script>
   <script src="/ui/talk.js" defer></script>
   <script src="/ui/apps.js" defer></script>
+  <script src="/ui/usage.js" defer></script>
   <script src="/ui/phone.js" defer></script>
 </head>
 <body>
@@ -260,6 +261,7 @@
             <button type="button" data-section="account">Account</button>
             <button type="button" data-section="phone">Phone</button>
             <button type="button" data-section="operator">Use your Mac</button>
+            <button type="button" data-section="usage">Usage &amp; models</button>
             <button type="button" data-section="projects">Projects</button>
             <button type="button" data-section="about">About & diagnostics</button>
           </nav>
@@ -276,6 +278,7 @@
             <section class="settings-section" data-panel="voice" aria-label="Voice and dictation" hidden><h2>Voice &amp; dictation</h2><div id="settings-voice" class="card group"></div></section>
             <section class="settings-section" data-panel="privacy" aria-label="Privacy" hidden><h2>Privacy</h2><p class="lede">Bridge runs on this Mac. It uses OpenAI to understand requests — here is exactly what that includes.</p><div id="settings-privacy" class="card group"></div><div id="settings-blocked" class="card group"></div></section>
             <section class="settings-section" data-panel="permissions" aria-label="Mac permissions" hidden><h2>Mac permissions</h2><p class="lede">What macOS lets Bridge do. Each one is optional; Bridge tells you when something needs one.</p><div id="settings-permissions" class="card group"></div></section>
+            <section class="settings-section" data-panel="usage" aria-label="Usage and models" hidden><h2>Usage &amp; models</h2><p class="lede">What Bridge spends on AI this month, which model does which job, and a budget if you want one. Costs use OpenAI's list prices, so your bill can differ slightly.</p><div id="usage-total" class="card usage-total"></div><div id="usage-breakdown" class="usage-columns"></div><div id="usage-models" class="card group"></div><div id="usage-budget" class="card group"></div></section>
             <section class="settings-section" data-panel="operator" aria-label="Use your Mac" hidden><h2>Use your Mac</h2><p class="lede">For things no connection can do, Bridge can use your apps like you would: it looks at the screen, clicks and types, and shows each step in a panel at the bottom of the screen. Ask in Ask or by voice: “use my Mac to export Q3 as a PDF”.</p><div id="settings-operator" class="card group"></div><div id="settings-operator-recent" class="card group" hidden></div></section>
             <section class="settings-section" data-panel="phone" aria-label="Phone" hidden><h2>Bridge on your phone</h2><p class="lede">Use Today, Ask and Inbox and approve things from your phone, over your own private Tailscale network. Nothing is opened to the internet, and your Mac has to be on.</p><div id="settings-phone" class="card group"></div><div id="phone-pair" class="card phone-pair" hidden><canvas id="phone-qr" width="232" height="232" aria-label="QR code that signs your phone in"></canvas><div class="phone-pair-words"><h3>Scan with your phone's camera</h3><p>It opens Bridge in Safari and signs you in. Then set up Face ID and add Bridge to your Home Screen.</p><p id="phone-pair-link" class="mono small-print" hidden></p><p id="phone-pair-expiry" class="hint"></p><button type="button" id="phone-pair-new" class="secondary small">New code</button></div></div><div id="settings-phone-devices" class="card group" hidden></div></section>
             <section class="settings-section" data-panel="account" aria-label="Account" hidden><h2>Account</h2>

@@ -152,6 +152,7 @@ class Operator:
         self.blocked = blocked or (lambda app, bundle_id: False)
         self.notify = notify
         self._hud = hud  # The status panel: show(), avoid(x, y).
+        self.usage = None  # Spending (app/llm/usage.py), set by bootstrap.
         self.sleep = sleep
         self.current: Run | None = None
         self.task: asyncio.Task | None = None
@@ -260,7 +261,10 @@ class Operator:
                 detail = ""
             log.warning("Computer use refused: %s %s", response.status_code, detail)
             raise OperatorError(detail or f"OpenAI refused the step ({response.status_code}).")
-        return response.json()
+        data = response.json()
+        if self.usage is not None:
+            self.usage.record_response("operator", payload.get("model", ""), data.get("usage"))
+        return data
 
     async def _screen(self) -> tuple[str, float]:
         shot, width, _height = await asyncio.to_thread(self.hands.screenshot)

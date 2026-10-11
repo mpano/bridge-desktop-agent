@@ -30,6 +30,7 @@ from app.integrations.tokens import MemoryTokens, TokenConnections
 from app.integrations.work import GitHub, Jira
 from app.llm import prompts
 from app.llm.factory import create_llm
+from app.llm.usage import Usage
 from app.memory.facts import FactStore
 from app.memory.store import SQLiteMemory
 from app.phone.access import PhoneAccess
@@ -181,6 +182,9 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     )
     proactive_store = ProactiveStore(settings.database_path)
     llm = llm or create_llm(settings)
+    usage = Usage(settings.database_path, settings)
+    if hasattr(llm, "usage"):
+        llm.usage = usage  # Routing and spending for every model call.
     inbox = InboxTriage(gmail_service, llm) if gmail_service is not None else None
     day_planner = DayPlanner(proactive_store, calendar_controller, reminders_controller, inbox, llm)
     planning.register(
@@ -355,4 +359,11 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
         proactive_controller.upgrade_routines()
     except Exception:
         logging.getLogger(__name__).warning("Couldn't update the routines.", exc_info=True)
+    agent.usage = usage
+    usage.notify = notify
+    commitments.usage = usage
+    briefs.usage = usage
+    agent.operator.usage = usage
+    agent.talk.meter = usage
+    agent.proactive.usage = usage
     return agent

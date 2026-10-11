@@ -30,6 +30,7 @@ from app.api.schemas import (
 )
 from app.api.talk import install as install_talk
 from app.api.today import install as install_today
+from app.api.usage import install as install_usage
 from app.api.work import install as install_work
 from app.bootstrap import build_agent
 from app.config.settings import Settings
@@ -221,6 +222,7 @@ def create_app(
     install_operator(app, authorize)
     install_health(app, authorize, settings)
     install_mcp(app, authorize, settings)
+    install_usage(app, authorize, settings)
     install_inbox(app, authorize)
     install_automations(app, authorize)
     install_app_settings(app, authorize, settings)

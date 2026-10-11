@@ -10,6 +10,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.llm.usage import labelled
+
 MAX_TEXT = 20000
 
 BASE = (
@@ -60,6 +62,7 @@ def instructions_for(request: TextActionRequest) -> str:
     return f"{BASE}\n{ACTIONS[request.action][1]}"
 
 
+@labelled("text")
 async def run_text_action(llm, request: TextActionRequest) -> str:
     wrapped = f"<selected_text>\n{request.text}\n</selected_text>"
     result = (
@@ -129,6 +132,7 @@ class DictationRequest(BaseModel):
     url: str = Field(default="", max_length=2000)
 
 
+@labelled("text")
 async def clean_dictation(llm, request: DictationRequest) -> str:
     text = request.text.strip()
     if len(text.split()) <= 3:

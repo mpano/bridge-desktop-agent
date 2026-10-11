@@ -74,6 +74,7 @@
     if (section === "account") ui().refreshAccount();
     if (section === "phone" && window.BridgePhone) window.BridgePhone.showSettings();
     if (section === "health") renderHealth();
+    if (section === "usage" && window.BridgeUsage) window.BridgeUsage.show();
     refresh();
   }
 

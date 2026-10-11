@@ -22,6 +22,7 @@ from types import SimpleNamespace
 
 from app.assistant.replies import address_of, reply_subject, strip_quoted
 from app.llm.structured import ask_json
+from app.llm.usage import task as llm_task
 
 log = logging.getLogger(__name__)
 SCAN_DAYS = 14
@@ -512,7 +513,10 @@ class CommitmentTracker:
                 entry["open_promises"] = earlier
                 open_ids.update(c["id"] for c in earlier)
             payload.append(entry)
-        answer = await ask_json(self.llm, FIND, {"today": today.isoformat(), "messages": payload})
+        with llm_task("promises"):
+            answer = await ask_json(
+                self.llm, FIND, {"today": today.isoformat(), "messages": payload}
+            )
         if not isinstance(answer, dict):
             return 0, 0
         by_id = {m["id"]: m for m in chunk}
@@ -561,6 +565,10 @@ class CommitmentTracker:
     async def tick(self) -> None:
         """Called by the proactive loop: re-check messages now and then, and nudge."""
         last = float(self.store.meta("last_scan", "0") or 0)
+        usage = getattr(self, "usage", None)
+        if usage is not None and not usage.allow_background("promises"):
+            await self.nudge()
+            return  # Over budget in Save money mode: no new scans until next month.
         if self.connected and time.time() - last > RESCAN_SECONDS:
             # The first time looks back two weeks; after that, the last few days.
             self.start_scan(None if not last else 3)
@@ -623,7 +631,10 @@ class CommitmentTracker:
             "said_on": datetime.fromtimestamp(item["said_at"]).date().isoformat(),
             "the_users_own_messages": examples,
         }
-        body = (await self.llm.complete(FOLLOW_UP, json.dumps(data, ensure_ascii=False))).strip()
+        with llm_task("drafts"):
+            body = (
+                await self.llm.complete(FOLLOW_UP, json.dumps(data, ensure_ascii=False))
+            ).strip()
         if not body:
             raise ValueError("The model returned an empty draft. Try again.")
         return body

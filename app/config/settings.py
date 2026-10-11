@@ -66,6 +66,11 @@ class Settings(BaseSettings):
     operator_enabled: bool = False
     operator_ask: Literal["important", "every"] = "important"
     operator_model: str = Field(default="gpt-6.1-sol", pattern=r"^[a-z0-9.-]{3,40}$")
+    # Which model does which job (empty: OPENAI_MODEL), and a monthly budget in dollars.
+    model_smart: str = Field(default="", pattern=r"^([a-z0-9.-]{3,40})?$")
+    model_fast: str = Field(default="", pattern=r"^([a-z0-9.-]{3,40})?$")
+    monthly_budget: float = Field(default=0, ge=0, le=100000)
+    budget_mode: Literal["warn", "save"] = "warn"
     voice_tts_voice: str | None = None
     voice_tts_rate: int | None = Field(default=None, ge=80, le=500)
     voice_background_enabled: bool = False

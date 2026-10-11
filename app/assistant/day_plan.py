@@ -12,6 +12,7 @@ from datetime import datetime, time, timedelta
 from types import SimpleNamespace
 
 from app.llm.structured import ask_json
+from app.llm.usage import labelled
 from app.tools.productivity.reminders import ReminderListInput
 from app.tools.productivity.timeslots import free_slots
 
@@ -69,6 +70,7 @@ class DayPlanner:
                 ]
         return events["events"], due, replies
 
+    @labelled("plan")
     async def plan(self, which: str = "today") -> dict:
         settings = self.store.settings()
         now = self.now()

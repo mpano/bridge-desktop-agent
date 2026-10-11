@@ -288,7 +288,7 @@ class Talk:
         if text and role in {"user", "assistant"}:
             await self.agent.log_spoken(role, text)
 
-    def end(self, session_id: str, seconds: float) -> dict:
+    def end(self, session_id: str, seconds: float, tokens: dict | None = None) -> dict:
         session = self.sessions.get(session_id)
         if session is None or session["ended"]:
             return self.usage()
@@ -296,6 +296,16 @@ class Talk:
         if session["pending"]:
             session["pending"] = None  # It stays in Approvals for later.
         spent = max(0.0, min(float(seconds), time.time() - session["started"] + 5))
+        meter = getattr(self, "meter", None)
+        if meter is not None and tokens:
+            model = getattr(self.settings, "talk_model", MODELS[0])
+            meter.record(
+                "talk",
+                model,
+                int(tokens.get("input", 0)),
+                int(tokens.get("cached", 0)),
+                int(tokens.get("output", 0)),
+            )
         month = datetime.now().strftime("%Y-%m")
         with self._db() as db:
             db.execute(

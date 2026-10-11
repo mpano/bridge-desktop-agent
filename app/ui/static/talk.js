@@ -100,7 +100,8 @@ window.BridgeTalk = (() => {
     const audio = document.createElement("audio");
     audio.autoplay = true;
     pc.ontrack = (event) => { audio.srcObject = event.streams[0]; };
-    session = {id: made.session_id, pc, audio, started: Date.now(), lastActivity: Date.now(), calls: 0, muted: false, ending: false};
+    session = {id: made.session_id, pc, audio, started: Date.now(), lastActivity: Date.now(), calls: 0, muted: false, ending: false,
+      tokens: {input: 0, cached: 0, output: 0}};
     try {
       session.stream = await navigator.mediaDevices.getUserMedia({
         audio: {echoCancellation: true, noiseSuppression: true, autoGainControl: true},
@@ -165,6 +166,7 @@ window.BridgeTalk = (() => {
         say("assistant", (event.transcript || "").trim());
         break;
       case "response.done":
+        countTokens(event.response && event.response.usage);
         runCalls(event.response);
         break;
       case "error":
@@ -173,6 +175,15 @@ window.BridgeTalk = (() => {
       default:
         break;
     }
+  }
+
+  // OpenAI reports what each answer used; Bridge adds it up for Settings › Usage.
+  function countTokens(usage) {
+    if (!session || !usage) return;
+    const cached = ((usage.input_token_details || {}).cached_tokens) || 0;
+    session.tokens.input += usage.input_tokens || 0;
+    session.tokens.cached += cached;
+    session.tokens.output += usage.output_tokens || 0;
   }
 
   async function runCalls(response) {
@@ -239,7 +250,7 @@ window.BridgeTalk = (() => {
       if (ending.stream) ending.stream.getTracks().forEach((track) => track.stop());
       ending.audio.srcObject = null;
       const seconds = (Date.now() - ending.started) / 1000;
-      ui.request("/api/v1/talk/end", "POST", {session_id: ending.id, seconds}).catch(() => {});
+      ui.request("/api/v1/talk/end", "POST", {session_id: ending.id, seconds, tokens: ending.tokens}).catch(() => {});
     }
     setState(message ? "ended" : "ended");
     if (message) showCard(message);

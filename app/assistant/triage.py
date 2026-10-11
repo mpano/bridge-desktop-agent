@@ -6,6 +6,7 @@ import time
 from types import SimpleNamespace
 
 from app.llm.structured import ask_json
+from app.llm.usage import task as llm_task
 
 CATEGORIES = ("urgent", "reply", "fyi", "newsletter")
 INSTRUCTIONS = """You triage the user's unread email. For each message decide one category:
@@ -45,7 +46,8 @@ class InboxTriage:
             }
             for item in messages
         ]
-        answer = await ask_json(self.llm, INSTRUCTIONS, data)
+        with llm_task("inbox"):
+            answer = await ask_json(self.llm, INSTRUCTIONS, data)
         by_id = {item["message_id"]: item for item in messages}
         groups: dict[str, list] = {key: [] for key in CATEGORIES}
         placed = set()
