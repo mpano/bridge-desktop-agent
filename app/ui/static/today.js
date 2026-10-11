@@ -239,6 +239,7 @@
     if (window.BridgePromises) window.BridgePromises.refresh(data.followups || []);
     if (window.BridgeBrief) window.BridgeBrief.refresh();
     if (window.BridgeReport) window.BridgeReport.refresh();
+    if (window.BridgeRecipes) window.BridgeRecipes.refresh();
     if (window.BridgeWork) window.BridgeWork.refresh();
   }
 

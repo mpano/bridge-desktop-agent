@@ -51,6 +51,7 @@ class Proactive:
         self.learning = None  # Friday: what Bridge learned from your corrections.
         self.watchers = None  # GitHub, Jira and app watchers (app/assistant/watchers.py).
         self.reports = None  # Friday: the weekly report draft.
+        self.recipes = None  # "When X, do Y" (app/assistant/recipes.py).
         self._last_watch_check = 0.0
 
     async def run(self) -> None:
@@ -186,7 +187,27 @@ class Proactive:
         # The first check only records what's already there; no flood of old items.
         place = "inbox" if watch.kind == "email" else "today"
         sent = 0
-        if watch.baseline_done and fresh and watch.once:
+        recipe = self.recipes is not None and self.recipes.owns(watch.id)
+        if watch.baseline_done and fresh and recipe:
+            for key, title, detail in reversed(fresh[:5]):
+                event = {
+                    "headline": title,
+                    "detail": detail,
+                    "url": "",
+                    "vars": {
+                        "label": watch.label,
+                        "headline": title,
+                        "title": detail,
+                        "detail": detail,
+                        "who": title.split(" from ", 1)[-1],
+                        "id": key,
+                    },
+                    "keep": True,
+                }
+                await self._announce(watch, event)
+                sent += 1
+            self.store.happened(watch.id, f"{fresh[0][1]}: {fresh[0][2]}", done=False)
+        elif watch.baseline_done and fresh and watch.once:
             _key, title, detail = fresh[0]
             await self.notify(f"✓ {watch.label}", f"{title}: {detail}", view=place)
             self.store.happened(watch.id, f"{title}: {detail}", done=True)
@@ -218,22 +239,26 @@ class Proactive:
         before = watch.state if watch.baseline_done else None
         try:
             now = await self.watchers.look(watch)
-            event = await self.watchers.decide(watch, before, now)
+            events = await self.watchers.events(watch, before, now)
         except WatchError as exc:
             self.store.failed(watch.id, str(exc))
             return 0
         except Exception:
             self.store.failed(watch.id, "Check failed. Bridge will try again.")
             return 0
-        self.store.observed(watch.id, self.watchers.remember(watch, now))
-        if event is None:
-            return 0
-        headline, detail = event[0], event[1]
-        done = watch.once and (len(event) < 3 or event[2])
-        self.store.happened(watch.id, f"{headline} — {detail}", done=done)
-        if not quiet:
-            await self.notify(headline, detail, view="today")
-        return 1
+        self.store.observed(watch.id, self.watchers.remember(watch, now, before))
+        for event in events:
+            done = watch.once and not event["keep"]
+            self.store.happened(watch.id, f"{event['headline']} — {event['detail']}", done=done)
+            if not quiet:
+                await self._announce(watch, event)
+        return len(events)
+
+    async def _announce(self, watch: Watch, event: dict) -> None:
+        """A recipe takes over the watch's events; otherwise, a notification."""
+        if self.recipes is not None and await self.recipes.handle(watch, event):
+            return
+        await self.notify(event["headline"], event["detail"], view="today")
 
     # Follow-ups ---------------------------------------------------------------------------
 

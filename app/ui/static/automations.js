@@ -25,6 +25,7 @@
     try {
       data = await ui().request("/api/v1/automations");
       render();
+      if (window.BridgeRecipes) window.BridgeRecipes.refresh();
     } catch (error) {
       ui().notify(error.message, true);
     }
@@ -123,7 +124,7 @@
     list.append(node("li", text, "line-empty"));
   }
 
-  const SOURCES = {email: "Email", slack: "Slack", github_pr: "GitHub", github_release: "GitHub", jira: "Jira", app: "App"};
+  const SOURCES = {email: "Email", slack: "Slack", github_pr: "GitHub", github_release: "GitHub", github_mine: "GitHub", jira: "Jira", jira_mine: "Jira", app: "App"};
   const EXAMPLES = ["PR 412 is merged", "ABC-9 moves to QA", "Sarah replies to me", "someone mentions me on Slack", "a new release of owner/repo"];
 
   function ago(seconds) {

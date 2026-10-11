@@ -15,6 +15,7 @@ from app.assistant.day_plan import DayPlanner
 from app.assistant.focus import FocusMode, FocusStore
 from app.assistant.learning import Learning
 from app.assistant.operator import Operator
+from app.assistant.recipes import Recipes
 from app.assistant.replies import ReplyDrafter
 from app.assistant.reports import Reports
 from app.assistant.slack_triage import SlackInbox
@@ -75,6 +76,7 @@ from app.tools.system import (
     volume,
 )
 from app.tools.system import proactive as proactive_tools
+from app.tools.system import recipes as recipe_tools
 from app.tools.terminal import terminal
 from app.tools.work import apps as apps_tools
 from app.tools.work import tools as work_tools
@@ -397,6 +399,17 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     report_tools.register(registry, reports)
     agent.reports = reports
     agent.proactive.reports = reports
+    recipes = Recipes(
+        settings.database_path,
+        agent=agent,
+        controller=proactive_controller,
+        store=proactive_store,
+        llm=llm,
+    )
+    recipes.notify = notify
+    recipe_tools.register(registry, recipes)
+    agent.recipes = recipes
+    agent.proactive.recipes = recipes
     proactive_controller.proactive = agent.proactive
     prompts.lessons_provider = learning.lessons
     return agent

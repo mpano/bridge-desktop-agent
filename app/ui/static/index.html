@@ -25,6 +25,7 @@
   <script src="/ui/promises.js" defer></script>
   <script src="/ui/brief.js" defer></script>
   <script src="/ui/report.js" defer></script>
+  <script src="/ui/recipes.js" defer></script>
   <script src="/ui/work.js" defer></script>
   <script src="/ui/talk.js" defer></script>
   <script src="/ui/apps.js" defer></script>
@@ -133,6 +134,10 @@
           <div class="brief-head"><p id="report-label" class="label"></p><button type="button" id="report-rewrite" class="link small">Rewrite</button><button type="button" id="report-hide" class="ghost small" aria-label="Hide this week's report">×</button></div>
           <div id="report-body"></div>
         </section>
+        <section id="recipe-waiting" class="card recipe-waiting" aria-labelledby="recipe-waiting-title" hidden>
+          <div class="card-head"><h2 id="recipe-waiting-title">Recipes waiting for your OK</h2><span id="recipe-waiting-count" class="mono faint"></span></div>
+          <ul id="recipe-waiting-list" class="recipe-asks"></ul>
+        </section>
         <div class="today-grid">
           <section class="card day" aria-labelledby="day-title">
             <div class="card-head">
@@ -211,6 +216,18 @@
         <section aria-labelledby="routines-title">
           <h2 id="routines-title" class="label section-label">Routines</h2>
           <div id="routines" class="routine-grid"></div>
+        </section>
+        <section class="card list-card recipes-card" aria-labelledby="recipes-title">
+          <div class="card-head"><div><h2 id="recipes-title">Recipes</h2><p class="hint">When something happens, Bridge does something: posts in Slack, emails, comments, adds a reminder or does a task. Each run asks you first unless you make it automatic.</p></div></div>
+          <form id="recipe-new" class="watch-new">
+            <label for="recipe-input" class="sr-only">Describe a recipe</label>
+            <input id="recipe-input" maxlength="500" required autocomplete="off" placeholder="When a PR of mine is merged, post it in #releases">
+            <button type="submit" class="primary small" id="recipe-submit">Next</button>
+          </form>
+          <div id="recipe-examples" class="watch-examples" aria-label="Examples"></div>
+          <div id="recipe-proposal" class="recipe-proposal" hidden></div>
+          <ul id="recipes" class="recipes"></ul>
+          <div id="recipe-recent" class="recipe-recent" hidden></div>
         </section>
         <section class="card list-card" aria-labelledby="watch-title">
           <div class="card-head"><div><h2 id="watch-title">Tell me when…</h2><p class="hint">Pull requests, releases, Jira issues, replies, Slack and your apps. Bridge checks every few minutes and tells your Mac and your phone.</p></div></div>

@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import Field, field_validator, model_validator
 
-from app.assistant.watchers import JIRA_WHEN, PR_WHEN, WatchError
+from app.assistant.watchers import GITHUB_MINE, JIRA_MINE, JIRA_WHEN, PR_WHEN, WatchError
 from app.assistant.watchers import describe as describe_target
 from app.integrations.work import ISSUE_KEY
 from app.security.risk import RiskLevel
@@ -15,11 +15,22 @@ from app.tools.base import Input, Tool
 from app.workflows.schedules import ScheduleStore
 from app.workflows.watches import ProactiveStore
 
-WATCH_KINDS = ("email", "slack", "github_pr", "github_release", "jira", "app")
+WATCH_KINDS = (
+    "email",
+    "slack",
+    "github_pr",
+    "github_release",
+    "jira",
+    "app",
+    "github_mine",
+    "jira_mine",
+)
 
 
 class WatchInput(Input):
-    kind: Literal["email", "slack", "github_pr", "github_release", "jira", "app"]
+    kind: Literal[
+        "email", "slack", "github_pr", "github_release", "jira", "app", "github_mine", "jira_mine"
+    ]
     label: str = Field(
         min_length=1, max_length=80, description="Short name, e.g. 'PR 412 merged', 'Sarah replies'"
     )
@@ -55,6 +66,12 @@ class WatchInput(Input):
         default="", max_length=300, description="kind=app: what to wait for, in plain words"
     )
     days: int | None = Field(default=None, ge=1, le=90, description="Give up after this many days")
+    event: str = Field(
+        default="",
+        max_length=30,
+        description="github_mine (any of yours): merged, review_requested, assigned, opened. "
+        "jira_mine: assigned, done.",
+    )
 
     @model_validator(mode="after")
     def complete(self):
@@ -78,10 +95,22 @@ class WatchInput(Input):
                 raise ValueError(f"For Jira, 'when' is one of: {', '.join(JIRA_WHEN)}.")
             if self.when == "status_to" and not self.status.strip():
                 raise ValueError("Which status should it move to?")
+        elif self.kind == "github_mine":
+            if self.event not in GITHUB_MINE:
+                raise ValueError(f"For your GitHub, 'event' is one of: {', '.join(GITHUB_MINE)}.")
+        elif self.kind == "jira_mine":
+            if self.event not in JIRA_MINE:
+                raise ValueError(f"For your Jira, 'event' is one of: {', '.join(JIRA_MINE)}.")
         elif not (self.app.strip() and self.tool.strip()):
             raise ValueError("Say which app and which of its tools to check (see apps_find).")
         if self.once is None:
-            self.once = self.kind not in {"email", "slack", "github_release"} and self.when not in {
+            self.once = self.kind not in {
+                "email",
+                "slack",
+                "github_release",
+                "github_mine",
+                "jira_mine",
+            } and self.when not in {
                 "any",
                 "comment",
                 "review",
@@ -100,6 +129,8 @@ class WatchInput(Input):
             if self.when == "status_to":
                 found["status"] = self.status.strip()
             return found
+        if self.kind in {"github_mine", "jira_mine"}:
+            return {"event": self.event}
         if self.kind == "app":
             return {
                 "app": self.app.strip(),

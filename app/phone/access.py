@@ -65,6 +65,8 @@ PHONE_PATHS = {
     ("POST", "/api/v1/repos/seen"),
     ("POST", "/api/v1/brief/move"),
     ("GET", "/api/v1/report"),
+    ("GET", "/api/v1/recipes"),
+    ("POST", "/api/v1/recipes/runs/decide"),
     ("POST", "/api/v1/report/write"),
     ("POST", "/api/v1/report/edit"),
     ("POST", "/api/v1/report/send"),

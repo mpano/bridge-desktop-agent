@@ -37,6 +37,29 @@ JIRA_WHEN = {
     "any": "changes",
 }
 CHANGES = {"review", "comment", "any", "status", "assignee"}  # Need a before and an after.
+# "Any of mine" triggers: every new item is an event (for recipes and "every time" watchers).
+GITHUB_MINE = {
+    "merged": (
+        "Any pull request of yours is merged",
+        "is:pr author:@me is:merged merged:>={since}",
+    ),
+    "review_requested": ("Someone asks you for a review", "is:pr is:open review-requested:@me"),
+    "assigned": ("A GitHub issue is assigned to you", "is:issue is:open assignee:@me"),
+    "opened": ("You open a pull request", "is:pr author:@me created:>={since}"),
+}
+JIRA_MINE = {
+    "assigned": (
+        "A Jira ticket is assigned to you",
+        "assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC",
+    ),
+    "done": (
+        "One of your Jira tickets is done",
+        "assignee = currentUser() AND statusCategory = Done AND resolved >= -7d "
+        "ORDER BY resolved DESC",
+    ),
+}
+STREAMS = {"github_mine", "jira_mine"}
+SEEN_LIMIT = 300
 APP_TEXT_LIMIT = 6000
 APP_EVERY = 300  # App watchers: every 5 minutes (they can use a model call).
 
@@ -49,7 +72,8 @@ UNDERSTAND = """Turn the user's "tell me when …" request into one watcher. Rep
 using these fields (leave out what doesn't apply):
 - kind: "email" (new email matching a Gmail search), "slack" (new Slack message matching a
   Slack search; query "mentions" = mentions of the user), "github_pr", "github_release",
-  "jira" or "app" (a read-only tool in a connected app such as Linear, Notion or Sentry).
+  "jira", "app" (a read-only tool in a connected app such as Linear, Notion or Sentry),
+  "github_mine" or "jira_mine" (any of the user's pull requests/issues/tickets).
 - label: a short name for the list, e.g. "PR 412 merged", "Sarah replies", "ABC-9 in QA".
 - query: for email/slack, the search, e.g. "from:sarah", "subject:invoice".
 - once: true when it should stop after the first time (e.g. "when Sarah replies",
@@ -61,6 +85,9 @@ using these fields (leave out what doesn't apply):
 - key (e.g. "ABC-9") and when for jira: one of status_to, done, status, comment, assignee,
   any; plus status (e.g. "QA") with status_to.
 - app, tool, arguments (JSON object) and condition (plain words) for app.
+- For "any of mine": kind "github_mine" with event merged, review_requested, assigned or
+  opened (e.g. "whenever someone asks me for a review"), or kind "jira_mine" with event
+  assigned or done.
 - days: how many days to keep waiting, if the user said so.
 If the request can't be watched, reply {"error": "a short reason"}."""
 
@@ -85,6 +112,10 @@ def describe(kind: str, target: dict) -> str:
         return f"{target['key']} {JIRA_WHEN.get(target['when'], 'changes')}"
     if kind == "app":
         return f"{target['app']}: {target.get('condition') or 'changes'}"
+    if kind == "github_mine":
+        return GITHUB_MINE[target["event"]][0]
+    if kind == "jira_mine":
+        return JIRA_MINE[target["event"]][0]
     return ""
 
 
@@ -155,6 +186,18 @@ class Watchers:
 
     async def prepare(self, kind: str, target: dict) -> dict:
         """Check the target exists and you're connected; fill in what's missing."""
+        if kind == "github_mine":
+            if target.get("event") not in GITHUB_MINE:
+                raise WatchError(f"Choose one of: {', '.join(GITHUB_MINE)}.")
+            if self.github is None or not await self.github.connected():
+                raise WatchError("Connect GitHub in Connections first.")
+            return target
+        if kind == "jira_mine":
+            if target.get("event") not in JIRA_MINE:
+                raise WatchError(f"Choose one of: {', '.join(JIRA_MINE)}.")
+            if self.jira is None or not await self.jira.connected():
+                raise WatchError("Connect Jira in Connections first.")
+            return target
         if kind in {"github_pr", "github_release"}:
             if self.github is None or not await self.github.connected():
                 raise WatchError("Connect GitHub in Connections first.")
@@ -199,6 +242,10 @@ class Watchers:
                 return await self._issue(t["key"])
             if watch.kind == "app":
                 return await self._app(t)
+            if watch.kind == "github_mine":
+                return await self._github_mine(t["event"])
+            if watch.kind == "jira_mine":
+                return await self._jira_mine(t["event"])
         except WatchError:
             raise
         except ValueError as exc:
@@ -424,9 +471,143 @@ class Watchers:
             return f"{watch.label}", f"{t['app']}: {summary}"
         return None
 
+    # "Any of mine" ----------------------------------------------------------------------------
+
+    async def _github_mine(self, event: str) -> dict:
+        from datetime import date, timedelta
+
+        since = (date.today() - timedelta(days=7)).isoformat()
+        query = GITHUB_MINE[event][1].format(since=since)
+        try:
+            found = await self.github.c.request(
+                "github",
+                "GET",
+                "search/issues",
+                params={"q": query, "per_page": 30, "sort": "updated", "order": "desc"},
+            )
+        except Exception as exc:
+            raise WatchError(f"Couldn't search GitHub: {exc}"[:200]) from None
+        items = []
+        for raw in found.get("items", []):
+            item = self.github._item(raw)
+            ref = f"{item['repo'].split('/')[-1]}#{item['number']}"
+            items.append(
+                {
+                    "id": f"{item['repo']}#{item['number']}",
+                    "vars": {
+                        "title": item["title"],
+                        "url": item["url"],
+                        "repo": item["repo"],
+                        "number": str(item["number"]),
+                        "ref": ref,
+                        "who": item["author"],
+                    },
+                }
+            )
+        return {"items": items}
+
+    async def _jira_mine(self, event: str) -> dict:
+        try:
+            issues = await self.jira.search(JIRA_MINE[event][1], limit=30)
+        except Exception as exc:
+            raise WatchError(f"Couldn't search Jira: {exc}"[:200]) from None
+        return {
+            "items": [
+                {
+                    "id": issue["key"],
+                    "vars": {
+                        "title": issue["summary"],
+                        "url": issue["url"],
+                        "key": issue["key"],
+                        "ref": issue["key"],
+                        "status": issue["status"],
+                        "who": issue.get("assignee", ""),
+                    },
+                }
+                for issue in issues
+            ]
+        }
+
     @staticmethod
-    def remember(watch: Watch, now: dict) -> dict:
+    def _stream_headline(watch: Watch, values: dict) -> str:
+        event = watch.target.get("event")
+        ref = values.get("ref", "")
+        if watch.kind == "github_mine":
+            return {
+                "merged": f"✓ {ref} was merged",
+                "review_requested": f"{values.get('who') or 'Someone'} asked you to review {ref}",
+                "assigned": f"{ref} was assigned to you",
+                "opened": f"You opened {ref}",
+            }.get(event, ref)
+        return {"assigned": f"{ref} was assigned to you", "done": f"✓ {ref} is done"}.get(
+            event, ref
+        )
+
+    # Events -----------------------------------------------------------------------------------
+
+    async def events(self, watch: Watch, before: dict | None, now: dict) -> list[dict]:
+        """What happened since the last check, as events a notification or a recipe can use:
+        {"headline", "detail", "url", "vars", "keep"} (keep: don't end a one-time watcher)."""
+        if watch.kind in STREAMS:
+            if before is None:
+                return []  # The first look only learns what's already there.
+            seen = set(before.get("seen", []))
+            found = []
+            for item in now["items"]:
+                if item["id"] in seen:
+                    continue
+                values = {**item["vars"], "label": watch.label}
+                headline = self._stream_headline(watch, values)
+                values["headline"] = headline
+                found.append(
+                    {
+                        "headline": headline,
+                        "detail": values.get("title", ""),
+                        "url": values.get("url", ""),
+                        "vars": values,
+                        "keep": False,
+                    }
+                )
+            return list(reversed(found[:5]))  # Oldest first.
+        event = await self.decide(watch, before, now)
+        if event is None:
+            return []
+        t = watch.target
+        values = {
+            "label": watch.label,
+            "headline": event[0],
+            "detail": event[1],
+            "title": now.get("title") or now.get("name") or event[1],
+            "url": now.get("url", ""),
+        }
+        if watch.kind == "github_pr":
+            values.update(
+                repo=t["repo"],
+                number=str(t["number"]),
+                ref=f"{t['repo'].split('/')[-1]}#{t['number']}",
+                who=now.get("merged_by") or now.get("last_reviewer") or "",
+            )
+        elif watch.kind == "github_release":
+            values.update(repo=t["repo"], ref=now.get("tag", ""), tag=now.get("tag", ""))
+        elif watch.kind == "jira":
+            values.update(key=t["key"], ref=t["key"], status=now.get("status", ""))
+        return [
+            {
+                "headline": event[0],
+                "detail": event[1],
+                "url": values["url"],
+                "vars": values,
+                "keep": len(event) > 2 and event[2] is False,
+            }
+        ]
+
+    @staticmethod
+    def remember(watch: Watch, now: dict, before: dict | None = None) -> dict:
         """What to keep for the next comparison (app text isn't stored, just its hash)."""
         if watch.kind == "app":
             return {"hash": now["hash"]}
+        if watch.kind in STREAMS:
+            old = list((before or {}).get("seen", []))
+            fresh = [item["id"] for item in now["items"] if item["id"] not in set(old)]
+            return {"seen": (old + fresh)[-SEEN_LIMIT:]}
         return now

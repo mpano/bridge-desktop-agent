@@ -18,9 +18,11 @@ def install(app: FastAPI, authorize) -> None:
         settings = agent.proactive_store.settings()
         routine_ids = {settings.get("morning_schedule_id"), settings.get("evening_schedule_id")}
         listed = await agent.proactive_controller.list(None)
+        recipes = getattr(agent, "recipes", None)
+        owned = recipes.watch_ids() if recipes is not None else set()
         return {
             "settings": settings,
-            "watches": listed["watches"],
+            "watches": [w for w in listed["watches"] if w["id"] not in owned],
             "schedules": [
                 {
                     "id": item.id,
