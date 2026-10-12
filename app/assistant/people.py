@@ -32,6 +32,24 @@ from app.llm.usage import task
 COLLECT_EVERY = 30 * 60
 SUMMARY_HOURS = 6
 SELF_WORDS = {"me", "you", "myself", "i", "the team", "team", "everyone", "all"}
+# Senders that are machines, not colleagues (GitHub, Jira, calendar invites, newsletters…).
+AUTOMATED = re.compile(
+    r"^(no-?reply|do-?not-?reply|donotreply|notifications?|notify|alerts?|mailer-daemon|"
+    r"postmaster|bounces?|bot|robot|automated|news(letter)?|digest|updates?|calendar-"
+    r"notification|jira|github|builds?|ci)([+._-].*)?@",
+    re.I,
+)
+SERVICE_DOMAINS = ("github.com", "atlassian.net", "slack.com", "noreply.", "mailchimp")
+
+
+def automated(name: str, email: str) -> bool:
+    email = (email or "").lower()
+    if email and (
+        AUTOMATED.match(email) or any(d in email.split("@")[-1] for d in SERVICE_DOMAINS)
+    ):
+        return True
+    return normal(name) in {"github", "jira", "slack", "google calendar", "confluence", "linear"}
+
 
 TOGETHER = """You help the user keep track of a colleague. From the facts below (promises
 between them, meetings, messages, reviews, the user's own notes), write JSON:
@@ -190,6 +208,8 @@ class People:
     ) -> None:
         name, email, handle = name.strip(), email.strip().lower(), handle.strip().lower()
         if not (name or email or handle) or self._mine(name, email):
+            return
+        if automated(name, email):
             return
         when = when or time.time()
         found = self._find_one(people, name, email, handle)

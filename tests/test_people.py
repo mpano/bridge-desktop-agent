@@ -149,6 +149,16 @@ async def test_learns_who_is_who_from_bridges_own_data(tmp_path):
     # Not you, not a newsletter, not "me".
     assert not any("digest" in n.lower() or n in {"Me", "me", "Mpano"} for n in known)
     assert split_from("Olivier <O@X.co>") == ("Olivier", "o@x.co")
+    from app.assistant.people import automated
+
+    for sender in (
+        "GitHub <noreply@github.com>",
+        "Jira <jira@acme.atlassian.net>",
+        "Calendar <calendar-notification@google.com>",
+        "Bot <no-reply+x@acme.co>",
+    ):
+        assert automated(*split_from(sender)), sender
+    assert not automated(*split_from("Sam Lee <sam@acme.co>"))
 
     merged = people.merge(sam["id"], known["samlee"]["id"])
     assert merged["handles"] == ["samlee"] and "samlee" not in by_name(people)

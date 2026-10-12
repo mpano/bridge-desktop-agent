@@ -950,7 +950,7 @@ ul.plain { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-d
 .tile .count { font-size: 24px; font-weight: 750; color: var(--text); letter-spacing: -.02em; }
 .tile.warm { background: var(--amber-soft); color: var(--amber); }
 .tile.warm .count { color: var(--amber); }
-.mail-top li { display: flex; flex-direction: column; gap: 1px; font-size: 13.5px; }
+.inbox-top li { display: flex; flex-direction: column; gap: 1px; font-size: 13.5px; }
 .waiting { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13.5px; }
 .pill.warm { color: var(--amber); background: var(--amber-soft); border: 0; padding: 2px 8px; border-radius: 99px; font-size: 11.5px; }
 dialog.sheet { width: min(440px, 92vw); padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
@@ -1774,11 +1774,17 @@ html:has(body.buddy-page), body.buddy-page { background: transparent !important;
 /* New in Bridge */
 .whats-new { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 7%, var(--surface)), var(--surface)); }
 .whats-new .label { margin: 0 0 2px; }
-.wn-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr)); gap: 10px; padding: 0 18px 16px; }
-.wn-tile { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding: 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
+.wn-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 8px; padding: 0 18px 16px; }
+.wn-tile { display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'head action' 'text action' 'note note'; column-gap: 10px; row-gap: 2px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); transition: border-color .2s ease, transform .2s ease; }
+.wn-tile:hover { border-color: var(--line-strong); transform: translateY(-1px); }
+.wn-tile .wn-head { grid-area: head; }
+.wn-tile .wn-text { grid-area: text; }
+.wn-tile .wn-note { grid-area: note; }
+.wn-tile > button { grid-area: action; }
 .wn-head { display: flex; align-items: center; gap: 8px; font-size: 14px; }
-.wn-icon { font-size: 18px; }
-.wn-text { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.4; flex: 1; }
+.wn-icon { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; }
+.wn-icon .icon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.wn-text { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .wn-note { margin: 0; font-size: 12px; color: var(--green); }
 .whats-new .card-head > div { flex: 1; min-width: 0; }
 
@@ -1857,3 +1863,87 @@ html:has(body.buddy-page), body.buddy-page { background: transparent !important;
 .pp-brief { margin: 0; padding: 0 18px 0 36px; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; }
 .pp-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 18px 0; }
 .pp-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-size: 12.5px; cursor: pointer; }
+
+/* Today: what's time-sensitive first */
+.today-now { display: flex; flex-direction: column; gap: 12px; }
+.today-now:not(:has(> :not([hidden]))) { display: none; }
+.report-preview { position: relative; max-height: 7.2em; overflow: hidden; white-space: pre-wrap; font-size: 13.5px; line-height: 1.45; color: var(--muted); margin-top: 4px; -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent); mask-image: linear-gradient(to bottom, #000 60%, transparent); }
+.report-sent-inline { flex: 1; font-size: 12.5px; color: var(--green); }
+
+/* ------------------------------------------------------------------------------------------
+   Polish: motion, consistent rhythm, small screens. Everything here respects
+   "Reduce motion" (the rule near the top turns animations off).
+   ------------------------------------------------------------------------------------------ */
+:root { --ease-out: cubic-bezier(.2, .8, .2, 1); --rise: 420ms; }
+
+/* Pages and their cards rise in gently, one after another. */
+@keyframes bridge-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes bridge-fade { from { opacity: 0; } to { opacity: 1; } }
+.view:not([hidden]) > *,
+.today-now > *:not([hidden]),
+.today-grid > *,
+.today-grid > * > .card:not([hidden]) { animation: bridge-rise var(--rise) var(--ease-out) both; }
+.view:not([hidden]) > *:nth-child(2) { animation-delay: 40ms; }
+.view:not([hidden]) > *:nth-child(3) { animation-delay: 80ms; }
+.view:not([hidden]) > *:nth-child(4) { animation-delay: 120ms; }
+.view:not([hidden]) > *:nth-child(5) { animation-delay: 160ms; }
+.view:not([hidden]) > *:nth-child(n+6) { animation-delay: 200ms; }
+.today-grid > *:nth-child(2) { animation-delay: 120ms; }
+.today-grid > * > .card:nth-child(2) { animation-delay: 160ms; }
+.today-grid > * > .card:nth-child(3) { animation-delay: 200ms; }
+.today-grid > * > .card:nth-child(n+4) { animation-delay: 240ms; }
+.view:not([hidden]) > .page-head, .view:not([hidden]) > header { animation-name: bridge-fade; }
+
+/* Things you can press feel pressable. */
+button { transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .12s ease, box-shadow .2s ease; }
+button:active:not(:disabled) { transform: scale(.97); }
+.primary:hover:not(:disabled) { box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 28%, transparent); }
+.card { transition: border-color .2s ease, box-shadow .25s ease; }
+.mt-row, .pp-row, .recipe, .voice-card { transition: background-color .15s ease, border-color .15s ease, transform .15s ease; }
+.mt-row:hover, .pp-row:hover { transform: translateX(2px); }
+input, textarea, select { transition: border-color .15s ease, box-shadow .15s ease; }
+
+/* The sidebar: two groups, and the current page glides. */
+.nav-group { margin: 14px 10px 4px; font: 600 10.5px ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.nav-group:first-child { margin-top: 2px; }
+.sidebar nav button { transition: background-color .18s ease, color .18s ease; }
+.sidebar nav [aria-current="page"] .icon { color: var(--accent); }
+
+/* Page headings breathe before their content. */
+.view > .page-head + * { margin-top: 22px; }
+.meetings-root, .people-root { margin-top: 22px; }
+
+/* Card titles: small labels (PROMISES, INBOX…) everywhere a card isn't the main thing. */
+.card-head h2.label { margin: 0; }
+.recipe-waiting .card-head, .people-brief .card-head { padding-bottom: 6px; }
+
+/* Settings forms line up with the cards below them. */
+.settings-card { max-width: none; }
+
+/* Live things gently pulse; finished things don't. */
+@keyframes bridge-pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--red) 35%, transparent); } 50% { box-shadow: 0 0 0 6px transparent; } }
+.mt-rec:not(.paused) { animation: bridge-pulse 1.8s ease-in-out infinite; }
+
+/* Loading placeholders shimmer instead of saying "Loading…". */
+.skeleton { display: block; height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--inset), var(--line), var(--inset)); background-size: 200% 100%; animation: ex-shimmer 1.2s linear infinite; }
+
+/* Small windows (not the phone app, which has its own layout). */
+@media (max-width: 650px) {
+  body:not(.phone) .sidebar-footer, body:not(.phone) .ask-shortcut, body:not(.phone) .nav-group { display: none; }
+  body:not(.phone) .sidebar nav { scrollbar-width: none; -webkit-mask-image: linear-gradient(to right, #000 85%, transparent); mask-image: linear-gradient(to right, #000 85%, transparent); }
+  body:not(.phone) .sidebar nav button { flex-shrink: 0; }
+  .today h1 { font-size: 30px; }
+  .today-grid { grid-template-columns: 1fr; }
+}
+@keyframes bridge-toast { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+#notice:not([hidden]) { animation: bridge-toast .28s var(--ease-out) both; }
+body.phone #notice:not([hidden]) { animation-name: bridge-fade; }
+/* Today spaces its sections with the page's gap only (no extra card margins on top). */
+#view-today > * + * { margin-top: 0; }
+.people-brief .pp-chips { padding-left: 18px; }
+.recipe-waiting .recipe-ask:first-child { border-top: 0; }
+@media (max-width: 650px) {
+  body:not(.phone) main { padding: 0 16px 28px; }
+  body:not(.phone) .sidebar nav button span.grow { display: inline; }
+  body:not(.phone) .sidebar nav button .nav-badge, body:not(.phone) .sidebar nav button .health-dot { display: none; }
+}

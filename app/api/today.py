@@ -16,6 +16,8 @@ from typing import Literal
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.api.errors import friendly
+
 INBOX_FRESH_SECONDS = 30 * 60
 log = logging.getLogger(__name__)
 
@@ -176,7 +178,7 @@ def install(app: FastAPI, authorize) -> None:
         except TimeoutError:
             raise HTTPException(504, "That took too long. Try again.") from None
         except Exception as exc:
-            raise HTTPException(502, str(exc) or "Couldn't read your inbox.") from None
+            raise HTTPException(502, friendly(exc, "Couldn't read your inbox.")) from None
         return {"gmail": True, "summary": inbox_summary(inbox, slack)}
 
     @app.get("/api/v1/screen/peek", dependencies=[Depends(authorize)])

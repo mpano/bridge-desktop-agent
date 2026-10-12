@@ -9,6 +9,8 @@ from __future__ import annotations
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.api.errors import friendly
+
 WEEK = r"^\d{4}-W\d{2}$"
 
 
@@ -62,4 +64,4 @@ def install(app: FastAPI, authorize) -> None:
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
         except Exception as exc:
-            raise HTTPException(502, str(exc) or "It wasn't sent. Try again.") from None
+            raise HTTPException(502, friendly(exc, "It wasn't sent. Try again.")) from None

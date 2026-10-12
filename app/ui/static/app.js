@@ -201,7 +201,7 @@
     }
 
     if (state === "off") {
-      panel.append(node("p", "Connected services are turned off. Set INTEGRATIONS_ENABLED=true in .env and restart Bridge.", "notice-box"));
+      panel.append(node("p", "Connections are switched off in this copy of Bridge, so nothing can be connected right now.", "notice-box"));
     } else if (state === "setup") {
       const key = provider.provider === "slack" ? "SLACK_CLIENT_ID" : provider.provider === "spotify" ? "SPOTIFY_CLIENT_ID" : "GOOGLE_CLIENT_ID";
       panel.append(node("p", `Add ${key} to .env and restart Bridge. Steps are in docs/SERVICES.md.`, "notice-box"));

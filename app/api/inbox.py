@@ -15,6 +15,7 @@ from types import SimpleNamespace
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.api.errors import friendly
 from app.api.today import INBOX_FRESH_SECONDS
 from app.assistant.replies import address_of, reply_subject
 
@@ -146,7 +147,7 @@ def install(app: FastAPI, authorize) -> None:
         except TimeoutError:
             raise HTTPException(504, "Gmail took too long. Try again.") from None
         except Exception as exc:
-            raise HTTPException(502, str(exc) or "Couldn't open that email.") from None
+            raise HTTPException(502, friendly(exc, "Couldn't open that email.")) from None
         return {
             **message,
             "to": address_of(item["from"]),
@@ -181,7 +182,7 @@ def install(app: FastAPI, authorize) -> None:
             try:
                 await agent.slack_inbox.send(item, payload.body)
             except Exception as exc:
-                raise HTTPException(502, str(exc) or "Slack didn't accept the reply.") from None
+                raise HTTPException(502, friendly(exc, "Slack didn't accept the reply.")) from None
             if learning is not None:
                 learning.draft_sent("slack", item.get("from", ""), draft, payload.body)
             return {"sent": True, "to": item["subject"], "followup": None}
@@ -199,7 +200,7 @@ def install(app: FastAPI, authorize) -> None:
         try:
             sent = await agent.gmail.send(args)
         except Exception as exc:
-            raise HTTPException(502, str(exc) or "Gmail didn't accept the reply.") from None
+            raise HTTPException(502, friendly(exc, "Gmail didn't accept the reply.")) from None
         followup = None
         if payload.follow_up:
             name = item["from"].split("<")[0].strip().strip('"') or to

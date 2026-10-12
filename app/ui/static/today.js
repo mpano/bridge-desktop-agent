@@ -208,7 +208,7 @@
       tiles.append(tile);
     }
     body.append(tiles);
-    const top = node("ul", undefined, "plain mail-top");
+    const top = node("ul", undefined, "plain inbox-top");
     for (const item of data.inbox.top.slice(0, 3)) {
       const li = node("li");
       li.append(node("strong", item.source === "slack" ? `${item.from} · Slack` : item.from), node("span", item.summary, "muted"));

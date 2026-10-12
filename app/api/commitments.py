@@ -15,6 +15,8 @@ from urllib.parse import quote
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.api.errors import friendly
+
 
 class Ref(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -151,4 +153,4 @@ def install(app: FastAPI, authorize) -> None:
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
         except Exception as exc:
-            raise HTTPException(502, str(exc) or "It wasn't sent. Try again.") from None
+            raise HTTPException(502, friendly(exc, "It wasn't sent. Try again.")) from None

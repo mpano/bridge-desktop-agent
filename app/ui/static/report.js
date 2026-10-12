@@ -11,7 +11,8 @@
   let opened = false;
   let writing = false;
   let saveTimer = null;
-  let savedLabel = null;  // "Saving…" / "Saved" under the draft.
+  let savedLabel = null;
+  let expanded = false;  // On Today it's a preview until you choose Edit & send.  // "Saving…" / "Saved" under the draft.
 
   const hiddenKey = () => `bridge-report-hidden-${report.week}`;
   function hidden() {
@@ -110,6 +111,21 @@
       body.append(stats);
     }
 
+    if (!expanded) {
+      const preview = node("div", undefined, "report-preview");
+      preview.textContent = report.text;
+      const row = node("div", undefined, "report-foot");
+      row.append(
+        node("span", report.sent.length ? `✓ Sent to ${report.sent[report.sent.length - 1].to}` : report.edited ? "Your edits are saved" : "Draft", report.sent.length ? "report-sent-inline" : "faint report-saved"),
+        button("Copy", "ghost small", async () => {
+          try { await navigator.clipboard.writeText(report.text); ui().notify("Copied."); } catch { /* not allowed */ }
+        }),
+        button("Edit & send", "primary small", () => { expanded = true; render(); }),
+      );
+      body.append(preview, row);
+      return;
+    }
+
     const area = node("textarea", undefined, "report-text");
     area.value = report.text;
     area.setAttribute("aria-label", "Your weekly report");
@@ -187,6 +203,7 @@
     // From Automations: show it on Today now, writing it if there's none yet.
     async open() {
       opened = true;
+      expanded = true;
       ui().view("today");
       await refresh();
       if (report && !report.text) write(false);

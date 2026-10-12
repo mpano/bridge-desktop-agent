@@ -9,6 +9,7 @@ from __future__ import annotations
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.api.errors import friendly
 from app.assistant.meetings import MeetingError
 
 MEETING = Field(min_length=6, max_length=20, pattern=r"^[0-9a-f]+$")
@@ -104,7 +105,7 @@ def install(app: FastAPI, authorize) -> None:
         except MeetingError as exc:
             raise HTTPException(409, str(exc)) from None
         except Exception as exc:
-            raise HTTPException(502, str(exc) or "It wasn't sent. Try again.") from None
+            raise HTTPException(502, friendly(exc, "It wasn't sent. Try again.")) from None
 
     @app.post("/api/v1/meetings/delete", dependencies=[Depends(authorize)])
     async def delete(payload: Ref, request: Request):

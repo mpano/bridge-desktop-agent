@@ -45,9 +45,7 @@ class AccountManager:
 
     def _enabled(self):
         if not self.settings.integrations_enabled:
-            raise IntegrationError(
-                "Set INTEGRATIONS_ENABLED=true and restart Bridge to connect accounts."
-            )
+            raise IntegrationError("Connections are switched off in this copy of Bridge.")
 
     async def catalog(self) -> dict:
         specs = [
@@ -66,7 +64,7 @@ class AccountManager:
                 "enabled": False,
                 "providers": specs,
                 "accounts": [],
-                "message": "Enable connected services in .env to get started.",
+                "message": "Connections are switched off in this copy of Bridge.",
             }
         async with self.lock:
             accounts = await asyncio.to_thread(self.store.load)
