@@ -92,7 +92,8 @@
     });
     card.append(search);
     if (!list.length) {
-      card.append(node("p", query ? "Nobody by that name yet." : "Bridge learns the people you work with from your promises, meetings, email, Slack, calendar and GitHub. Check back after a day of work.", "hint"));
+      card.append(query ? node("p", "Nobody by that name yet.", "hint")
+        : window.BridgeDOM.empty("people", "Your people will show up here", "Bridge learns who you work with from your promises, meetings, email, Slack, calendar and GitHub."));
     }
     for (const p of list) {
       const row = button("", "pp-row", () => show(p.id));

@@ -153,7 +153,7 @@
               <button type="button" id="day-plan" class="secondary small">Plan my day</button>
               <button type="button" id="day-apply" class="secondary small" hidden>Add to calendar</button>
             </div>
-            <ol id="day-list" class="day-list" aria-label="Today's schedule"></ol>
+            <ol id="day-list" class="day-list" aria-label="Today's schedule"><li class="skeleton-row" aria-hidden="true"><span class="skeleton" style="width:72%"></span></li><li class="skeleton-row" aria-hidden="true"><span class="skeleton" style="width:54%"></span></li><li class="skeleton-row" aria-hidden="true"><span class="skeleton" style="width:64%"></span></li></ol>
             <p id="day-empty" class="empty" hidden></p>
           </section>
           <div class="side">
@@ -167,7 +167,7 @@
                 <button type="button" role="tab" id="promises-tab-mine" aria-selected="true">You owe <span id="promises-count-mine" class="count"></span></button>
                 <button type="button" role="tab" id="promises-tab-theirs" aria-selected="false">Waiting on <span id="promises-count-theirs" class="count"></span></button>
               </div>
-              <ul id="promises-list" class="plain promises-list" aria-live="polite"></ul>
+              <ul id="promises-list" class="plain promises-list" aria-live="polite"><li class="skeleton-row" aria-hidden="true"><span class="skeleton" style="width:72%"></span></li><li class="skeleton-row" aria-hidden="true"><span class="skeleton" style="width:54%"></span></li></ul>
               <p id="promises-empty" class="empty" hidden></p>
               <p id="promises-closed" class="hint promises-closed" hidden></p>
             </section>
@@ -178,7 +178,7 @@
             </section>
             <section class="card" aria-labelledby="inbox-title">
               <div class="card-head"><h2 id="inbox-title" class="label">Inbox</h2><button type="button" id="inbox-refresh" class="link" hidden>Refresh</button></div>
-              <div id="inbox-body"></div>
+              <div id="inbox-body"><span class="skeleton" style="width:80%"></span><span class="skeleton" style="width:60%;margin-top:10px"></span></div>
             </section>
           </div>
         </div>

@@ -169,7 +169,7 @@
     tile.addEventListener("click", () => { chosenService = provider.provider; renderConnections(); });
     const words = node("span", undefined, "svc-words");
     words.append(node("strong", provider.name), node("span", accounts.length ? accounts.map(shortIdentity).join(", ") : label, "faint"));
-    tile.append(node("span", info.glyph, `glyph ${info.tone}`), words, node("span", label, `state ${state}`));
+    tile.append(node("span", info.glyph, `glyph ${info.tone} brand-${provider.provider}`), words, node("span", label, `state ${state}`));
     return tile;
   }
 
@@ -192,7 +192,7 @@
     const head = node("header", undefined, "svc-head");
     const words = node("div");
     words.append(node("h2", provider.name), node("p", accounts.length ? accounts.map(shortIdentity).join(", ") : label, "faint"));
-    head.append(node("span", info.glyph, `glyph big ${info.tone}`), words);
+    head.append(node("span", info.glyph, `glyph big ${info.tone} brand-${provider.provider}`), words);
     panel.append(head);
     if (provider.kind === "token") {
       tokenPanel(panel, provider, accounts, info);

@@ -8,13 +8,15 @@
   const {node, button} = mini;
   let today = null;
   let approvals = [];
+  let desk = null;  // What needs you, recording: the same view as the desk avatar.
   let working = false;
 
   async function refresh() {
     try {
-      [today, approvals] = await Promise.all([
+      [today, approvals, desk] = await Promise.all([
         mini.request("/api/v1/today"),
         mini.request("/api/v1/approvals").then((data) => data.approvals),
+        mini.request("/api/v1/buddy").catch(() => null),
       ]);
     } catch {
       $("p-status").textContent = "Open Bridge to finish setting up";
@@ -77,11 +79,54 @@
     box.append(node("p", "Nothing waiting for you. Ask anything, or try one of these.", "mini-quiet"));
   }
 
+  // At a glance: recording, what needs you, the rest of today.
+  function glance() {
+    const box = $("p-glance");
+    box.replaceChildren();
+    const time = (iso) => new Date(iso).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", hour12: false});
+    if (desk && desk.recording) {
+      const row = node("div", undefined, "glance-rec");
+      row.append(node("span", undefined, "mt-rec"), node("span", `Taking notes · ${desk.recording}`, "grow"),
+        button("Stop", "ghost small", async () => {
+          try { await mini.request("/api/v1/meetings/stop", "POST", {}); } catch { /* shown next time */ }
+          refresh();
+        }));
+      box.append(row);
+    }
+    const needs = (desk && desk.needs) || [];
+    if (needs.length) {
+      const list = node("div", undefined, "glance-list");
+      list.append(node("p", "Needs you", "label"));
+      for (const item of needs) {
+        const row = button("", "glance-row", () => mini.native({action: "open", view: item.view || "today"}));
+        row.append(node("span", String(item.count), "glance-count"), node("span", item.label, "grow"), node("span", "›", "faint"));
+        list.append(row);
+      }
+      box.append(list);
+    }
+    const next = nextMeeting();
+    const later = (today.events || [])
+      .filter((event) => !event.all_day && new Date(event.start) > Date.now() && (!next || event.start !== next.start))
+      .sort((a, b) => a.start.localeCompare(b.start)).slice(0, 3);
+    if (later.length) {
+      const list = node("div", undefined, "glance-list");
+      list.append(node("p", "Later today", "label"));
+      for (const event of later) {
+        const row = node("div", undefined, "glance-event");
+        row.append(node("span", time(event.start), "mono faint"), node("span", event.title || "Busy", "grow"));
+        list.append(row);
+      }
+      box.append(list);
+    }
+    box.hidden = !box.childElementCount || !$("p-reply").hidden;
+  }
+
   function render() {
     const name = (today.focus || {}).active ? "Focusing" : approvals.length ? `${approvals.length === 1 ? "1 thing needs" : `${approvals.length} things need`} you` : "Ready";
     if (!working) $("p-status").textContent = name;
     $("p-focus").textContent = (today.focus || {}).active ? "Stop focus" : "Focus 90 min";
     nowCard();
+    glance();
   }
 
   // Asking -----------------------------------------------------------------------------------
@@ -89,6 +134,7 @@
   function reply(text, {working: busy = false, open = false} = {}) {
     const box = $("p-reply");
     box.hidden = !text;
+    $("p-glance").hidden = Boolean(text) || !$("p-glance").childElementCount;
     box.replaceChildren();
     if (!text) return;
     box.append(node("p", text, busy ? "muted" : ""));

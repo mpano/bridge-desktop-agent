@@ -236,7 +236,7 @@
     const card = node("section", undefined, "card mt-list");
     card.append(node("h2", "Past meetings"));
     if (!data.meetings.length) {
-      card.append(node("p", "No notes yet. They're kept for " + data.keep_days + " days.", "hint"));
+      card.append(window.BridgeDOM.empty("mic", "No meeting notes yet", `Take notes in your next meeting. Notes are kept for ${data.keep_days} days; audio is never saved.`));
       return card;
     }
     for (const m of data.meetings) {

@@ -54,5 +54,14 @@ window.BridgeDOM = (() => {
     return svg;
   }
 
-  return {node, button, link, icon};
+  // A friendly "nothing here yet": an icon, a title and one line.
+  function empty(iconName, title, text) {
+    const box = node("div", undefined, "empty-state");
+    const badge = node("span", undefined, "empty-icon");
+    badge.append(icon(iconName));
+    box.append(badge, node("strong", title), node("p", text));
+    return box;
+  }
+
+  return {node, button, link, icon, empty};
 })();
