@@ -1978,3 +1978,9 @@ body.phone #notice:not([hidden]) { animation-name: bridge-fade; }
 .empty-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; margin-bottom: 6px; background: radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--accent) 26%, transparent), color-mix(in srgb, var(--accent) 8%, transparent)); color: var(--accent); animation: bridge-float 4s ease-in-out infinite; }
 .empty-icon .icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 @keyframes bridge-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+/* Your messages: a soft accent bubble that sits in the theme instead of glaring. */
+.message.user .bubble {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+}
