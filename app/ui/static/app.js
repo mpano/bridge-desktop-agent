@@ -1342,9 +1342,30 @@
     for (const tool of progress.remaining_tools) list.append(node("li", toolLabel(tool), "next"));
   }
 
+  // Bridge "typing" in the conversation while it works: its mark and three soft dots.
+  function typing(on) {
+    const existing = document.getElementById("typing-message");
+    if (!on) {
+      if (existing) existing.remove();
+      return;
+    }
+    if (existing) return;
+    const card = node("article", undefined, "message assistant typing-message");
+    card.id = "typing-message";
+    card.setAttribute("aria-hidden", "true");
+    const avatar = node("span", undefined, "avatar");
+    avatar.innerHTML = MARK;  // A fixed, local SVG; never user content.
+    const dots = node("span", undefined, "typing-dots");
+    dots.append(node("span"), node("span"), node("span"));
+    card.append(avatar, dots);
+    $("conversation").append(card);
+    scrollThread();
+  }
+
   async function watchTask(progress) {
       liveTask = progress.request_id;
       $("live-task").hidden = false;
+      typing(true);
       $("stop-task").disabled = false;
       try {
         while (!progress.result) {
@@ -1357,6 +1378,7 @@
       } finally {
         liveTask = null;
         $("live-task").hidden = true;
+        typing(false);
       }
   }
 

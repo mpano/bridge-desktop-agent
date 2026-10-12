@@ -125,7 +125,6 @@
   }
 
   const SOURCES = {email: "Email", slack: "Slack", github_pr: "GitHub", github_release: "GitHub", github_mine: "GitHub", jira: "Jira", jira_mine: "Jira", app: "App"};
-  const EXAMPLES = ["PR 412 is merged", "ABC-9 moves to QA", "Sarah replies to me", "someone mentions me on Slack", "a new release of owner/repo"];
 
   function ago(seconds) {
     const minutes = Math.round((Date.now() / 1000 - seconds) / 60);
@@ -163,15 +162,6 @@
       list.append(row);
     }
     if (!watches.length) empty(list, "Nothing yet. Try “PR 412 is merged” or “Sarah replies to me”.");
-    const examples = $("watch-examples");
-    if (examples && !examples.childElementCount) {
-      for (const text of EXAMPLES) {
-        examples.append(button(text, "chip", () => {
-          $("watch-new-query").value = text;
-          $("watch-new-query").focus();
-        }));
-      }
-    }
   }
 
   function renderSchedules() {
@@ -223,32 +213,45 @@
 
   // Events -------------------------------------------------------------------------------------
 
-  $("auto-new").addEventListener("submit", (event) => {
+  // One box for everything: Bridge works out whether it's a "tell me when", a recipe or a
+  // scheduled request, and takes it from there.
+  const EXAMPLES_ALL = [
+    "Tell me when PR 412 is merged",
+    "Let me know when Sarah replies",
+    "When a PR of mine is merged, post “🚀 {title} {url}” in #releases",
+    "When a Jira ticket is assigned to me, add a reminder to look at it",
+    "Every Friday at 5, tell me what slipped this week",
+  ];
+  const examples = $("auto-examples");
+  for (const text of EXAMPLES_ALL) {
+    examples.append(button(text, "chip", () => { $("auto-input").value = text; $("auto-input").focus(); }));
+  }
+
+  $("auto-new").addEventListener("submit", async (event) => {
     event.preventDefault();
     const text = $("auto-input").value.trim();
-    if (!text || ui().busy()) return;
-    $("auto-input").value = "";
-    ui().ask(text);
-  });
-
-  $("watch-new").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const input = $("watch-new-query");
-    const text = input.value.trim();
-    if (!text) return;
-    const submit = $("watch-submit");
+    const submit = $("auto-submit");
+    if (!text || submit.disabled || ui().busy()) return;
     submit.disabled = true;
-    submit.textContent = "Setting up…";
+    submit.textContent = "Working it out…";
     try {
-      const made = await ui().request("/api/v1/watches/ask", "POST", {text});
-      input.value = "";
-      ui().notify(made.status === "done" ? `It already happened: ${made.fired}` : `Watching: ${made.label}`);
-      refresh();
+      const {kind} = await ui().request("/api/v1/automations/kind", "POST", {text});
+      if (kind === "watch") {
+        const made = await ui().request("/api/v1/watches/ask", "POST", {text});
+        ui().notify(made.status === "done" ? `It already happened: ${made.fired}` : `Watching: ${made.label}`);
+        $("auto-input").value = "";
+        refresh();
+      } else if (kind === "recipe") {
+        if (window.BridgeRecipes && await window.BridgeRecipes.propose(text)) $("auto-input").value = "";
+      } else {
+        $("auto-input").value = "";
+        ui().ask(text);  // Scheduled requests are set up in Ask, with its usual OK.
+      }
     } catch (error) {
       ui().notify(error.message, true);
     } finally {
       submit.disabled = false;
-      submit.textContent = "Watch";
+      submit.textContent = "Create";
     }
   });
 

@@ -7,11 +7,25 @@ their switches, so the list can't get out of step with the settings.
 from __future__ import annotations
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.schemas import ForgetRequest
+from app.assistant.describe import kind_of
+
+
+class Describe(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=3, max_length=500)
 
 
 def install(app: FastAPI, authorize) -> None:
+    @app.post("/api/v1/automations/kind", dependencies=[Depends(authorize)])
+    async def kind(payload: Describe, request: Request):
+        """Which kind of automation the words describe: watch, recipe or schedule."""
+        recipes = getattr(request.app.state.agent, "recipes", None)
+        llm = getattr(recipes, "llm", None)
+        return {"kind": await kind_of(payload.text, llm)}
+
     @app.get("/api/v1/automations", dependencies=[Depends(authorize)])
     async def automations(request: Request):
         agent = request.app.state.agent

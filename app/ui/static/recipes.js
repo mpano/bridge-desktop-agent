@@ -11,12 +11,6 @@
   let proposal = null;  // A plan shown for review, not saved yet.
   let planning = false;
 
-  const EXAMPLES = [
-    "When a PR of mine is merged, post “🚀 {title} {url}” in #releases",
-    "When a Jira ticket is assigned to me, add a reminder to look at it",
-    "When someone asks me for a review, add a reminder “Review {ref}”",
-    "When one of my Jira tickets is done, comment “Thanks, shipped!” on it",
-  ];
 
   function ago(seconds) {
     const when = new Date(seconds * 1000);
@@ -71,7 +65,6 @@
         proposal = null;
         renderProposal();
         await act("/api/v1/recipes", {plan}, (made) => `Recipe ready: ${made.name}`);
-        $("recipe-input").value = "";
       }),
       button("Cancel", "ghost small", () => {
         proposal = null;
@@ -82,7 +75,7 @@
   }
 
   function modeSwitch(recipe) {
-    const group = node("div", undefined, "seg");
+    const group = node("div", undefined, "seg small");
     group.setAttribute("role", "radiogroup");
     group.setAttribute("aria-label", `How ${recipe.name} runs`);
     for (const [key, label] of [["ask", "Asks first"], ["auto", "Automatic"]]) {
@@ -139,36 +132,24 @@
       }
     }
 
-    const examples = $("recipe-examples");
-    if (examples && !examples.childElementCount) {
-      for (const text of EXAMPLES) {
-        examples.append(button(text, "chip", () => {
-          $("recipe-input").value = text;
-          $("recipe-input").focus();
-        }));
-      }
-    }
   }
 
-  $("recipe-new").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const text = $("recipe-input").value.trim();
-    if (!text || planning) return;
+  // From the one box in Automations: work out the recipe and show it before it's saved.
+  async function propose(text) {
+    if (planning) return false;
     planning = true;
-    const submit = $("recipe-submit");
-    submit.disabled = true;
-    submit.textContent = "Working it out…";
     try {
       proposal = await ui().request("/api/v1/recipes/plan", "POST", {text});
       renderProposal();
+      $("recipe-proposal").scrollIntoView({behavior: "smooth", block: "center"});
+      return true;
     } catch (error) {
       ui().notify(error.message, true);
+      return false;
     } finally {
       planning = false;
-      submit.disabled = false;
-      submit.textContent = "Next";
     }
-  });
+  }
 
   // Today: runs waiting for your OK ---------------------------------------------------------
 
@@ -199,5 +180,5 @@
     }
   }
 
-  window.BridgeRecipes = {refresh};
+  window.BridgeRecipes = {refresh, propose};
 })();
