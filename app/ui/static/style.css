@@ -1828,3 +1828,32 @@ html:has(body.buddy-page), body.buddy-page { background: transparent !important;
 .mt-live-head .grow, .meeting-card .grow, .mt-detail-head .grow { flex: 1; min-width: 0; }
 .mt-row { font-weight: 400; }
 .mt-row strong { font-weight: 650; font-size: 14px; }
+
+/* People */
+.people-root { display: flex; flex-direction: column; gap: 16px; }
+.pp-list, .pp-profile { padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.pp-search { width: 100%; box-sizing: border-box; margin-bottom: 4px; }
+.pp-face { display: inline-grid; place-items: center; flex-shrink: 0; border-radius: 50%; color: #fff; font-weight: 700; letter-spacing: .02em; }
+.pp-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 8px 10px; border: 1px solid transparent; border-radius: 12px; background: none; color: var(--text); cursor: pointer; font-weight: 400; }
+.pp-row:hover { background: var(--surface-hover); border-color: var(--line); }
+.pp-row-words { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; font-size: 12.5px; }
+.pp-row-words strong { font-size: 14px; }
+.pp-row-words span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-head { display: flex; align-items: center; gap: 14px; }
+.pp-head h2 { margin: 0; font-size: 20px; cursor: text; }
+.pp-head p { margin: 2px 0 0; font-size: 12.5px; }
+.pp-head-words { min-width: 0; }
+.pp-section h3 { margin: 10px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.pp-section ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; }
+.pp-section-head { display: flex; align-items: center; gap: 8px; }
+.pp-section-head h3 { flex: 1; }
+.pp-summary { margin: 0; font-size: 14px; line-height: 1.55; }
+.pp-next { margin: 4px 0 0; font-size: 13px; color: var(--accent); }
+.pp-note { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; font-size: 13.5px; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--inset); color: var(--text); }
+.pp-saved { font-size: 12px; }
+.pp-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.people-brief { padding-bottom: 14px; }
+.people-brief .label { margin: 0 0 2px; }
+.pp-brief { margin: 0; padding: 0 18px 0 36px; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; }
+.pp-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 18px 0; }
+.pp-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-size: 12.5px; cursor: pointer; }

@@ -19,6 +19,7 @@ from app.assistant.guide import Guides
 from app.assistant.learning import Learning
 from app.assistant.meetings import Meetings
 from app.assistant.operator import Operator
+from app.assistant.people import People
 from app.assistant.recipes import Recipes
 from app.assistant.replies import ReplyDrafter
 from app.assistant.reports import Reports
@@ -81,6 +82,7 @@ from app.tools.system import (
 )
 from app.tools.system import guide as guide_tools
 from app.tools.system import meetings as meeting_tools
+from app.tools.system import people as people_tools
 from app.tools.system import proactive as proactive_tools
 from app.tools.system import recipes as recipe_tools
 from app.tools.terminal import terminal
@@ -411,6 +413,16 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     agent.meetings.proactive_store = proactive_store
     agent.proactive.meetings = agent.meetings
     meeting_tools.register(registry, agent.meetings)
+
+    def me() -> tuple[str, ...]:
+        from app.auth.store import AuthStore
+
+        owner = AuthStore(settings.database_path).owner()
+        return (owner.name, owner.email) if owner else ()
+
+    agent.people = People(settings.database_path, llm=llm, agent=agent, me=me)
+    agent.proactive.people = agent.people
+    people_tools.register(registry, agent.people)
     agent.explainer = Explainer(
         settings, hands=agent.operator.hands, llm=llm, blocked=agent.operator.blocked
     )

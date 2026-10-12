@@ -75,6 +75,7 @@ TASKS = {
     "watchers": ("Watchers", "fast"),
     "recipes": ("Creating recipes", "smart"),
     "meetings": ("Meeting notes", "smart"),
+    "people": ("People & meeting briefs", "fast"),
     "text": ("Dictation and text actions", "fast"),
     "talk": ("Conversations (voice)", "voice"),
     "operator": ("Using your Mac", "operator"),

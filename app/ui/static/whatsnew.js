@@ -12,6 +12,8 @@
     return [
       {icon: "🎙", title: "Meeting notes", text: "Bridge listens to your meeting, then writes the summary, decisions, action items and a follow-up email.",
         action: ["Set it up", () => ui().view("meetings")]},
+      {icon: "👥", title: "People", text: "What's open between you and each colleague, and a brief before every meeting.",
+        action: ["See people", () => ui().view("people")]},
       {icon: "🧭", title: "Show me how", text: "Say “show me how to …” and Bridge highlights each step on screen for you to do.",
         action: x.operator ? ["Try it", () => ui().ask("Show me how to turn on Night Shift")] : ["Turn on", () => ui().view("settings", "operator")]},
       {icon: "❓", title: "What's this? ⌃⌥W", text: "Point at any button, icon or error and press ⌃⌥W to hear what it is.",

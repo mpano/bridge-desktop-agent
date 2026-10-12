@@ -53,6 +53,7 @@ class Proactive:
         self.reports = None  # Friday: the weekly report draft.
         self.recipes = None  # "When X, do Y" (app/assistant/recipes.py).
         self.meetings = None  # Offers to take notes when a video meeting starts.
+        self.people = None  # Who's who, and the brief before a meeting.
         self._last_watch_check = 0.0
 
     async def run(self) -> None:
@@ -76,6 +77,8 @@ class Proactive:
                     await self.reports.check()
                 if self.meetings is not None:
                     await self.meetings.check()
+                if self.people is not None:
+                    await self.people.check()
                 if loop.time() - self._last_watch_check >= WATCH_CHECK_SECONDS:
                     self._last_watch_check = loop.time()
                     await self.check_watches()
@@ -110,11 +113,18 @@ class Proactive:
                 continue
             minutes = max(1, round((start - now).total_seconds() / 60))
             where = f" · {event['location']}" if event.get("location") else ""
-            await self.notify(
-                f"In {minutes} min: {event.get('title') or 'Meeting'}",
+            body = (
                 f"{start.strftime('%H:%M')}–{datetime.fromisoformat(event['end']).strftime('%H:%M')}"
-                f"{where} · {event.get('calendar', '')}".strip(" ·"),
+                f"{where} · {event.get('calendar', '')}".strip(" ·")
             )
+            if self.people is not None and event.get("attendees"):
+                try:
+                    brief = await asyncio.wait_for(self.people.brief(event), 20)
+                    if brief["brief"]:
+                        body = " · ".join(brief["brief"][:2]) + f" ({body})"
+                except Exception:
+                    pass  # The heads-up still goes out, just without the brief.
+            await self.notify(f"In {minutes} min: {event.get('title') or 'Meeting'}", body)
             sent += 1
         return sent
 

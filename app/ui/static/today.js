@@ -242,6 +242,7 @@
     if (window.BridgeRecipes) window.BridgeRecipes.refresh();
     if (window.BridgeWhatsNew) window.BridgeWhatsNew.refresh();
     if (window.BridgeMeetings) window.BridgeMeetings.refresh();
+    if (window.BridgePeople) window.BridgePeople.refresh();
     if (window.BridgeWork) window.BridgeWork.refresh();
   }
 

@@ -70,7 +70,7 @@
   }
 
   // On the phone: Today, Ask, Inbox and You. Everything else stays on the Mac.
-  const PHONE_VIEWS = ["today", "chat", "inbox", "phone", "meetings"];
+  const PHONE_VIEWS = ["today", "chat", "inbox", "phone", "meetings", "people"];
   const phoneMode = () => Boolean(authStatus && authStatus.phone);
 
   function view(name, section) {
@@ -84,6 +84,7 @@
     if (name === "inbox" && signedIn && window.BridgeInbox) window.BridgeInbox.refresh();
     if (name === "automations" && signedIn && window.BridgeAutomations) window.BridgeAutomations.refresh();
     if (name === "meetings" && signedIn && window.BridgeMeetings) window.BridgeMeetings.refresh();
+    if (name === "people" && signedIn && window.BridgePeople) window.BridgePeople.refresh();
     if (name === "connections" && signedIn && window.BridgeApps) window.BridgeApps.refresh();
     if (name === "chat" && signedIn) refreshTalk();
     if (name === "chat" && signedIn) {

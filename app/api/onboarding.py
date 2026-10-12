@@ -19,7 +19,7 @@ PermissionKey = Literal[
 ]
 
 
-WHATS_NEW = "2026.10.2"  # Bump when the "New in Bridge" card should show again.
+WHATS_NEW = "2026.10.3"  # Bump when the "New in Bridge" card should show again.
 
 
 class KeyInput(BaseModel):
