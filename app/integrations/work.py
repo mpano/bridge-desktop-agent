@@ -163,15 +163,26 @@ class Jira:
         key = key.strip().upper()
         if not ISSUE_KEY.fullmatch(key):
             raise ValueError("Use an issue key like PROJ-123.")
-        await self.c.request(
+        made = await self.c.request(
             "jira", "POST", f"issue/{enc(key)}/comment", write=True, json={"body": adf(text)}
         )
-        return {"key": key, "url": f"https://{await self.c.site()}/browse/{key}"}
+        return {
+            "key": key,
+            "url": f"https://{await self.c.site()}/browse/{key}",
+            "comment_id": str((made or {}).get("id") or ""),  # So it can be undone.
+        }
 
     async def move(self, key: str, status: str) -> dict:
         key = key.strip().upper()
         if not ISSUE_KEY.fullmatch(key):
             raise ValueError("Use an issue key like PROJ-123.")
+        try:  # Where it was, so the move can be undone (never blocks the move itself).
+            before = await self.c.request(
+                "jira", "GET", f"issue/{enc(key)}", params={"fields": "status"}
+            )
+            from_status = ((before or {}).get("fields") or {}).get("status", {}).get("name", "")
+        except Exception:
+            from_status = ""
         options = (await self.c.request("jira", "GET", f"issue/{enc(key)}/transitions")).get(
             "transitions", []
         )
@@ -190,7 +201,7 @@ class Jira:
             json={"transition": {"id": chosen["id"]}},
         )
         self._mine = None
-        return {"key": key, "status": chosen["to"]["name"]}
+        return {"key": key, "status": chosen["to"]["name"], "from_status": from_status}
 
     # Confluence ----------------------------------------------------------------------------
 
@@ -379,4 +390,9 @@ class GitHub:
             write=True,
             json={"body": body.strip()},
         )
-        return {"repo": repo, "number": int(number), "url": made.get("html_url", "")}
+        return {
+            "repo": repo,
+            "number": int(number),
+            "url": made.get("html_url", ""),
+            "comment_id": int(made.get("id") or 0),  # So it can be undone.
+        }

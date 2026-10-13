@@ -15,6 +15,7 @@ class Executor:
     def __init__(self, registry: ToolRegistry, policy: SecurityPolicy | None = None):
         self.registry = registry
         self.policy = policy or SecurityPolicy()
+        self.actions = None  # What Bridge did, for Activity and Undo (set by bootstrap).
 
     async def execute(self, call: ToolCall, request_id: str, approved: bool = False) -> dict:
         started = time.monotonic()
@@ -36,6 +37,16 @@ class Executor:
                     data = dict(data)
                     result["privacy_key"] = str(data.pop("_privacy_key"))
                 result.update(status="completed", success=True, result=data)
+                if self.actions is not None and request_id != "undo":
+                    # Written down for Activity, with Undo where the service allows it.
+                    try:
+                        noted = self.actions.record(
+                            tool.name, arguments.model_dump(), data, request_id
+                        )
+                    except Exception:
+                        noted = None
+                    if noted and noted["undoable"]:
+                        result["undo_id"] = noted["id"]
                 if tool.render is not None:
                     try:
                         display = tool.render(data)

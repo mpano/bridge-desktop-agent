@@ -8,6 +8,7 @@ from app.agent.executor import Executor
 from app.agent.planner import Planner
 from app.agent.proactive import Proactive
 from app.agent.scheduler import Scheduler
+from app.assistant.actions import Actions
 from app.assistant.briefs import Briefs
 from app.assistant.buddy import Buddy
 from app.assistant.chats import ChatStore
@@ -442,6 +443,8 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     )
     agent.moments.notify = notify
     moment_tools.register(registry, agent.moments)
+    agent.actions = Actions(settings.database_path, agent)
+    agent.executor.actions = agent.actions
     agent.explainer = Explainer(
         settings, hands=agent.operator.hands, llm=llm, blocked=agent.operator.blocked
     )

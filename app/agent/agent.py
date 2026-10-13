@@ -229,7 +229,9 @@ class Agent:
     @staticmethod
     def _step_summary(context: AgentContext) -> list[dict]:
         return [
-            {key: step.get(key) for key in ("tool", "success", "status")} for step in context.steps
+            {key: step.get(key) for key in ("tool", "success", "status")}
+            | ({"undo_id": step["undo_id"]} if step.get("undo_id") else {})
+            for step in context.steps
         ]
 
     def task_progress(self, request_id: str) -> dict:

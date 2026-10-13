@@ -29,6 +29,7 @@
   <script src="/ui/whatsnew.js" defer></script>
   <script src="/ui/meetings.js" defer></script>
   <script src="/ui/people.js" defer></script>
+  <script src="/ui/activity.js" defer></script>
   <script src="/ui/work.js" defer></script>
   <script src="/ui/talk.js" defer></script>
   <script src="/ui/apps.js" defer></script>
@@ -50,6 +51,7 @@
       <p class="nav-group">Bridge</p>
       <button type="button" data-view="automations"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.5 3.5 9H8l-1 5.5L12.5 7H8z"/></svg>Automations</button>
       <button type="button" data-view="connections"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 9.5l3-3M5 8l-1.3 1.3a2.3 2.3 0 0 0 3.3 3.3L8.3 11.3M11 8l1.3-1.3a2.3 2.3 0 0 0-3.3-3.3L7.7 4.7"/></svg>Connections</button>
+      <button type="button" data-view="activity"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 14.5a6.5 6.5 0 1 0-6.2-8.5M1.6 2.5v3.6h3.6M8 4.8V8l2.2 1.6"/></svg>Activity</button>
       <button type="button" data-view="memory"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h8v11l-4-2.6-4 2.6z"/></svg>Memory</button>
       <button type="button" data-view="settings"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h6.5M12 4.5h1.5M2.5 11.5H4M7 11.5h6.5M10.5 3v3M5.5 10v3"/></svg><span class="grow">Settings</span><span id="health-dot" class="health-dot" hidden title="Something needs attention"></span></button>
     </nav>
@@ -273,6 +275,14 @@
           <p class="lede">What's open between you and each person, your meetings together, and a brief before you meet. Kept on this Mac.</p>
         </header>
         <div id="people-root" class="people-root"></div>
+      </section>
+      <section id="view-activity" class="view activity" hidden aria-labelledby="activity-title">
+        <header class="page-head">
+          <p class="label">What Bridge did for you</p>
+          <h1 id="activity-title">Activity</h1>
+          <p class="lede">Everything Bridge sent or changed, with Undo for a day where the service allows it.</p>
+        </header>
+        <div id="activity-root" class="activity-root"></div>
       </section>
       <section id="view-memory" class="view memory" hidden aria-labelledby="memory-title">
         <div class="memory-layout">

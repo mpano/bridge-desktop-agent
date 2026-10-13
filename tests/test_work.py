@@ -60,6 +60,10 @@ class Fake:
                 )
             if path == "/rest/api/3/issue" and request.method == "POST":
                 return httpx.Response(201, json={"key": "APP-8"})
+            if path == "/rest/api/3/issue/APP-7" and request.method == "GET":
+                return httpx.Response(
+                    200, json={"key": "APP-7", "fields": {"status": {"name": "To Do"}}}
+                )
             if path == "/rest/api/3/issue/APP-7/transitions" and request.method == "GET":
                 return httpx.Response(
                     200,
@@ -175,6 +179,7 @@ def test_jira_issues_create_move_comment_and_confluence():
     assert asyncio.run(jira.move("app-7", "in progress")) == {
         "key": "APP-7",
         "status": "In Progress",
+        "from_status": "To Do",
     }
     assert fake.transitions_done == [{"transition": {"id": "21"}}]
     with pytest.raises(ValueError, match="can move to: Done, In Progress"):

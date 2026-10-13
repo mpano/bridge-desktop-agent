@@ -8,6 +8,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import ValidationError
 
+from app.api.actions import install as install_actions
 from app.api.app_settings import install as install_app_settings
 from app.api.automations import install as install_automations
 from app.api.briefs import install as install_briefs
@@ -234,6 +235,7 @@ def create_app(
     install_desk(app, authorize)
     install_meetings(app, authorize)
     install_moments(app, authorize)
+    install_actions(app, authorize)
     install_people(app, authorize)
     install_work(app, authorize)
     install_talk(app, authorize, from_phone)

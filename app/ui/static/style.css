@@ -2048,3 +2048,15 @@ body.phone #notice:not([hidden]) { animation-name: bridge-fade; }
 body.just-streamed .message.assistant:last-child .reply { animation: none; }
 .src.web { background: color-mix(in srgb, #0ea5e9 16%, transparent); color: #0ea5e9; }
 .src[class*="moment-"] { background: color-mix(in srgb, var(--violet) 16%, transparent); color: var(--violet); }
+
+/* Activity and Undo */
+.activity-root { display: flex; flex-direction: column; gap: 14px; margin-top: 22px; }
+.act-day-title { padding: 14px 18px 4px; margin: 0; }
+.act-row { display: flex; align-items: center; gap: 12px; padding: 11px 18px; border-top: 1px solid var(--line); font-size: 13.5px; }
+.act-row .line-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.act-title { color: var(--text); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.act-title:hover { text-decoration: underline; }
+.act-row.undone .act-title { color: var(--muted); text-decoration: line-through; }
+.act-why { font-size: 12px; max-width: 260px; text-align: right; }
+.step-undo { margin-left: 8px; padding: 0 4px; font-size: 12px; }
+.step-undone { margin-left: 8px; font-size: 12px; color: var(--green); }

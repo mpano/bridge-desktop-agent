@@ -85,6 +85,7 @@
     if (name === "automations" && signedIn && window.BridgeAutomations) window.BridgeAutomations.refresh();
     if (name === "meetings" && signedIn && window.BridgeMeetings) window.BridgeMeetings.refresh();
     if (name === "people" && signedIn && window.BridgePeople) window.BridgePeople.refresh();
+    if (name === "activity" && signedIn && window.BridgeActivity) window.BridgeActivity.refresh();
     if (name === "connections" && signedIn && window.BridgeApps) window.BridgeApps.refresh();
     if (name === "chat" && signedIn) refreshTalk();
     if (name === "chat" && signedIn) {
@@ -463,6 +464,24 @@
       const state = step.success ? "done" : step.status === "confirmation_required" ? "waiting" : "failed";
       const item = node("li", undefined, state);
       item.append(node("span", state === "done" ? "✓" : state === "waiting" ? "◷" : "✕", "step-icon"), node("span", toolLabel(step.tool)));
+      if (step.undo_id) {
+        const undo = node("button", "Undo", "link small step-undo");
+        undo.type = "button";
+        undo.addEventListener("click", async () => {
+          undo.disabled = true;
+          undo.textContent = "Undoing…";
+          try {
+            await request("/api/v1/actions/undo", "POST", {id: step.undo_id});
+            undo.replaceWith(node("span", "Undone", "step-undone"));
+            notify("Undone.");
+          } catch (error) {
+            undo.disabled = false;
+            undo.textContent = "Undo";
+            notify(error.message, true);
+          }
+        });
+        item.append(undo);
+      }
       list.append(item);
     }
     return list;
