@@ -2047,3 +2047,4 @@ body.phone #notice:not([hidden]) { animation-name: bridge-fade; }
 @keyframes bridge-caret { to { visibility: hidden; } }
 body.just-streamed .message.assistant:last-child .reply { animation: none; }
 .src.web { background: color-mix(in srgb, #0ea5e9 16%, transparent); color: #0ea5e9; }
+.src[class*="moment-"] { background: color-mix(in srgb, var(--violet) 16%, transparent); color: var(--violet); }

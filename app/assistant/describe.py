@@ -22,6 +22,12 @@ SCHEDULE = re.compile(
     r"|\b(daily|weekly|monthly|hourly)\b|\bon\s+(mondays|tuesdays|wednesdays|thursdays|fridays)\b",
     re.I,
 )
+MOMENT = re.compile(
+    r"\bremind me\b.*\bwhen(?:ever)? (?:i (?:open|launch|switch to|join|start|get back|come back)"
+    r"|i'?m back|i am back|(?:the |my )?[\w' -]+ (?:starts|begins))"
+    r"|\bwhen(?:ever)? (?:i (?:open|launch|join)|i'?m back)\b.*\bremind me\b",
+    re.I,
+)
 TRIGGER = re.compile(r"^\s*(when|whenever|each time|every time|if|once)\b", re.I)
 ACTION = re.compile(
     r"\b(post|send|email|message|dm|comment|move|reply|add|create|remind|ask bridge|summari[sz]e|"
@@ -31,11 +37,14 @@ ACTION = re.compile(
 CLASSIFY = """Classify the user's automation request. Reply with one word:
 watch   - they want to be told when something happens ("tell me when the build fails")
 recipe  - when something happens, Bridge should do something ("when X, post/send/add Y")
-schedule - something should happen at set times ("every Monday at 9, brief me")"""
+schedule - something should happen at set times ("every Monday at 9, brief me")
+moment  - remind them at a moment, not a time ("remind me … when I open Figma")"""
 
 
 async def kind_of(text: str, llm=None) -> str:
     words = " ".join(text.split())
+    if MOMENT.search(words):
+        return "moment"
     if WATCH.search(words):
         return "watch"
     if TRIGGER.search(words):
@@ -48,7 +57,7 @@ async def kind_of(text: str, llm=None) -> str:
         try:
             with task("recipes"):
                 answer = (await llm.complete(CLASSIFY, words)).strip().lower()
-            for kind in ("recipe", "watch", "schedule"):
+            for kind in ("recipe", "watch", "schedule", "moment"):
                 if answer.startswith(kind):
                     return kind
         except Exception:

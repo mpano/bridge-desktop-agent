@@ -164,6 +164,26 @@
     if (!watches.length) empty(list, "Nothing yet. Try “PR 412 is merged” or “Sarah replies to me”.");
   }
 
+  const MOMENT_ICON = {app: "App", meeting: "Meeting", back: "Back"};
+
+  async function renderMoments() {
+    const list = $("moments");
+    let found = {moments: [], available: true};
+    try { found = await ui().request("/api/v1/moments"); } catch { /* not available */ }
+    list.replaceChildren();
+    for (const m of found.moments) {
+      const row = node("li", undefined, `line watch-line ${m.status === "done" ? "done" : "active"}`);
+      row.append(node("span", MOMENT_ICON[m.kind] || "When", `src moment-${m.kind}`));
+      const words = node("span", undefined, "line-main");
+      words.append(node("span", m.text, "watch-title"), node("span", m.when + (m.once ? "" : " · every time"), "faint"));
+      row.append(words);
+      const status = m.status === "done" ? node("span", "✓ reminded", "pill good") : node("span", "waiting", "pill pending");
+      row.append(status, button(m.status === "done" ? "Clear" : "Remove", "ghost small", () => remove("/api/v1/moments/remove", m.id)));
+      list.append(row);
+    }
+    if (!found.moments.length) empty(list, found.available ? "None yet. Try “remind me to share my screen when I join the design review”." : "These work in the Bridge app on your Mac.");
+  }
+
   function renderSchedules() {
     const list = $("schedules");
     list.replaceChildren();
@@ -209,6 +229,7 @@
     renderWatches();
     renderSchedules();
     renderFollowups();
+    renderMoments();
   }
 
   // Events -------------------------------------------------------------------------------------
@@ -221,6 +242,7 @@
     "When a PR of mine is merged, post “🚀 {title} {url}” in #releases",
     "When a Jira ticket is assigned to me, add a reminder to look at it",
     "Every Friday at 5, tell me what slipped this week",
+    "Remind me to ask about the budget when the standup starts",
   ];
   const examples = $("auto-examples");
   for (const text of EXAMPLES_ALL) {
@@ -239,6 +261,11 @@
       if (kind === "watch") {
         const made = await ui().request("/api/v1/watches/ask", "POST", {text});
         ui().notify(made.status === "done" ? `It already happened: ${made.fired}` : `Watching: ${made.label}`);
+        $("auto-input").value = "";
+        refresh();
+      } else if (kind === "moment") {
+        const made = await ui().request("/api/v1/moments", "POST", {text});
+        ui().notify(`${made.when}, I'll remind you: ${made.text}`);
         $("auto-input").value = "";
         refresh();
       } else if (kind === "recipe") {

@@ -18,6 +18,7 @@ from app.assistant.focus import FocusMode, FocusStore
 from app.assistant.guide import Guides
 from app.assistant.learning import Learning
 from app.assistant.meetings import Meetings
+from app.assistant.moments import Moments
 from app.assistant.operator import Operator
 from app.assistant.people import People
 from app.assistant.recipes import Recipes
@@ -82,6 +83,7 @@ from app.tools.system import (
 )
 from app.tools.system import guide as guide_tools
 from app.tools.system import meetings as meeting_tools
+from app.tools.system import moments as moment_tools
 from app.tools.system import people as people_tools
 from app.tools.system import proactive as proactive_tools
 from app.tools.system import recipes as recipe_tools
@@ -119,6 +121,18 @@ def meeting_ears():
         from app.desktop.meeting_audio import MeetingAudio
 
         return MeetingAudio
+    except Exception:
+        return None
+
+
+def context_sense():
+    """What app is in front and how long the Mac has been idle (for reminders), on a Mac."""
+    if sys.platform != "darwin":
+        return None
+    try:
+        from app.assistant.moments import MacSense
+
+        return MacSense()
     except Exception:
         return None
 
@@ -423,6 +437,11 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     agent.people = People(settings.database_path, llm=llm, agent=agent, me=me)
     agent.proactive.people = agent.people
     people_tools.register(registry, agent.people)
+    agent.moments = Moments(
+        settings.database_path, calendar=calendar_controller, llm=llm, sense=context_sense()
+    )
+    agent.moments.notify = notify
+    moment_tools.register(registry, agent.moments)
     agent.explainer = Explainer(
         settings, hands=agent.operator.hands, llm=llm, blocked=agent.operator.blocked
     )

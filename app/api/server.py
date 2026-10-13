@@ -20,6 +20,7 @@ from app.api.launch import LaunchTickets
 from app.api.learning import install as install_learning
 from app.api.mcp import install as install_mcp
 from app.api.meetings import install as install_meetings
+from app.api.moments import install as install_moments
 from app.api.onboarding import install as install_onboarding
 from app.api.operator import install as install_operator
 from app.api.people import install as install_people
@@ -97,6 +98,7 @@ def create_app(
             for worker in (
                 getattr(app.state.agent, "scheduler", None),
                 getattr(app.state.agent, "proactive", None),
+                getattr(app.state.agent, "moments", None),  # Reminders for a moment.
             )
             if worker is not None and inspect.iscoroutinefunction(getattr(worker, "run", None))
         ]
@@ -231,6 +233,7 @@ def create_app(
     install_guide(app, authorize)
     install_desk(app, authorize)
     install_meetings(app, authorize)
+    install_moments(app, authorize)
     install_people(app, authorize)
     install_work(app, authorize)
     install_talk(app, authorize, from_phone)
