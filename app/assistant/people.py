@@ -244,6 +244,9 @@ class People:
 
     async def collect(self, force: bool = False) -> int:
         """Learn people from promises, meetings, mail, Slack, the calendar and GitHub."""
+        if self._lock.locked():
+            async with self._lock:  # One is already running: wait for it, don't skip it.
+                return 0
         if not force and time.time() - self._collected < COLLECT_EVERY:
             return 0
         async with self._lock:

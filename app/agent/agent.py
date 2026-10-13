@@ -246,6 +246,7 @@ class Agent:
             "current_tool": context.current_tool,
             "remaining_tools": [call.name for call in context.queue],
             "steps": self._step_summary(context),
+            "partial": context.partial if state["result"] is None else "",
             "result": state["result"],
         }
 
@@ -435,8 +436,14 @@ class Agent:
             context.rounds += 1
             if self.workflows:
                 self.workflows.save(context, "planning")
+            context.partial = ""
+
+            def heard(words: str, context=context) -> None:
+                if len(context.partial) < 20000:
+                    context.partial += words
+
             try:
-                reply = await self.planner.plan(context.history)
+                reply = await self.planner.plan(context.history, on_text=heard)
             except LLMProviderError as exc:
                 return self.response(context, "failed", str(exc))
             except Exception:
@@ -448,6 +455,8 @@ class Agent:
                 )
             if context.cancel_requested:
                 return self._cancelled(context)
+            if reply.calls:
+                context.partial = ""  # It's doing something first; the answer comes later.
             context.history.extend(reply.output)
             if len(reply.calls) > 32:
                 return self.response(context, "failed", "Requested plan exceeds 32 actions.")

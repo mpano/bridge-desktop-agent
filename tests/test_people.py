@@ -287,3 +287,21 @@ def test_first_names_match_a_full_name(tmp_path, value, expected):
     people = People(tmp_path / "db")
     person = {"name": "Sam Lee", "emails": [], "handles": []}
     assert people.match(person, name=value) is expected
+
+
+async def test_a_collection_already_running_is_waited_for(tmp_path):
+    import asyncio
+
+    people, _ = world(tmp_path)
+    slow = people._sightings
+
+    async def slower():
+        await asyncio.sleep(0.05)  # Bridge's own loop, still reading.
+        return await slow()
+
+    people._sightings = slower
+    first = asyncio.create_task(people.collect(force=True))
+    await asyncio.sleep(0.01)
+    await people.collect()  # The People page, opened at that moment.
+    assert "Sam Lee" in by_name(people)  # Not an empty list.
+    await first

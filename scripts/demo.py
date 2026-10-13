@@ -157,14 +157,23 @@ class DemoLLM:
             )
         return "Here's a short answer from the demo."
 
-    async def generate_response(self, history, tools):
+    streams = True
+
+    async def generate_response(self, history, tools, on_text=None):
+        import asyncio
+
         from app.llm.models import LLMResponse
 
-        return LLMResponse(
-            [],
-            "This is the demo, so I can't really do that — but in Bridge I'd take care of it.",
-            [],
+        text = (
+            "You owe Ana the onboarding deck — you promised it in Tuesday's design review, and "
+            "she's waiting on it to review the copy before Friday's launch. Want me to draft a "
+            "quick note to send with it?"
         )
+        if on_text is not None:
+            for word in text.split(" "):
+                await asyncio.sleep(0.06)  # Like a model writing.
+                on_text(word + " ")
+        return LLMResponse([], text, [])
 
     async def close(self):
         return None

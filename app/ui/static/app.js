@@ -1323,7 +1323,9 @@
     chatMessage("You", message);
     execute(async () => {
       const result = await watchTask(await request("/api/v1/tasks", "POST", {message}));
+      document.body.classList.add("just-streamed");  // The answer is already on screen: no fade.
       await loadConversation();
+      setTimeout(() => document.body.classList.remove("just-streamed"), 800);
       return result;
     });
   });
@@ -1331,6 +1333,7 @@
   function renderProgress(progress) {
     const thinking = !progress.current_tool && !progress.remaining_tools.length;
     $("task-progress").textContent = progress.cancel_requested ? "Stopping after the current operation." :
+      progress.partial ? "Writing the answer…" :
       thinking ? (progress.steps.length ? "Deciding what to do next…" : "Understanding your request…") :
       "Working on it…";
     const list = $("task-steps");
@@ -1342,24 +1345,58 @@
     for (const tool of progress.remaining_tools) list.append(node("li", toolLabel(tool), "next"));
   }
 
-  // Bridge "typing" in the conversation while it works: its mark and three soft dots.
+  // Bridge "typing" in the conversation while it works: its mark and three soft dots, then
+  // the answer itself, revealed smoothly as OpenAI writes it.
+  const stream = {target: "", shown: 0, frame: null};
+
   function typing(on) {
     const existing = document.getElementById("typing-message");
     if (!on) {
       if (existing) existing.remove();
+      cancelAnimationFrame(stream.frame);
+      stream.target = "";
+      stream.shown = 0;
       return;
     }
     if (existing) return;
     const card = node("article", undefined, "message assistant typing-message");
     card.id = "typing-message";
-    card.setAttribute("aria-hidden", "true");
     const avatar = node("span", undefined, "avatar");
     avatar.innerHTML = MARK;  // A fixed, local SVG; never user content.
     const dots = node("span", undefined, "typing-dots");
+    dots.setAttribute("aria-hidden", "true");
     dots.append(node("span"), node("span"), node("span"));
     card.append(avatar, dots);
     $("conversation").append(card);
     scrollThread();
+  }
+
+  function streamTo(text) {
+    const card = document.getElementById("typing-message");
+    if (!card || !text || text === stream.target) return;
+    stream.target = text;
+    if (!card.querySelector(".reply")) {
+      card.querySelector(".typing-dots").remove();
+      const body = node("div", undefined, "body");
+      const reply = node("p", "", "reply streaming");
+      reply.setAttribute("aria-live", "polite");
+      body.append(reply);
+      card.append(body);
+      card.classList.add("streaming-message");
+    }
+    cancelAnimationFrame(stream.frame);
+    const step = () => {
+      const reply = card.querySelector(".reply");
+      if (!reply) return;
+      const behind = stream.target.length - stream.shown;
+      if (behind <= 0) return;
+      // Steady when it's keeping up; faster when it falls behind.
+      stream.shown += Math.max(1, Math.ceil(behind / 12));
+      reply.textContent = stream.target.slice(0, stream.shown);
+      scrollThread();
+      stream.frame = requestAnimationFrame(step);
+    };
+    stream.frame = requestAnimationFrame(step);
   }
 
   async function watchTask(progress) {
@@ -1370,7 +1407,9 @@
       try {
         while (!progress.result) {
           renderProgress(progress);
-          await new Promise((resolve) => setTimeout(resolve, 500));
+          if (progress.partial) streamTo(progress.partial);
+          // While words are arriving, look more often so they flow.
+          await new Promise((resolve) => setTimeout(resolve, progress.partial ? 120 : 500));
           progress = await request(`/api/v1/tasks/${encodeURIComponent(liveTask)}`);
           if (progress.status === "interrupted") throw new Error("Task interrupted. Review saved workflows.");
         }

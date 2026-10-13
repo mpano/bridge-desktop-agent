@@ -100,10 +100,14 @@ class OpenAILLMClient:
         self._record(name, model, response)
         return response.output_text.strip()
 
-    async def generate_response(self, history, tools):
+    streams = True  # Can hand over the answer's words as they arrive (on_text).
+
+    async def generate_response(self, history, tools, on_text=None):
+        """One step of a request. With on_text, the answer's words are passed on as OpenAI
+        writes them (tool calls still arrive whole, at the end)."""
         self._openai()
         name, model = self._model()
-        response = await self._client.responses.create(
+        request = dict(
             model=model,
             instructions=system_prompt(),
             input=history,
@@ -111,6 +115,17 @@ class OpenAILLMClient:
             parallel_tool_calls=False,
             store=False,
         )
+        if on_text is None:
+            response = await self._client.responses.create(**request)
+        else:
+            async with self._client.responses.stream(**request) as stream:
+                async for event in stream:
+                    if event.type == "response.output_text.delta" and event.delta:
+                        try:
+                            on_text(event.delta)
+                        except Exception:
+                            pass  # Showing words early must never break the answer.
+                response = await stream.get_final_response()
         self._record(name, model, response)
         output = [item.model_dump(exclude_none=True) for item in response.output]
         return LLMResponse(parse_tool_calls(output), response.output_text, output)

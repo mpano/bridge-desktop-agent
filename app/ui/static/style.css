@@ -2041,3 +2041,8 @@ body.phone #notice:not([hidden]) { animation-name: bridge-fade; }
 .op-step { font-size: 13.5px !important; font-weight: 550; }
 #op-title[data-count]:not([data-count=""])::after { content: " · " attr(data-count); color: var(--faint); font-weight: 500; font-size: 12px; }
 .op-ask { padding: 10px 12px; border-radius: 12px; background: var(--amber-soft); border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent); display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+
+/* Streaming answers */
+.streaming-message .reply.streaming::after { content: ""; display: inline-block; width: 7px; height: 1em; margin-left: 2px; vertical-align: -2px; border-radius: 2px; background: var(--accent); opacity: .7; animation: bridge-caret 1s steps(2, start) infinite; }
+@keyframes bridge-caret { to { visibility: hidden; } }
+body.just-streamed .message.assistant:last-child .reply { animation: none; }

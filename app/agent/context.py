@@ -15,6 +15,7 @@ class AgentContext:
     cancel_requested: bool = False
     from_phone: bool = False  # Asked from the phone: nothing that reads this Mac's screen.
     current_tool: str | None = None
+    partial: str = ""  # The answer so far, while OpenAI is writing it.
     confirmation_message: str | None = None
     completion_message: str = (
         "Saved steps finished. Any work not yet planned before interruption needs a new request."
