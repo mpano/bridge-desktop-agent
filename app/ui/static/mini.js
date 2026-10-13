@@ -74,5 +74,28 @@ window.BridgeMini = (() => {
 
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") native({action: "hide"}); });
 
-  return {native, request, run, decide, describe, node, button, shown, onShown, opened, ready: signIn()};
+  // Drag the panel by this element (its buttons still click). The app moves the window.
+  function draggable(handle) {
+    let drag = null;
+    handle.classList.add("drag-handle");
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || event.target.closest("button, input, textarea, select, a")) return;
+      event.preventDefault();
+      drag = {x: event.screenX, y: event.screenY};
+      handle.setPointerCapture(event.pointerId);
+    });
+    handle.addEventListener("pointermove", (event) => {
+      if (!drag) return;
+      const dx = event.screenX - drag.x;
+      const dy = event.screenY - drag.y;
+      if (!dx && !dy) return;
+      drag = {x: event.screenX, y: event.screenY};
+      native({action: "panel_drag", dx, dy});
+    });
+    const end = () => { drag = null; };
+    handle.addEventListener("pointerup", end);
+    handle.addEventListener("pointercancel", end);
+  }
+
+  return {native, request, run, decide, describe, node, button, shown, onShown, opened, draggable, ready: signIn()};
 })();

@@ -168,3 +168,21 @@ def test_window_signs_itself_in_again_without_a_login_page():
     window.on_message({"action": "signin"})  # Again right away: ignored, no reload loop.
     assert service.dashboard_url.call_count == 1
     assert loaded is None or "auto=1" in str(loaded.absoluteString())
+
+
+def test_text_panel_moves_when_its_top_bar_is_dragged():
+    from app.desktop.service import ServiceState, ServiceStatus
+    from app.desktop.text_panel import TextPanel
+
+    service = SimpleNamespace(
+        port=8000, status=ServiceStatus(ServiceState.STOPPED, "Stopped"), tickets=Mock()
+    )
+    panel = TextPanel(SimpleNamespace(quitting=False), service, SimpleNamespace())
+    panel.window.setFrameOrigin_((200, 300))
+    panel.on_message({"action": "panel_drag", "dx": 40, "dy": 25})  # Right and down.
+    origin = panel.window.frame().origin
+    assert (origin.x, origin.y) == (240, 275)
+    panel.on_message({"action": "panel_drag", "dx": "nonsense"})
+    panel.on_message({"action": "panel_drag", "dx": 99999, "dy": 0})
+    origin = panel.window.frame().origin
+    assert (origin.x, origin.y) == (240, 275)

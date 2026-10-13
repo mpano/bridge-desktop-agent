@@ -217,6 +217,16 @@ class FloatingPage:
         action = message.get("action")
         if action == "hide":
             self.hide()
+        elif action == "panel_drag":
+            try:
+                dx, dy = float(message.get("dx", 0)), float(message.get("dy", 0))
+            except (TypeError, ValueError):
+                return
+            if abs(dx) > 2000 or abs(dy) > 2000:
+                return
+            origin = self.window.frame().origin
+            # The page's y grows downward; the screen's grows upward.
+            self.window.setFrameOrigin_((origin.x + dx, origin.y - dy))
         elif action == "open":
             self.hide()
             view = str(message.get("view") or "")

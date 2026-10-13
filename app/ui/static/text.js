@@ -116,6 +116,7 @@
     mini.native({action: "text_ask", request});
   });
   $("tx-close").addEventListener("click", () => mini.native({action: "hide"}));
+  mini.draggable(document.querySelector(".tx-head"));
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") mini.native({action: "hide"});
     if (event.key === "Enter" && event.metaKey && !$("tx-result").hidden && !$("tx-replace").disabled) $("tx-replace").click();

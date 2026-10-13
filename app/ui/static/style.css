@@ -2012,6 +2012,8 @@ body.phone #notice:not([hidden]) { animation-name: bridge-fade; }
 /* Act on text (⌃⌥Space) */
 .mini-panel.text-panel { gap: 10px; padding: 14px 16px 16px; }
 .tx-head { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.drag-handle { cursor: grab; user-select: none; -webkit-user-select: none; }
+.drag-handle:active { cursor: grabbing; }
 .tx-head strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tx-badge { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: var(--accent-soft); color: var(--accent); font-size: 12px; }
 .tx-input, .tx-output { width: 100%; box-sizing: border-box; resize: none; font: inherit; font-size: 13.5px; line-height: 1.5; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--inset); color: var(--text); }
