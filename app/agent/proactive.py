@@ -13,7 +13,7 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
-from app.assistant.watchers import APP_EVERY, WatchError
+from app.assistant.watchers import APP_EVERY, WEB_EVERY, WatchError
 from app.workflows.watches import ProactiveStore, Watch
 
 MEETING_CHECK_SECONDS = 60
@@ -243,11 +243,8 @@ class Proactive:
         With quiet=True (just created) nothing is sent; the caller reports it instead."""
         if self.watchers is None:
             return 0
-        if (
-            watch.kind == "app"
-            and watch.last_checked
-            and time.time() - watch.last_checked < APP_EVERY - 5
-        ):
+        every = {"app": APP_EVERY, "web": WEB_EVERY}.get(watch.kind)
+        if every and watch.last_checked and time.time() - watch.last_checked < every - 5:
             return 0
         before = watch.state if watch.baseline_done else None
         try:

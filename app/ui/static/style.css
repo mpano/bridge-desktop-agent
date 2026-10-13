@@ -2046,3 +2046,4 @@ body.phone #notice:not([hidden]) { animation-name: bridge-fade; }
 .streaming-message .reply.streaming::after { content: ""; display: inline-block; width: 7px; height: 1em; margin-left: 2px; vertical-align: -2px; border-radius: 2px; background: var(--accent); opacity: .7; animation: bridge-caret 1s steps(2, start) infinite; }
 @keyframes bridge-caret { to { visibility: hidden; } }
 body.just-streamed .message.assistant:last-child .reply { animation: none; }
+.src.web { background: color-mix(in srgb, #0ea5e9 16%, transparent); color: #0ea5e9; }

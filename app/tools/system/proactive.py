@@ -29,7 +29,15 @@ WATCH_KINDS = (
 
 class WatchInput(Input):
     kind: Literal[
-        "email", "slack", "github_pr", "github_release", "jira", "app", "github_mine", "jira_mine"
+        "email",
+        "slack",
+        "github_pr",
+        "github_release",
+        "jira",
+        "app",
+        "github_mine",
+        "jira_mine",
+        "web",
     ]
     label: str = Field(
         min_length=1, max_length=80, description="Short name, e.g. 'PR 412 merged', 'Sarah replies'"
@@ -66,6 +74,7 @@ class WatchInput(Input):
         default="", max_length=300, description="kind=app: what to wait for, in plain words"
     )
     days: int | None = Field(default=None, ge=1, le=90, description="Give up after this many days")
+    url: str = Field(default="", max_length=2000, description="kind=web: the page's address")
     event: str = Field(
         default="",
         max_length=30,
@@ -95,6 +104,9 @@ class WatchInput(Input):
                 raise ValueError(f"For Jira, 'when' is one of: {', '.join(JIRA_WHEN)}.")
             if self.when == "status_to" and not self.status.strip():
                 raise ValueError("Which status should it move to?")
+        elif self.kind == "web":
+            if not self.url.strip().lower().startswith(("http://", "https://")):
+                raise ValueError("Give the page's full address, starting with https://")
         elif self.kind == "github_mine":
             if self.event not in GITHUB_MINE:
                 raise ValueError(f"For your GitHub, 'event' is one of: {', '.join(GITHUB_MINE)}.")
@@ -103,6 +115,8 @@ class WatchInput(Input):
                 raise ValueError(f"For your Jira, 'event' is one of: {', '.join(JIRA_MINE)}.")
         elif not (self.app.strip() and self.tool.strip()):
             raise ValueError("Say which app and which of its tools to check (see apps_find).")
+        if self.once is None and self.kind == "web":
+            self.once = bool(self.condition.strip())
         if self.once is None:
             self.once = self.kind not in {
                 "email",
@@ -131,6 +145,8 @@ class WatchInput(Input):
             return found
         if self.kind in {"github_mine", "jira_mine"}:
             return {"event": self.event}
+        if self.kind == "web":
+            return {"url": self.url.strip(), "condition": self.condition.strip()}
         if self.kind == "app":
             return {
                 "app": self.app.strip(),
@@ -352,7 +368,9 @@ def register(registry, controller: ProactiveController):
             "replies': query='from:sarah', once=true; Slack mentions: query='mentions'). "
             "kind=github_pr: a pull request is merged/approved/checks pass/fails/new comment "
             "(number; repo optional). kind=github_release: a new release of a repo. kind=jira: "
-            "an issue moves to a status, is done, gets a comment (key, when, status). kind=app: "
+            "an issue moves to a status, is done, gets a comment (key, when, status). kind=web: "
+            "any public web page changes or meets a condition (url, condition), e.g. a price "
+            "drop. kind=app: "
             "a condition in a connected app, using one of its read-only tools found with "
             "apps_find (app, tool, arguments, condition). Bridge checks every few minutes and "
             "notifies the Mac and the phone.",

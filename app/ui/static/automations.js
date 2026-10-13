@@ -124,7 +124,7 @@
     list.append(node("li", text, "line-empty"));
   }
 
-  const SOURCES = {email: "Email", slack: "Slack", github_pr: "GitHub", github_release: "GitHub", github_mine: "GitHub", jira: "Jira", jira_mine: "Jira", app: "App"};
+  const SOURCES = {email: "Email", slack: "Slack", github_pr: "GitHub", github_release: "GitHub", github_mine: "GitHub", jira: "Jira", jira_mine: "Jira", app: "App", web: "Web"};
 
   function ago(seconds) {
     const minutes = Math.round((Date.now() / 1000 - seconds) / 60);
