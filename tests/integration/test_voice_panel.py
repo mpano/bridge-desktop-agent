@@ -63,58 +63,66 @@ def test_native_hotkey_registration_and_cleanup():
     assert not shortcut.handler_ref.value
 
 
-def test_text_popup_explains_missing_permission_and_needs_text():
+def text_panel(monkeypatch):
     import AppKit as AK
 
-    from app.desktop.text_popup import TextPopup
+    from app.desktop import text_panel as module
+    from app.desktop.service import ServiceState, ServiceStatus
 
     AK.NSApplication.sharedApplication()
-    controller = SimpleNamespace(
-        service=SimpleNamespace(status=None), submit_text=Mock(), show_panel=Mock()
+    service = SimpleNamespace(
+        port=8000,
+        status=ServiceStatus(ServiceState.STOPPED, None, ""),
+        tickets=SimpleNamespace(issue=lambda: "t"),
     )
-    popup = TextPopup(controller, SimpleNamespace(api_token=SimpleNamespace(get_secret_value=str)))
-    popup.open("", "Mail", allowed=False)
-    assert "Accessibility" in popup.status.stringValue()
-    assert popup.result_buttons["Ask Bridge"].title() == "Allow…"
-    assert not popup.result_buttons["Replace"].isEnabled()
-    popup.run("improve")
-    assert "no text" in popup.status.stringValue()
-    popup.close()
-    popup.open("hello", "Notes", allowed=True)
-    assert popup.source_label.stringValue() == "Selected in Notes"
-    popup.run("remind")
+    controller = SimpleNamespace(
+        quitting=False, submit_text=Mock(return_value=True), show_panel=Mock()
+    )
+    panel = module.TextPanel(controller, service, SimpleNamespace(screen_context_blocked_apps=[]))
+    sent = []
+    panel.send = lambda script: sent.append(script) if "BridgeText" in script else None
+    pasted = []
+    monkeypatch.setattr(module, "paste_text", pasted.append)
+    monkeypatch.setattr(module.AppHelper, "callLater", lambda _delay, fn, *a: fn(*a))
+    return panel, controller, sent, pasted
+
+
+def test_text_panel_shows_the_text_once_the_page_is_ready(monkeypatch):
+    import json
+
+    panel, controller, sent, pasted = text_panel(monkeypatch)
+    panel.open("hello", "Notes", allowed=True)
+    assert sent == []  # The page isn't ready yet: it's kept for later.
+    panel.on_message({"action": "text_ready"})
+    payload = json.loads(sent[-1].split("show(", 1)[1].rsplit(")", 1)[0])
+    assert payload == {"mode": "selection", "text": "hello", "app": "Notes", "allowed": True}
+    panel.on_message({"action": "text_replace", "text": "Hello!"})
+    assert pasted == ["Hello!"] and not panel.window.isVisible()
+    panel.open("x", "Mail", allowed=False)
+    assert '"allowed": false' in sent[-1]
+    panel.on_message({"action": "text_ask", "request": "Create a reminder from this text:\n\nx"})
     controller.submit_text.assert_called_once()
-    assert "Create a reminder" in controller.submit_text.call_args.args[0]
-    popup.close()
+    controller.show_panel.assert_called_once()
 
 
-def test_text_popup_acts_on_the_whole_window_when_nothing_is_selected():
-    import AppKit as AK
-
-    from app.desktop.text_popup import TextPopup
-
-    AK.NSApplication.sharedApplication()
-    controller = SimpleNamespace(
-        service=SimpleNamespace(status=None), submit_text=Mock(return_value=True), show_panel=Mock()
-    )
-    popup = TextPopup(controller, SimpleNamespace(api_token=SimpleNamespace(get_secret_value=str)))
-    popup.open_window("Google Chrome")
-    assert popup.source_label.stringValue() == "Whole window in Google Chrome"
-    assert "reading" in popup.status.stringValue() and popup.busy
-    popup.fill_window({"text": "Article text", "window": "News", "url": "https://n.example/a"})
-    assert popup.input.string() == "Article text" and not popup.busy
-    popup.output.setString_("A summary")
-    popup._refresh_buttons()
-    assert not popup.result_buttons["Replace"].isEnabled()  # No selection to replace.
-    assert popup.result_buttons["Copy"].isEnabled()
-    popup.run("remind")
-    assert controller.submit_text.call_args.args[0] == "Remind me about “News” https://n.example/a"
-    popup.open_window("1Password")
-    popup.window_failed("🔒 1Password is private, so Bridge won't read it.")
-    assert "private" in popup.status.stringValue() and not popup.busy
-    popup.close()
-    popup.fill_window({"text": "late"})  # A read that finishes after closing is ignored.
-    assert popup.input.string() == ""
+def test_text_panel_reads_the_whole_window_when_nothing_is_selected(monkeypatch):
+    panel, controller, sent, _ = text_panel(monkeypatch)
+    panel.on_message({"action": "text_ready"})
+    panel.open_window("Google Chrome")
+    assert '"reading": true' in sent[-1] and '"mode": "window"' in sent[-1]
+    panel.fill_window({"text": "Article text", "window": "News", "url": "https://n.example/a"})
+    assert '"text": "Article text"' in sent[-1] and '"title": "News"' in sent[-1]
+    panel.window_failed("🔒 1Password is private, so Bridge won't read it.")
+    assert "failed(" in sent[-1] and "private" in sent[-1]
+    controller.submit_text.return_value = False
+    panel.on_message({"action": "text_ask", "request": "Summarize"})
+    assert "Bridge is busy" in sent[-1]
+    panel.close()
+    count = len(sent)
+    panel.fill_window({"text": "late"})  # A read that finishes after closing is ignored.
+    assert len(sent) == count
+    panel.on_message({"action": "text_size", "height": 9999})
+    assert panel.height == 640.0
 
 
 def test_floating_panel_and_command_bar_follow_their_page():

@@ -21,6 +21,27 @@ from app.desktop.window import EXTERNAL, is_local
 
 FRESH_SECONDS = 4 * 3600
 
+# Bridge's own floating windows are left out of screen sharing and screenshots. For a few
+# minutes you can let them in (Settings › About), e.g. to send a screenshot of one.
+PRIVATE_WINDOWS: list = []
+_shown_in_screenshots = False
+
+
+def keep_private(window) -> None:
+    PRIVATE_WINDOWS.append(window)
+    window.setSharingType_(
+        AK.NSWindowSharingReadOnly if _shown_in_screenshots else AK.NSWindowSharingNone
+    )
+
+
+def show_in_screenshots(show: bool) -> None:
+    global _shown_in_screenshots
+    if show == _shown_in_screenshots:
+        return
+    _shown_in_screenshots = show
+    for window in PRIVATE_WINDOWS:
+        window.setSharingType_(AK.NSWindowSharingReadOnly if show else AK.NSWindowSharingNone)
+
 
 class KeyPanel(AK.NSPanel):
     """A borderless panel that can still take typing."""
@@ -379,13 +400,13 @@ class OperatorPanel(FloatingPage):
     spot it's in."""
 
     PAGE = "operator.html"
-    WIDTH, HEIGHT = 420, 150
+    WIDTH, HEIGHT = 420, 190
     at_top = False
     rect = (0.0, 0.0, 0.0, 0.0)  # Quartz points (x, y, width, height), top-left origin.
 
     def __init__(self, controller, service):
         super().__init__(controller, service)
-        self.window.setSharingType_(AK.NSWindowSharingNone)
+        keep_private(self.window)
 
     def place(self) -> None:
         screen = AK.NSScreen.mainScreen()

@@ -13,6 +13,7 @@ import shlex
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Literal
 
@@ -73,6 +74,11 @@ class AppSettings(BaseModel):
         if any(len(value) > 80 or any(ch in value for ch in '"\\\n') for value in cleaned):
             raise ValueError("Use plain app names, like “Banking”.")
         return list(dict.fromkeys(cleaned))
+
+
+class ScreenshotMode(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    on: bool
 
 
 def env_path() -> Path:
@@ -140,6 +146,7 @@ def install(app: FastAPI, authorize, settings) -> None:
                 "model": settings.operator_model,
             },
             "permissions": permissions,
+            "screenshot_until": settings.panels_in_screenshots_until,
             "restart_needed": request.app.state.restart_needed,
             "can_restart": bool(os.environ.get("BRIDGE_APP_BUNDLE")),
             "always_blocked_ids": len(BLOCKED_BY_DEFAULT),
@@ -218,6 +225,12 @@ def install(app: FastAPI, authorize, settings) -> None:
             "saved": sorted({**changes, **live}),
             "restart_needed": request.app.state.restart_needed,
         }
+
+    @app.post("/api/v1/app/screenshot-mode", dependencies=[Depends(authorize)])
+    async def screenshot_mode(payload: ScreenshotMode):
+        """Let Bridge's floating panels show in screenshots for 10 minutes (or stop now)."""
+        settings.panels_in_screenshots_until = time.time() + 600 if payload.on else 0
+        return {"until": settings.panels_in_screenshots_until}
 
     @app.post("/api/v1/notifications/test", dependencies=[Depends(authorize)])
     async def test_notification(request: Request):

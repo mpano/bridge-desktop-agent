@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     # Meeting notes: listen to meetings (mic + the call's sound), transcribe on this Mac,
     # summarize with OpenAI. Off until you turn it on.
     meetings_enabled: bool = False
+    # Until when Bridge's floating panels may appear in screenshots (never saved; 0 = off).
+    panels_in_screenshots_until: float = 0
     meeting_retention_days: int = Field(default=30, ge=1, le=365)
     dictation_cleanup: bool = True
     dictation_max_seconds: float = Field(default=120, ge=10, le=300)

@@ -16,7 +16,7 @@ import AppKit as AK
 import Quartz
 from Foundation import NSMakeRect
 
-from app.desktop.floating import FloatingPage
+from app.desktop.floating import FloatingPage, keep_private
 
 ACCENT = (0.43, 0.49, 1.0)  # Bridge's violet-blue.
 PAD = 6.0
@@ -42,7 +42,7 @@ class GuideOverlay:
         self.window.setHasShadow_(False)
         self.window.setIgnoresMouseEvents_(True)
         self.window.setLevel_(AK.NSPopUpMenuWindowLevel + 1)
-        self.window.setSharingType_(AK.NSWindowSharingNone)
+        keep_private(self.window)
         self.window.setReleasedWhenClosed_(False)
         self.window.setCollectionBehavior_(
             AK.NSWindowCollectionBehaviorCanJoinAllSpaces
@@ -180,7 +180,7 @@ class GuidePanel(FloatingPage):
 
     def __init__(self, controller, service):
         super().__init__(controller, service)
-        self.window.setSharingType_(AK.NSWindowSharingNone)
+        keep_private(self.window)
         self.window.setLevel_(AK.NSPopUpMenuWindowLevel + 2)
 
     def place(self) -> None:

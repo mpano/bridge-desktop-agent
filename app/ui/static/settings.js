@@ -527,6 +527,7 @@
     $("restart-banner").hidden = !data.restart_needed;
     $("restart-now").hidden = !data.can_restart;
     renderShortcuts();
+    paintShot();
     renderVoice();
     renderPrivacy();
     renderPermissions();
@@ -555,5 +556,26 @@
 
   document.addEventListener("bridge-voice", () => { if (data && section === "voice") renderVoice(); });
   $("health-recheck").addEventListener("click", renderHealth);
+  // Panels in screenshots, for 10 minutes.
+  function paintShot() {
+    const until = (data && data.screenshot_until) || 0;
+    const on = until * 1000 > Date.now();
+    $("shot-toggle").textContent = on ? "Turn off now" : "Turn on for 10 min";
+    $("shot-hint").textContent = on
+      ? `On until ${new Date(until * 1000).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}: Bridge's panels show in screenshots and screen sharing.`
+      : "Bridge's floating panels are left out of screenshots and screen sharing. Turn this on for 10 minutes to take a screenshot of one.";
+  }
+  $("shot-toggle").addEventListener("click", async () => {
+    const on = !(((data && data.screenshot_until) || 0) * 1000 > Date.now());
+    try {
+      const result = await ui().request("/api/v1/app/screenshot-mode", "POST", {on});
+      if (data) data.screenshot_until = result.until;
+      paintShot();
+      ui().notify(on ? "Panels show in screenshots for 10 minutes." : "Panels are private again.");
+    } catch (error) {
+      ui().notify(error.message, true);
+    }
+  });
+
   window.BridgeSettings = {show, refresh, current: () => section, checkHealth: checkHealthQuietly};
 })();

@@ -11,7 +11,7 @@ import threading
 import AppKit as AK
 from Foundation import NSMakeRect
 
-from app.desktop.floating import FloatingPage
+from app.desktop.floating import FloatingPage, keep_private
 
 
 class MeetingPanel(FloatingPage):
@@ -20,7 +20,7 @@ class MeetingPanel(FloatingPage):
 
     def __init__(self, controller, service):
         super().__init__(controller, service)
-        self.window.setSharingType_(AK.NSWindowSharingNone)
+        keep_private(self.window)
         self.window.setCollectionBehavior_(
             AK.NSWindowCollectionBehaviorCanJoinAllSpaces
             | AK.NSWindowCollectionBehaviorFullScreenAuxiliary

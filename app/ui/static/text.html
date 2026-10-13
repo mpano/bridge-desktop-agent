@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <title>Bridge</title>
+  <link rel="stylesheet" href="/ui/style.css">
+  <link rel="stylesheet" href="/ui/mini.css">
+  <script src="/ui/dom.js" defer></script>
+  <script src="/ui/mini.js" defer></script>
+  <script src="/ui/text.js" defer></script>
+</head>
+<body class="mini">
+  <main class="mini-panel text-panel" id="tx">
+    <div class="tx-head">
+      <span class="tx-badge" aria-hidden="true">✦</span>
+      <strong id="tx-source" class="grow">Selected text</strong>
+      <button type="button" id="tx-close" class="ghost icon-btn" aria-label="Close" title="Close (Esc)">×</button>
+    </div>
+    <label for="tx-input" class="sr-only">The text</label>
+    <textarea id="tx-input" class="tx-input" rows="4" placeholder="Type or paste text here…"></textarea>
+    <div id="tx-actions" class="tx-actions" role="group" aria-label="What to do with it"></div>
+    <form id="tx-custom" class="tx-custom">
+      <label for="tx-instruction" class="sr-only">Or tell Bridge what to do</label>
+      <input id="tx-instruction" autocomplete="off" maxlength="500" placeholder="Or tell Bridge what to do with it…">
+      <button type="submit" class="primary small icon-btn" aria-label="Do it">→</button>
+    </form>
+    <p id="tx-status" class="tx-status" role="status" aria-live="polite"></p>
+    <div id="tx-result" class="tx-result" hidden>
+      <textarea id="tx-output" class="tx-output" rows="6" aria-label="The result"></textarea>
+      <div class="tx-foot">
+        <button type="button" id="tx-replace" class="primary small">Replace <kbd>⌘↩</kbd></button>
+        <button type="button" id="tx-copy" class="secondary small">Copy</button>
+        <button type="button" id="tx-ask" class="ghost small">Ask Bridge…</button>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

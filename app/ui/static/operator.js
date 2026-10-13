@@ -17,6 +17,17 @@
     $("op-title").textContent = finished ? DONE[run.status] : run.status === "paused" ? "Paused" : "Bridge is using your Mac";
     $("op-task").textContent = run.task;
     $("op-step").textContent = finished ? run.result : run.step;
+    // The last couple of finished steps, faded, so you can follow along.
+    const done = $("op-done");
+    done.replaceChildren();
+    if (!finished) {
+      for (const step of (run.steps || []).slice(-2)) {
+        const item = document.createElement("li");
+        item.textContent = step;
+        done.append(item);
+      }
+    }
+    $("op-title").dataset.count = run.actions ? `Step ${run.actions}` : "";
     $("op-stop").hidden = finished;
     const asking = Boolean(run.approval);
     $("op-ask").hidden = !asking;

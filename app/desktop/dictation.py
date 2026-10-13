@@ -19,7 +19,7 @@ import httpx
 from Foundation import NSMakePoint, NSMakeRect, NSObject
 from PyObjCTools import AppHelper
 
-from app.desktop.panel_style import AMBER, GREEN, TEXT, color, rounded
+from app.desktop.panel_style import color, rounded
 from app.desktop.selection import accessibility_allowed, copy_text, paste_text
 from app.desktop.service import ServiceState
 from app.voice.cue import play_native_sound
@@ -222,17 +222,54 @@ class Dictation:
 # The floating status pill ----------------------------------------------------------------
 
 WIDTH, HEIGHT = 340, 44
-LOOKS = {"listening": "FF5D73", "working": "49DDFF", "done": GREEN, "error": AMBER}
+# Bridge's current colors: red while listening (it pulses), violet while working.
+LOOKS = {"listening": "FF6B6B", "working": "8C9AFF", "done": "6FD8A0", "error": "F2A65A"}
 
 
 class PillView(AK.NSView):
     def drawRect_(self, rect):
         bounds = self.bounds()
-        color("0C1423", 0.94).setFill()
-        rounded(bounds, HEIGHT / 2).fill()
-        dot = NSMakeRect(18, HEIGHT / 2 - 5, 10, 10)
-        color(LOOKS.get(getattr(self, "look", "working"), TEXT)).setFill()
-        AK.NSBezierPath.bezierPathWithOvalInRect_(dot).fill()
+        pill = rounded(
+            NSMakeRect(0.5, 0.5, bounds.size.width - 1, bounds.size.height - 1), HEIGHT / 2
+        )
+        color("1D1E23", 0.97).setFill()
+        pill.fill()
+        color("FFFFFF", 0.09).setStroke()
+        pill.setLineWidth_(1)
+        pill.stroke()
+
+    def setLook_(self, look):
+        """The dot: a colored circle, with a soft pulse while listening."""
+        import Quartz
+
+        self.setWantsLayer_(True)
+        if getattr(self, "dot", None) is None:
+            self.dot = Quartz.CALayer.layer()
+            self.dot.setFrame_(Quartz.CGRectMake(18, HEIGHT / 2 - 5, 10, 10))
+            self.dot.setCornerRadius_(5)
+            self.ring = Quartz.CALayer.layer()
+            self.ring.setFrame_(Quartz.CGRectMake(18, HEIGHT / 2 - 5, 10, 10))
+            self.ring.setCornerRadius_(5)
+            self.layer().addSublayer_(self.ring)
+            self.layer().addSublayer_(self.dot)
+        hex_color = LOOKS.get(look, "ECECE8")
+        rgb = [int(hex_color[i : i + 2], 16) / 255 for i in (0, 2, 4)]
+        self.dot.setBackgroundColor_(Quartz.CGColorCreateGenericRGB(*rgb, 1))
+        self.ring.setBackgroundColor_(Quartz.CGColorCreateGenericRGB(*rgb, 0.45))
+        self.ring.removeAllAnimations()
+        if look == "listening":
+            grow = Quartz.CABasicAnimation.animationWithKeyPath_("transform.scale")
+            grow.setFromValue_(1.0)
+            grow.setToValue_(2.4)
+            fade = Quartz.CABasicAnimation.animationWithKeyPath_("opacity")
+            fade.setFromValue_(0.8)
+            fade.setToValue_(0.0)
+            group = Quartz.CAAnimationGroup.animation()
+            group.setAnimations_([grow, fade])
+            group.setDuration_(1.4)
+            group.setRepeatCount_(1e9)
+            self.ring.addAnimation_forKey_(group, "pulse")
+        self.ring.setOpacity_(1 if look == "listening" else 0)
 
 
 class HudActions(NSObject):
@@ -263,12 +300,13 @@ class DictationHud:
             AK.NSWindowCollectionBehaviorCanJoinAllSpaces
             | AK.NSWindowCollectionBehaviorFullScreenAuxiliary
         )
+        self.window.setAppearance_(AK.NSAppearance.appearanceNamed_(AK.NSAppearanceNameDarkAqua))
         self.view = PillView.alloc().initWithFrame_(NSMakeRect(0, 0, WIDTH, HEIGHT))
         self.window.setContentView_(self.view)
         self.label = AK.NSTextField.labelWithString_("")
         self.label.setFrame_(NSMakeRect(38, 13, WIDTH - 110, 18))
         self.label.setFont_(AK.NSFont.systemFontOfSize_weight_(13, AK.NSFontWeightMedium))
-        self.label.setTextColor_(color(TEXT))
+        self.label.setTextColor_(color("ECECE8"))
         self.label.setLineBreakMode_(AK.NSLineBreakByTruncatingTail)
         self.view.addSubview_(self.label)
         self.actions = HudActions.alloc().init()
@@ -285,6 +323,7 @@ class DictationHud:
             self.window.orderOut_(None)
             return
         self.view.look = look
+        self.view.setLook_(look)
         self.view.setNeedsDisplay_(True)
         self.label.setStringValue_(message)
         self.label.setToolTip_(message)

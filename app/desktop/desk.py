@@ -15,7 +15,7 @@ import AppKit as AK
 import Quartz
 from Foundation import NSMakeRect, NSObject, NSUserDefaults
 
-from app.desktop.floating import FloatingPage
+from app.desktop.floating import FloatingPage, keep_private
 
 POSITION_KEY = "BridgeDeskBuddyCorner"  # The avatar's bottom-right corner, in screen points.
 
@@ -34,7 +34,7 @@ class ExplainPanel(FloatingPage):
 
     def __init__(self, controller, service):
         super().__init__(controller, service)
-        self.window.setSharingType_(AK.NSWindowSharingNone)
+        keep_private(self.window)
         self.overlay = None
         self.point = (0.0, 0.0)
         self.height = float(self.HEIGHT)  # The card grows to fit its words.
@@ -108,7 +108,7 @@ class DeskBuddy(FloatingPage):
 
     def __init__(self, controller, service):
         super().__init__(controller, service)
-        self.window.setSharingType_(AK.NSWindowSharingNone)
+        keep_private(self.window)
         self.window.setLevel_(AK.NSFloatingWindowLevel)
         self.window.setHasShadow_(False)
         self.window.setCollectionBehavior_(
@@ -172,6 +172,13 @@ class DeskBuddy(FloatingPage):
         return bool(status.url)
 
     def tick(self) -> None:
+        import time
+
+        from app.desktop.floating import show_in_screenshots
+
+        settings = getattr(self.controller, "settings", None)
+        until = float(getattr(settings, "panels_in_screenshots_until", 0) or 0)
+        show_in_screenshots(until > time.time())
         if self.wanted():
             if not self.window.isVisible():
                 if not self.loaded:

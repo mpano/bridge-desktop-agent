@@ -622,9 +622,9 @@ def run_menubar(settings: Settings) -> None:
             controller.shortcut_status = controller.shortcut.status
         if settings.text_actions_shortcut_enabled:
             from app.desktop.hotkey import CONTROL, OPTION, GlobalVoiceShortcut
-            from app.desktop.text_popup import TextPopup
+            from app.desktop.text_panel import TextPanel
 
-            controller.text_popup = TextPopup(controller, settings)
+            controller.text_popup = TextPanel(controller, local_service, settings)
             controller.text_shortcut = GlobalVoiceShortcut(
                 controller.text_action,
                 modifiers=CONTROL | OPTION,
