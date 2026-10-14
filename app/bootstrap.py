@@ -340,6 +340,7 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
         await notifications.post_notification(runner, title, message, view)
         await agent.phone.notify(title, message, view)  # When you're away from the Mac.
 
+    agent.notify = notify
     agent.scheduler = Scheduler(agent, schedule_store, notify)
     agent.schedule_store = schedule_store
     focus_mode.notify = notify

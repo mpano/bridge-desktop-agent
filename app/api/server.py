@@ -105,6 +105,8 @@ def create_app(
         ]
         if getattr(app.state.agent, "proactive", None) is not None:
             loops.append(asyncio.create_task(warm_up(app.state.agent)))
+        if getattr(app.state, "health_watch", None) is not None:  # Says when something breaks.
+            loops.append(asyncio.create_task(app.state.health_watch(app.state.agent)))
         try:
             yield
         finally:

@@ -17,6 +17,7 @@ from fastapi import Depends, FastAPI, Request
 
 KEY_CHECK_SECONDS = 600
 STALE_INBOX_HOURS = 24
+WATCH_SECONDS = 600
 
 
 def item(area: str, key: str, name: str, state: str, detail: str, fix: dict | None = None):
@@ -37,6 +38,144 @@ def ago(seconds: float) -> str:
     if minutes < 48 * 60:
         return f"{minutes // 60} h ago"
     return f"{minutes // 1440} days ago"
+
+
+LOGIN = (
+    "expired",
+    "invalid_auth",
+    "token_revoked",
+    "not_authed",
+    "invalid_grant",
+    "401",
+    "unauthorized",
+    "account_inactive",
+    "reconnect",
+)
+PERMISSION = ("permission", "missing_scope", "forbidden", "403", "not_allowed")
+SLOW_DOWN = ("429", "rate limit", "ratelimited", "too many requests")
+OFFLINE = ("timed out", "timeout", "couldn't reach", "network", "connection error", "503", "502")
+
+
+def failing(provider: str, name: str, last: dict) -> dict:
+    """A service's latest failure in plain words, and what to do about it."""
+    text = str(last.get("detail") or "").lower()
+    when = ago(last.get("at", 0))
+    reconnect = {"label": "Reconnect", "view": "connections"}
+    if any(word in text for word in LOGIN):
+        return item(
+            "Connections",
+            provider,
+            name,
+            "error",
+            f"Login expired ({when}). Reconnect to keep it working.",
+            reconnect,
+        )
+    if any(word in text for word in PERMISSION):
+        return item(
+            "Connections",
+            provider,
+            name,
+            "error",
+            f"Bridge needs more permission ({when}). Reconnect and allow it.",
+            reconnect,
+        )
+    if any(word in text for word in SLOW_DOWN):
+        return item(
+            "Connections",
+            provider,
+            name,
+            "warn",
+            f"{name} asked Bridge to slow down ({when}). It tries again by itself.",
+        )
+    if any(word in text for word in OFFLINE):
+        return item(
+            "Connections",
+            provider,
+            name,
+            "warn",
+            f"Couldn't reach {name} ({when}). Bridge tries again by itself.",
+        )
+    return item("Connections", provider, name, "error", problem(last), reconnect)
+
+
+def money(dollars: float) -> str:
+    return "$0" if dollars < 0.005 else f"${dollars:,.2f}"
+
+
+def spending(week: dict) -> dict:
+    """AI spending this week, and a heads-up when it jumps or the budget is near."""
+    usage = {"label": "Usage", "view": "settings", "section": "usage"}
+    detail = f"{money(week['spent'])} in the last 7 days"
+    detail += f" (the week before: {money(week['previous'])})." if week["previous"] else "."
+    if week["budget"] and week["month"] >= week["budget"]:
+        return item(
+            "Basics",
+            "spending",
+            "AI spending",
+            "warn",
+            f"Over this month's {money(week['budget'])} budget. {detail}",
+            usage,
+        )
+    if week["budget"] and week["month"] >= 0.8 * week["budget"]:
+        return item(
+            "Basics",
+            "spending",
+            "AI spending",
+            "warn",
+            f"{money(week['month'])} of this month's {money(week['budget'])} budget. " + detail,
+            usage,
+        )
+    if week["spent"] >= 1 and week["previous"] and week["spent"] > 2 * week["previous"]:
+        top = week["top"][0]["label"] if week["top"] else "Bridge"
+        return item(
+            "Basics",
+            "spending",
+            "AI spending",
+            "warn",
+            f"More than double the week before, mostly {top}. {detail}",
+            usage,
+        )
+    return item("Basics", "spending", "AI spending", "ok", detail)
+
+
+class Alerts:
+    """Tell you once when something breaks (and again only if it breaks again later)."""
+
+    WATCHED = {"Connections"}
+
+    def __init__(self):
+        self.told: set[str] = set()
+
+    def news(self, checks: list[dict]) -> list[dict]:
+        broken = {
+            c["id"]: c
+            for c in checks
+            if c["state"] == "error"
+            and (
+                c["area"] in self.WATCHED
+                or (c["id"] == "openai" and "No OpenAI" not in c["detail"])
+            )
+        }
+        fresh = [c for key, c in broken.items() if key not in self.told]
+        self.told = set(broken)
+        return fresh
+
+
+async def watch(collect, agent, alerts: Alerts | None = None, first: float = 90) -> None:
+    """While Bridge runs: look every 10 minutes, and say when a connection breaks."""
+    alerts = alerts or Alerts()
+    await asyncio.sleep(first)
+    while True:
+        try:
+            notify = getattr(agent, "notify", None)
+            for check in alerts.news((await collect(agent))["checks"]):
+                if notify is not None:
+                    await notify(f"{check['name']} needs you", check["detail"], "health")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            pass
+        await asyncio.sleep(WATCH_SECONDS)
 
 
 def install(app: FastAPI, authorize, settings) -> None:
@@ -67,9 +206,7 @@ def install(app: FastAPI, authorize, settings) -> None:
         key_check.update(at=time.time(), ok=ok, detail=detail)
         return ok, detail
 
-    @app.get("/api/v1/health", dependencies=[Depends(authorize)])
-    async def health(request: Request):
-        agent = request.app.state.agent
+    async def collect(agent) -> dict:
         checks: list[dict] = []
         add = checks.append
 
@@ -86,6 +223,11 @@ def install(app: FastAPI, authorize, settings) -> None:
             )
         )
         add(item("Basics", "service", "Bridge on this Mac", "ok", "Running."))
+        usage = getattr(agent, "usage", None)
+        week = None
+        if usage is not None and hasattr(usage, "week"):
+            week = usage.week()
+            add(spending(week))
 
         # Mac permissions -----------------------------------------------------------------
         if sys.platform == "darwin":
@@ -146,16 +288,7 @@ def install(app: FastAPI, authorize, settings) -> None:
                         )
                     )
                 elif last and not last.get("ok", True):
-                    add(
-                        item(
-                            "Connections",
-                            provider,
-                            name,
-                            "error",
-                            problem(last),
-                            {"label": "Reconnect", "view": "connections"},
-                        )
-                    )
+                    add(failing(provider, name, last))
                 else:
                     add(
                         item(
@@ -186,16 +319,7 @@ def install(app: FastAPI, authorize, settings) -> None:
                         )
                     )
                 elif last and not last.get("ok", True):
-                    add(
-                        item(
-                            "Connections",
-                            provider,
-                            name,
-                            "error",
-                            problem(last),
-                            {"label": "Reconnect", "view": "connections"},
-                        )
-                    )
+                    add(failing(provider, name, last))
                 else:
                     add(
                         item(
@@ -618,6 +742,17 @@ def install(app: FastAPI, authorize, settings) -> None:
                         "Recording now." if meetings.current else "Ready: “take notes”.",
                     )
                 )
+        moments = getattr(agent, "moments", None)
+        if moments is not None:
+            waiting = len(moments.store.all(active_only=True))
+            if moments.sense is None:
+                state, detail = "off", "Needs the Bridge app (it notices which app is in front)."
+            elif waiting:
+                state = "ok"
+                detail = f"Waiting for {waiting} moment{'s' if waiting > 1 else ''}."
+            else:
+                state, detail = "ok", "Ready: “remind me … when I open Figma”."
+            add(item("On your Mac", "moments", "Reminders for a moment", state, detail))
         if getattr(agent, "buddy", None) is not None:
             on = bool(getattr(settings, "desk_buddy", True))
             add(
@@ -637,4 +772,10 @@ def install(app: FastAPI, authorize, settings) -> None:
             "errors": sum(c["state"] == "error" for c in checks),
             "warnings": sum(c["state"] == "warn" for c in checks),
         }
-        return {"checks": checks, **summary, "checked_at": time.time()}
+        return {"checks": checks, **summary, "week": week, "checked_at": time.time()}
+
+    @app.get("/api/v1/health", dependencies=[Depends(authorize)])
+    async def health(request: Request):
+        return await collect(request.app.state.agent)
+
+    app.state.health_watch = lambda agent: watch(collect, agent)

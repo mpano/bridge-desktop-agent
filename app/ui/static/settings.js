@@ -451,6 +451,7 @@
     $("health-summary").textContent = !problems ? "Everything is working."
       : data.errors ? `${data.errors} ${data.errors === 1 ? "thing is" : "things are"} broken${data.warnings ? `, and ${data.warnings} to check` : ""}. Each has a fix below.`
       : `${data.warnings} ${data.warnings === 1 ? "thing" : "things"} to check below.`;
+    renderWeek(data.week);
     const box = $("settings-health");
     box.replaceChildren();
     const areas = [...new Set(data.checks.map((c) => c.area))];
@@ -468,6 +469,53 @@
         card.append(row(check.name, check.detail, end));
       }
       box.append(card);
+    }
+  }
+
+  // What AI cost this week, next to the week before, and what it went on.
+  function renderWeek(week) {
+    const card = $("health-week");
+    card.hidden = !week;
+    if (!week) return;
+    const money = (n) => n < 0.005 ? "$0" : `$${n.toFixed(2)}`;
+    card.replaceChildren();
+    const head = node("div", undefined, "hw-head");
+    const words = node("div", undefined, "grow");
+    words.append(node("p", "AI this week", "label"), node("p", money(week.spent), "hw-amount"));
+    const change = node("p", undefined, "hw-change");
+    if (week.previous) {
+      const diff = week.spent - week.previous;
+      change.textContent = Math.abs(diff) < 0.01 ? "Same as the week before"
+        : `${diff > 0 ? "▲" : "▼"} ${money(Math.abs(diff))} vs the week before`;
+      change.classList.add(diff > 0.01 ? "up" : "down");
+    } else {
+      change.textContent = `${week.calls} AI ${week.calls === 1 ? "call" : "calls"} in the last 7 days`;
+    }
+    words.append(change);
+    const open = node("button", "Details", "secondary small");
+    open.type = "button";
+    open.addEventListener("click", () => show("usage"));
+    head.append(words, open);
+    card.append(head);
+    if (week.top.length) {
+      const most = Math.max(...week.top.map((t) => t.cost));
+      const list = node("div", undefined, "hw-tasks");
+      for (const t of week.top) {
+        const line = node("div", undefined, "hw-task");
+        const bar = node("span", undefined, "hw-bar");
+        bar.style.setProperty("--w", `${Math.max(6, Math.round((t.cost / most) * 100))}%`);
+        line.append(node("span", t.label, "grow"), bar, node("span", money(t.cost), "hw-cost"));
+        list.append(line);
+      }
+      card.append(list);
+    }
+    if (week.budget) {
+      const share = Math.min(1, week.month / week.budget);
+      const meter = node("div", undefined, "hw-meter" + (share >= 1 ? " over" : share >= 0.8 ? " near" : ""));
+      const fill = node("span");
+      fill.style.width = `${Math.round(share * 100)}%`;
+      meter.append(fill);
+      card.append(meter, node("p", `${money(week.month)} of this month's ${money(week.budget)} budget`, "hint"));
     }
   }
 

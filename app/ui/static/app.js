@@ -78,6 +78,7 @@
     if (name === "phone" && window.BridgePhone) window.BridgePhone.showYou();
     document.body.classList.toggle("onboarding-mode", name === "onboarding");
     if (name === "account") { name = "settings"; section = "account"; }
+    if (name === "health") { name = "settings"; section = "health"; }  // From a "needs you" alert.
     if (name === "settings" && window.BridgeSettings) window.BridgeSettings.show(section || window.BridgeSettings.current());
     if (name === "memory" && signedIn) setTimeout(() => execute(refreshMemories, {refresh: false}));
     if (name === "today" && signedIn && window.BridgeToday) window.BridgeToday.refresh();

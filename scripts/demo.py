@@ -443,9 +443,25 @@ def main() -> None:
     agent.briefs.inbox = agent.inbox
     seed(agent, now)
     asyncio.run(agent.reports.write())
+    with agent.usage._db() as db:  # A believable fortnight of AI costs for Health and Usage.
+        for back, task, cost in [
+            (0, "ask", 0.62),
+            (1, "ask", 0.41),
+            (2, "inbox", 0.18),
+            (3, "meetings", 0.33),
+            (5, "slack", 0.09),
+            (8, "ask", 0.55),
+            (10, "inbox", 0.21),
+        ]:
+            db.execute(
+                "INSERT OR REPLACE INTO llm_usage (day, task, model, calls, input, cached, "
+                "output, cost, priced) VALUES (?, ?, 'gpt-5.6-luna', 12, 9000, 0, 2000, ?, 1)",
+                ((now - timedelta(days=back)).strftime("%Y-%m-%d"), task, cost),
+            )
 
     tickets = LaunchTickets()
     app = create_app(settings, agent, enable_ui=True, launch_tickets=tickets)
+    app.state.health_watch = None  # No "needs you" alerts from the demo.
     print(
         f"\nBridge demo (sample data only): http://localhost:{port}/#launch={tickets.issue()}\n",
         flush=True,

@@ -13,7 +13,7 @@ import sqlite3
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # $ per 1M tokens: input, cached input, output.
@@ -249,6 +249,41 @@ class Usage:
                 "SELECT SUM(cost) FROM llm_usage WHERE day LIKE ?", (f"{month}-%",)
             ).fetchone()
         return float(row[0] or 0.0)
+
+    def week(self) -> dict:
+        """The last 7 days (today included) next to the 7 before, for Health."""
+        today = datetime.fromtimestamp(self.clock()).date()
+        start = (today - timedelta(days=6)).isoformat()
+        before = (today - timedelta(days=13)).isoformat()
+        with self._db() as db:
+            rows = db.execute(
+                "SELECT day, task, SUM(calls), SUM(cost) FROM llm_usage WHERE day >= ? "
+                "GROUP BY day, task",
+                (before,),
+            ).fetchall()
+        spent = previous = 0.0
+        calls = 0
+        tasks: dict[str, float] = {}
+        for day, name, n, dollars in rows:
+            if day >= start:
+                spent += dollars
+                calls += n
+                tasks[name] = tasks.get(name, 0.0) + dollars
+            else:
+                previous += dollars
+        top = sorted(tasks.items(), key=lambda t: -t[1])[:3]
+        return {
+            "spent": round(spent, 2),
+            "previous": round(previous, 2),
+            "calls": calls,
+            "top": [
+                {"task": name, "label": TASKS.get(name, (name,))[0], "cost": round(cost, 2)}
+                for name, cost in top
+                if cost >= 0.005
+            ],
+            "month": round(self.month_spend(), 2),
+            "budget": float(getattr(self.settings, "monthly_budget", 0) or 0),
+        }
 
     def over_budget(self) -> bool:
         budget = float(getattr(self.settings, "monthly_budget", 0) or 0)
