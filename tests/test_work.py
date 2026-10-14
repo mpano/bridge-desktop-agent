@@ -379,8 +379,10 @@ def test_confluence_pages_are_written_from_markdown():
     assert "<ul><li>add rollups</li><li>cache</li></ul>" in page
     assert "<tr><th>Query</th><th>Time</th></tr><tr><td>orders</td><td>4s</td></tr>" in page
     assert '<ac:parameter ac:name="language">sql</ac:parameter>' in page and "SELECT 1" in page
-    with pytest.raises(ValueError, match="space's key"):
-        asyncio.run(jira.create_page("ENG/../x", "T", "body"))
+    # By name works too; a space that doesn't exist says which ones do.
+    assert asyncio.run(jira.space_key("engineering")) == "ENG"
+    with pytest.raises(ValueError, match=r"no Confluence space called “SOLV”\. Your spaces: Engi"):
+        asyncio.run(jira.create_page("SOLV", "T", "body"))
     asyncio.run(jira.trash_page("987"))
     assert fake.seen[-1].method == "DELETE"
 

@@ -337,11 +337,31 @@ class Jira:
             if s.get("key")
         ]
 
+    async def space_key(self, wanted: str) -> str:
+        """The key of the space the user means, by key or by name (they rarely know keys)."""
+        wanted = " ".join(str(wanted).split())
+        spaces = await self.spaces()
+        lowered = wanted.lower()
+        for test in (
+            lambda s: s["key"].lower() == lowered,
+            lambda s: s["name"].lower() == lowered,
+            lambda s: lowered and lowered in s["name"].lower(),
+        ):
+            found = [s for s in spaces if test(s)]
+            if len(found) == 1:
+                return found[0]["key"]
+            if len(found) > 1:
+                names = ", ".join(f"{s['name']} ({s['key']})" for s in found[:8])
+                raise ValueError(f"Several spaces match “{wanted}”: {names}. Which one?")
+        names = ", ".join(f"{s['name']} ({s['key']})" for s in spaces[:12])
+        raise ValueError(
+            f"There's no Confluence space called “{wanted}”."
+            + (f" Your spaces: {names}." if names else " You can't see any spaces.")
+        )
+
     async def create_page(self, space: str, title: str, body: str, parent_id: str = "") -> dict:
         """A new Confluence page, written from Markdown-style text."""
-        space = space.strip()
-        if not re.fullmatch(r"~?[A-Za-z0-9_-]{1,255}", space):
-            raise ValueError("Use the space's key (list them with confluence_spaces).")
+        space = await self.space_key(space)
         content = {
             "type": "page",
             "title": " ".join(title.split())[:255],

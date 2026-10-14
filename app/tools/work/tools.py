@@ -70,7 +70,9 @@ class PageInput(Input):
 
 
 class NewPageInput(Input):
-    space: str = Field(min_length=1, max_length=255, description="Space key, e.g. ENG")
+    space: str = Field(
+        min_length=1, max_length=255, description="The space's key or name, as the user said it"
+    )
     title: str = Field(min_length=2, max_length=255)
     body: str = Field(
         min_length=1,
