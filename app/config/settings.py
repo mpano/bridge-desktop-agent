@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     explain_shortcut_enabled: bool = True
     # Bridge's avatar in a corner of the screen (meetings, what needs you, click to talk).
     desk_buddy: bool = True
+    # The Bridge app checks GitHub for a new signed version once a day, and gets it ready.
+    updates_automatic: bool = True
+    update_feed: str = ""  # Defaults to the project's GitHub releases (app.desktop.updates).
     # Meeting notes: listen to meetings (mic + the call's sound), transcribe on this Mac,
     # summarize with OpenAI. Off until you turn it on.
     meetings_enabled: bool = False

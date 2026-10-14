@@ -40,6 +40,7 @@ from app.api.schemas import (
 )
 from app.api.talk import install as install_talk
 from app.api.today import install as install_today
+from app.api.updates import install as install_updates
 from app.api.usage import install as install_usage
 from app.api.work import install as install_work
 from app.bootstrap import build_agent
@@ -100,6 +101,7 @@ def create_app(
                 getattr(app.state.agent, "scheduler", None),
                 getattr(app.state.agent, "proactive", None),
                 getattr(app.state.agent, "moments", None),  # Reminders for a moment.
+                getattr(app.state.agent, "updates", None),  # A new version, once a day.
             )
             if worker is not None and inspect.iscoroutinefunction(getattr(worker, "run", None))
         ]
@@ -238,6 +240,7 @@ def create_app(
     install_meetings(app, authorize)
     install_moments(app, authorize)
     install_actions(app, authorize)
+    install_updates(app, authorize)
     install_people(app, authorize)
     install_work(app, authorize)
     install_talk(app, authorize, from_phone)

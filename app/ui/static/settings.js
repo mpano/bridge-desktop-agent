@@ -74,6 +74,7 @@
     if (section === "account") ui().refreshAccount();
     if (section === "phone" && window.BridgePhone) window.BridgePhone.showSettings();
     if (section === "health") renderHealth();
+    if (section === "about") renderUpdates();
     if (section === "usage" && window.BridgeUsage) window.BridgeUsage.show();
     if (section === "learning" && window.BridgeLearning) window.BridgeLearning.show();
     refresh();
@@ -517,6 +518,84 @@
       meter.append(fill);
       card.append(meter, node("p", `${money(week.month)} of this month's ${money(week.budget)} budget`, "hint"));
     }
+  }
+
+  // Updates -----------------------------------------------------------------------------------
+
+  let updatePoll = null;
+
+  async function renderUpdates(action) {
+    const card = $("updates-card");
+    if (!card) return;
+    let data;
+    try {
+      data = action ? await ui().request(`/api/v1/updates/${action}`, "POST")
+        : await ui().request("/api/v1/updates");
+    } catch (error) {
+      if (!action) { card.hidden = true; return; }
+      data = await ui().request("/api/v1/updates").catch(() => null);
+      if (!data) return;
+      data.error = error.message;
+    }
+    card.hidden = false;
+    card.replaceChildren();
+    const head = node("div", undefined, "upd-head");
+    const words = node("div", undefined, "set-words");
+    words.append(node("span", `Bridge ${data.current}`, "set-name"));
+    const hint = node("span", undefined, "set-hint");
+    const end = node("span", undefined, "set-end");
+    const button = (label, next, primary) => {
+      const b = node("button", label, primary ? "primary small" : "secondary small");
+      b.type = "button";
+      b.addEventListener("click", async () => {
+        b.disabled = true;
+        await renderUpdates(next);
+      });
+      return b;
+    };
+    const s = data.state;
+    if (!data.supported) {
+      hint.textContent = "This copy runs from its code, so it updates with git, not here.";
+    } else if (s === "checking") {
+      hint.textContent = "Checking for a new version…";
+    } else if (s === "downloading") {
+      hint.textContent = `Getting Bridge ${data.latest}… ${Math.round((data.progress || 0) * 100)}%`;
+      const meter = node("div", undefined, "hw-meter");
+      const fill = node("span");
+      fill.style.width = `${Math.round((data.progress || 0) * 100)}%`;
+      meter.append(fill);
+      words.append(meter);
+    } else if (s === "ready") {
+      hint.textContent = `Bridge ${data.latest} is ready. Bridge closes for a moment and opens the new version.`;
+      end.append(button("Restart to update", "install", true));
+    } else if (s === "available") {
+      hint.textContent = `Bridge ${data.latest} is out.`;
+      end.append(button("Download", "download", true));
+    } else if (s === "installing") {
+      hint.textContent = "Restarting with the new version…";
+    } else if (s === "current") {
+      hint.textContent = "You have the latest version.";
+      end.append(button("Check again", "check"));
+    } else {
+      hint.textContent = data.checked_at ? "No new version yet." : "Bridge looks for a new version once a day.";
+      end.append(button("Check for updates", "check"));
+    }
+    words.append(hint);
+    if (data.error) words.append(node("span", data.error, "set-hint upd-error"));
+    if (data.notes && ["available", "ready", "downloading"].includes(s)) {
+      words.append(node("span", data.notes, "set-hint upd-notes"));
+    }
+    head.append(words, end);
+    card.append(head);
+    if (data.supported) {
+      const auto = toggle("Get new versions automatically", data.automatic, async (on) => {
+        try { await ui().request("/api/v1/settings/app", "POST", {updates_automatic: on}); } catch { /* shown next time */ }
+        renderUpdates();
+      });
+      card.append(row("Check every day", "Bridge downloads a new version in the background and asks before restarting. Only versions signed by Bridge's developer and approved by Apple are installed.", auto));
+    }
+    clearTimeout(updatePoll);
+    if (["checking", "downloading"].includes(s) && section === "about") updatePoll = setTimeout(() => renderUpdates(), 1000);
   }
 
   function healthDot(data) {

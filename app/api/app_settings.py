@@ -44,6 +44,7 @@ class AppSettings(BaseModel):
     dictation_shortcut: bool | None = None
     explain_shortcut: bool | None = None
     desk_buddy: bool | None = None
+    updates_automatic: bool | None = None
     meetings_enabled: bool | None = None
     meeting_keep_days: Literal[7, 30, 90] | None = None
     dictation_cleanup: bool | None = None
@@ -199,6 +200,7 @@ def install(app: FastAPI, authorize, settings) -> None:
             ("operator_ask", "OPERATOR_ASK"),
             ("learning_enabled", "LEARNING_ENABLED"),
             ("desk_buddy", "DESK_BUDDY"),
+            ("updates_automatic", "UPDATES_AUTOMATIC"),
             ("meetings_enabled", "MEETINGS_ENABLED"),
         ):
             value = getattr(payload, field)

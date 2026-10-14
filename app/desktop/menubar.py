@@ -575,6 +575,11 @@ def run_menubar(settings: Settings) -> None:
 
         controller.meeting_panel = MeetingPanel(controller, local_service)
         meetings_module.HUD = MeetingHud(controller.meeting_panel)
+        from PyObjCTools import AppHelper
+
+        from app.desktop import updates as updates_module
+
+        updates_module.RESTART = lambda: AppHelper.callAfter(controller.quit)
 
         controller.explain_panel = ExplainPanel(controller, local_service)
         controller.desk_buddy = DeskBuddy(controller, local_service)

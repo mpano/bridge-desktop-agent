@@ -354,6 +354,7 @@
               </div>
             </section>
             <section class="settings-section" data-panel="about" aria-label="About and diagnostics" hidden><h2>About &amp; diagnostics</h2>
+        <article class="card updates-card" id="updates-card" aria-live="polite"></article>
         <article class="card shot-mode"><div class="set"><div class="set-words"><span class="set-name">Show Bridge's panels in screenshots</span><span id="shot-hint" class="set-hint">Bridge's floating panels are left out of screenshots and screen sharing. Turn this on for 10 minutes to take a screenshot of one.</span></div><button type="button" id="shot-toggle" class="secondary small">Turn on for 10 min</button></div></article>
         <article class="card"><h2>Model and privacy</h2><div id="provider-details"></div><p class="hint">Configure LLM_PROVIDER and REMOTE_TOOL_RESULTS in .env, then restart Bridge. This panel is read-only. Tool approval and data sharing are separate controls.</p></article>
         <article class="card"><h2>Local diagnostics</h2><p id="diagnostics-summary" role="status">Connect to check local readiness.</p><div id="diagnostics-list" class="item-list"></div><button type="button" id="refresh-diagnostics" class="secondary">Refresh diagnostics</button><p class="hint">These checks do not launch applications or test macOS permissions by performing actions.</p></article>

@@ -29,6 +29,7 @@ from app.assistant.slack_triage import SlackInbox
 from app.assistant.talk import Talk
 from app.assistant.triage import InboxTriage
 from app.assistant.watchers import Watchers
+from app.desktop.updates import Updates
 from app.integrations.accounts import AccountManager
 from app.integrations.activity import SQLiteActivity
 from app.integrations.credentials import KeychainCredentials
@@ -444,6 +445,8 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     )
     agent.moments.notify = notify
     moment_tools.register(registry, agent.moments)
+    agent.updates = Updates(settings)
+    agent.updates.notify = notify
     agent.actions = Actions(settings.database_path, agent)
     agent.executor.actions = agent.actions
     agent.explainer = Explainer(
