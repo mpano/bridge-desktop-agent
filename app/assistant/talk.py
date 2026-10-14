@@ -21,7 +21,7 @@ from pathlib import Path
 
 import httpx
 
-from app.llm import prompts
+from app.llm import endpoint, prompts
 from app.phone.access import MAC_ONLY_TOOLS
 
 log = logging.getLogger(__name__)
@@ -93,6 +93,7 @@ class Talk:
         self.agent, self.settings, self.http = agent, settings, http
         self.path = str(path)
         self.sessions: dict[str, dict] = {}
+        self.ended_voice: list[str] = []  # Bridge plan conversations to report as ended.
         with self._db() as db:
             db.execute(
                 "CREATE TABLE IF NOT EXISTS talk_usage (month TEXT PRIMARY KEY, seconds REAL)"
@@ -129,9 +130,8 @@ class Talk:
         path = folder / f"{voice}.mp3"
         if path.is_file() and path.stat().st_size > 1000:
             return path
-        key = self.settings.openai_api_key.get_secret_value()
-        if not key:
-            raise TalkError("Add your OpenAI key first.")
+        if not endpoint.key(self.settings):
+            raise TalkError(endpoint.NO_AI)
         text = (
             f"Hi, I'm {voice.capitalize()}. I can plan your day, sort your inbox, "
             "and get things done on your Mac. Just ask."
@@ -139,8 +139,8 @@ class Talk:
         client = self.http or httpx.AsyncClient(timeout=30)
         try:
             response = await client.post(
-                SPEECH,
-                headers={"Authorization": f"Bearer {key}"},
+                endpoint.url(self.settings, "audio/speech"),
+                headers=endpoint.headers(self.settings),
                 json={
                     "model": "gpt-4o-mini-tts",
                     "voice": voice,
@@ -199,9 +199,8 @@ class Talk:
     async def start(self, *, from_phone: bool, name: str = "") -> dict:
         if not self.enabled:
             raise TalkError("Turn on Conversation mode in Settings › Voice first.")
-        key = self.settings.openai_api_key.get_secret_value()
-        if not key:
-            raise TalkError("Add your OpenAI key in Settings first.")
+        if not endpoint.key(self.settings):
+            raise TalkError(endpoint.NO_AI)
         now = time.time()
         self.sessions = {
             k: v
@@ -240,7 +239,9 @@ class Talk:
         client = self.http or httpx.AsyncClient(timeout=20)
         try:
             response = await client.post(
-                CLIENT_SECRETS, headers={"Authorization": f"Bearer {key}"}, json=body
+                endpoint.url(self.settings, "realtime/client_secrets"),
+                headers=endpoint.headers(self.settings),
+                json=body,
             )
         except httpx.HTTPError:
             raise TalkError("Couldn't reach OpenAI. Check your connection.") from None
@@ -262,6 +263,7 @@ class Talk:
             "from_phone": from_phone,
             "pending": None,
             "ended": False,
+            "voice_id": str(data.get("bridge_voice_id") or ""),  # With a Bridge plan.
         }
         return {
             "session_id": session_id,
@@ -361,6 +363,8 @@ class Talk:
         if session is None or session["ended"]:
             return self.usage()
         session["ended"] = True
+        if session.get("voice_id"):
+            self.ended_voice.append(session["voice_id"])  # The plan charges its minutes.
         if session["pending"]:
             session["pending"] = None  # It stays in Approvals for later.
         spent = max(0.0, min(float(seconds), time.time() - session["started"] + 5))

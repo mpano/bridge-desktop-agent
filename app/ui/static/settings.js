@@ -75,6 +75,7 @@
     if (section === "phone" && window.BridgePhone) window.BridgePhone.showSettings();
     if (section === "health") renderHealth();
     if (section === "about") renderUpdates();
+    if (section === "plan") renderPlan();
     if (section === "usage" && window.BridgeUsage) window.BridgeUsage.show();
     if (section === "learning" && window.BridgeLearning) window.BridgeLearning.show();
     refresh();
@@ -518,6 +519,154 @@
       meter.append(fill);
       card.append(meter, node("p", `${money(week.month)} of this month's ${money(week.budget)} budget`, "hint"));
     }
+  }
+
+  // Plan & AI ---------------------------------------------------------------------------------
+
+  const dollars = (n) => (Math.abs(n) < 0.005 ? "$0" : `$${n.toFixed(2)}`);
+
+  async function planCall(path, body) {
+    try {
+      return await ui().request(path, "POST", body);
+    } catch (error) {
+      renderPlan(error.message);
+      return null;
+    }
+  }
+
+  async function openCheckout(path, body) {
+    const data = await planCall(path, body);
+    if (data && data.url) {
+      window.open(data.url, "_blank");
+      renderPlan("", "Finish in your browser. Your credit appears here a moment after you pay.");
+    }
+  }
+
+  async function renderPlan(problem = "", note = "") {
+    const root = $("plan-root");
+    if (!root) return;
+    let data;
+    try {
+      data = await ui().request("/api/v1/plan");
+    } catch (error) {
+      root.replaceChildren(node("p", error.message, "hint"));
+      return;
+    }
+    root.replaceChildren();
+    const account = data.account;
+    const onPlan = data.provider === "bridge";
+    if (problem || data.error) root.append(node("p", problem || data.error, "plan-error"));
+    if (note) root.append(node("p", note, "plan-note"));
+
+    if (!onPlan || !account) {
+      const card = node("article", undefined, "card plan-hero");
+      card.append(node("p", "No OpenAI key needed", "label"), node("h3", "Try Bridge with AI included"));
+      card.append(node("p", "Start with a free trial of AI credit. When you like it, Bridge Plus is $12 a month and includes $6 of AI every month. Add more credit any time.", "hint"));
+      const start = node("button", account ? "Use my Bridge plan" : "Start free trial", "primary");
+      start.type = "button";
+      start.addEventListener("click", async () => {
+        start.disabled = true;
+        if (await planCall("/api/v1/plan/start")) renderPlan("", "You're on Bridge's AI now. Nothing else to set up.");
+      });
+      card.append(start);
+      root.append(card);
+      const own = node("article", undefined, "card group");
+      own.append(row("Your own OpenAI key", data.own_key ? (onPlan ? "Saved, not in use." : "In use. You pay OpenAI directly for what Bridge uses.") : "Add one in Privacy to pay OpenAI directly instead.", pill(onPlan ? "Off" : data.own_key ? "In use" : "None", !onPlan && data.own_key ? "good" : "")));
+      root.append(own);
+      root.append(licenseCard());
+      return;
+    }
+
+    const plus = account.plan === "plus";
+    const monthly = (account.plans.find((p) => p.key === "plus") || {}).credit || 6;
+    const card = node("article", undefined, "card plan-hero");
+    const head = node("div", undefined, "plan-head");
+    const words = node("div");
+    words.append(node("p", plus ? "Bridge Plus" : account.plan === "free" ? "Plan ended" : "Free trial", "label"));
+    words.append(node("p", dollars(account.balance), "plan-amount"));
+    words.append(node("p", "AI credit left", "hint"));
+    head.append(words);
+    if (plus && account.renews_at) {
+      const renews = new Date(account.renews_at);
+      head.append(node("p", `${account.status === "cancelled" ? "Ends" : "Renews"} ${renews.toLocaleDateString(undefined, {month: "short", day: "numeric"})}`, "plan-renews"));
+    }
+    card.append(head);
+    const meter = node("div", undefined, "hw-meter" + (account.balance <= 0 ? " over" : account.balance < 0.25 ? " near" : ""));
+    const fill = node("span");
+    fill.style.width = `${Math.max(2, Math.min(100, Math.round((account.balance / (plus ? monthly : Math.max(account.balance, 0.5))) * 100)))}%`;
+    meter.append(fill);
+    card.append(meter);
+    card.append(node("p", `${dollars(account.spent_30_days)} used in the last 30 days.`, "hint"));
+    const actions = node("div", undefined, "plan-actions");
+    const buy = (plan) => {
+      const b = node("button", plan.key === "plus" ? `Upgrade to Plus · ${plan.price}` : `Add ${plan.price}`, plan.key === "plus" ? "primary" : "secondary");
+      b.type = "button";
+      b.disabled = !plan.for_sale;
+      if (!plan.for_sale) b.title = "Not for sale yet.";
+      b.addEventListener("click", () => openCheckout("/api/v1/plan/checkout", {plan: plan.key}));
+      return b;
+    };
+    for (const plan of account.plans) {
+      if (plan.key === "plus" && plus) continue;
+      actions.append(buy(plan));
+    }
+    if (plus) {
+      const manage = node("button", "Manage subscription", "secondary");
+      manage.type = "button";
+      manage.addEventListener("click", () => openCheckout("/api/v1/plan/portal"));
+      actions.append(manage);
+    }
+    card.append(actions);
+    root.append(card);
+
+    const more = node("article", undefined, "card group");
+    const voice = account.voice_minute || {};
+    more.append(row("What things cost", `Everyday requests cost a fraction of a cent. Voice conversations cost ${dollars(voice["gpt-realtime-mini"] || 0.1)}–${dollars(voice["gpt-realtime-2.1"] || 0.3)} a minute. See Usage for the details.`, ""));
+    more.append(row("Macs on this plan", `${account.devices} ${account.devices === 1 ? "Mac" : "Macs"}. To add another, enter the license key from your purchase email there.`, ""));
+    const own = toggle("Use my own OpenAI key instead", false, async () => {
+      if (await planCall("/api/v1/plan/own-key")) renderPlan("", "Bridge uses your own OpenAI key again. Your plan's credit stays for later.");
+    });
+    more.append(row("Use my own OpenAI key instead", data.own_key ? "Pay OpenAI directly; your credit stays for later." : "Add an OpenAI key in Privacy first.", own));
+    root.append(more);
+    if (account.history && account.history.length) {
+      const list = node("article", undefined, "card group");
+      list.append(node("p", "Credit added", "label plan-history-label"));
+      for (const h of account.history.slice(0, 6)) {
+        list.append(row(h.detail || h.kind, new Date(h.at * 1000).toLocaleDateString(), node("span", (h.amount > 0 ? "+" : "") + dollars(h.amount), "plan-delta" + (h.amount < 0 ? " minus" : ""))));
+      }
+      root.append(list);
+    }
+    if (!plus) root.append(licenseCard());
+    const out = node("button", "Sign this Mac out of the plan", "ghost small plan-signout");
+    out.type = "button";
+    out.addEventListener("click", async () => {
+      if (!window.confirm("Sign this Mac out? Your plan and credit stay on your account; enter your license key to come back.")) return;
+      await planCall("/api/v1/plan/sign-out");
+      renderPlan();
+    });
+    root.append(out);
+  }
+
+  function licenseCard() {
+    const card = node("article", undefined, "card group");
+    const form = node("form", undefined, "plan-license");
+    const input = node("input");
+    input.type = "text";
+    input.placeholder = "License key from your purchase email";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.setAttribute("aria-label", "License key");
+    const go = node("button", "Use", "secondary small");
+    go.type = "submit";
+    form.append(input, go);
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (input.value.trim().length < 8) return;
+      go.disabled = true;
+      if (await planCall("/api/v1/plan/link", {license_key: input.value.trim()})) renderPlan("", "This Mac is on your plan now.");
+    });
+    card.append(row("Already have Bridge Plus?", "Enter your license key to use it on this Mac.", ""), form);
+    return card;
   }
 
   // Updates -----------------------------------------------------------------------------------

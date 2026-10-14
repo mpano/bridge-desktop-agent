@@ -23,7 +23,7 @@ from uuid import uuid4
 
 import httpx
 
-from app.llm import prompts
+from app.llm import endpoint, prompts
 
 log = logging.getLogger(__name__)
 RESPONSES = "https://api.openai.com/v1/responses"
@@ -192,8 +192,8 @@ class Operator:
             raise OperatorError("Turn on “Use your Mac” in Settings first.")
         if self.hands is None:
             raise OperatorError("Using the Mac only works in the Bridge app on your Mac.")
-        if not self.settings.openai_api_key.get_secret_value():
-            raise OperatorError("Add your OpenAI key in Settings first.")
+        if not endpoint.key(self.settings):
+            raise OperatorError(endpoint.NO_AI)
         if self.current and self.current.status in {"starting", "running", "approval", "paused"}:
             raise OperatorError("Bridge is already doing something on your Mac. Stop it first.")
         run = Run(
@@ -245,11 +245,12 @@ class Operator:
         return ok and not run.stop_requested
 
     async def _model(self, payload: dict) -> dict:
-        key = self.settings.openai_api_key.get_secret_value()
         client = self.http or httpx.AsyncClient(timeout=90)
         try:
             response = await client.post(
-                RESPONSES, headers={"Authorization": f"Bearer {key}"}, json=payload
+                endpoint.url(self.settings, "responses"),
+                headers=endpoint.headers(self.settings),
+                json=payload,
             )
         except httpx.HTTPError:
             raise OperatorError("Couldn't reach OpenAI.") from None

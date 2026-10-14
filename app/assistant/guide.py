@@ -24,8 +24,8 @@ from uuid import uuid4
 
 import httpx
 
-from app.assistant.operator import RESPONSES, OperatorError, keyset
-from app.llm import prompts
+from app.assistant.operator import OperatorError, keyset
+from app.llm import endpoint, prompts
 
 log = logging.getLogger(__name__)
 MAX_STEPS = 40
@@ -224,8 +224,8 @@ class Guides:
             )
         if self.hands is None:
             raise OperatorError("Show me how only works in the Bridge app on your Mac.")
-        if not self.settings.openai_api_key.get_secret_value():
-            raise OperatorError("Add your OpenAI key in Settings first.")
+        if not endpoint.key(self.settings):
+            raise OperatorError(endpoint.NO_AI)
         if self.current and self.current.status in {"starting", "waiting", "looking", "asking"}:
             raise OperatorError("A guide is already running. Stop it first.")
         busy = self.operator is not None and self.operator.current is not None
@@ -256,11 +256,12 @@ class Guides:
     # The model ----------------------------------------------------------------------------------
 
     async def _model(self, payload: dict) -> dict:
-        key = self.settings.openai_api_key.get_secret_value()
         client = self.http or httpx.AsyncClient(timeout=90)
         try:
             response = await client.post(
-                RESPONSES, headers={"Authorization": f"Bearer {key}"}, json=payload
+                endpoint.url(self.settings, "responses"),
+                headers=endpoint.headers(self.settings),
+                json=payload,
             )
         except httpx.HTTPError:
             raise OperatorError("Couldn't reach OpenAI.") from None
@@ -612,14 +613,13 @@ class Guides:
         key = hashlib.sha256(text.encode()).hexdigest()
         if key in self._speech:
             return self._speech[key]
-        api_key = self.settings.openai_api_key.get_secret_value()
-        if not api_key:
-            raise OperatorError("Add your OpenAI key first.")
+        if not endpoint.key(self.settings):
+            raise OperatorError(endpoint.NO_AI)
         client = self.http or httpx.AsyncClient(timeout=30)
         try:
             response = await client.post(
-                SPEECH,
-                headers={"Authorization": f"Bearer {api_key}"},
+                endpoint.url(self.settings, "audio/speech"),
+                headers=endpoint.headers(self.settings),
                 json={
                     "model": "gpt-4o-mini-tts",
                     "voice": getattr(self.settings, "talk_voice", "marin"),

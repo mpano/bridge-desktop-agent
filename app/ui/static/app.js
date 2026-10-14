@@ -927,7 +927,7 @@
   }
 
   function renderProvider(provider) {
-    const name = "OpenAI";
+    const name = provider.name === "bridge" ? "Bridge plan" : "OpenAI";
     $("provider-summary").textContent = `On this Mac · ${name}`;
     let policy;
     if (provider.remote_tool_results === "all") {

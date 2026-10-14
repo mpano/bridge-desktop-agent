@@ -36,3 +36,31 @@ def no_real_mouse_and_keyboard(monkeypatch):
     monkeypatch.setattr("app.bootstrap.meeting_ears", lambda: None)  # Never the real mic.
     monkeypatch.setattr("app.bootstrap.context_sense", lambda: None)  # Nor the real front app.
     monkeypatch.setattr("app.assistant.operator.HUD", None)
+
+
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "testserver"}
+
+
+@pytest.fixture(autouse=True)
+def no_internet(monkeypatch):
+    """Tests never reach a real service: a request to a real address fails the test."""
+    import httpx
+
+    def check(request):
+        host = request.url.host or ""
+        if host not in LOCAL_HOSTS and not host.endswith((".test", ".localhost")):
+            raise AssertionError(f"A test tried to reach {host}; use a fake.")
+
+    real_async = httpx.AsyncHTTPTransport.handle_async_request
+    real_sync = httpx.HTTPTransport.handle_request
+
+    async def guarded_async(self, request):
+        check(request)
+        return await real_async(self, request)
+
+    def guarded_sync(self, request):
+        check(request)
+        return real_sync(self, request)
+
+    monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", guarded_async)
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", guarded_sync)

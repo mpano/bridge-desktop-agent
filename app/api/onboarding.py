@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from app.config.env_file import update_env
-from app.llm import keychain
+from app.llm import endpoint, keychain
 
 PermissionKey = Literal[
     "accessibility", "microphone", "calendars", "reminders", "contacts", "screen"
@@ -106,7 +106,7 @@ def install(app: FastAPI, authorize, settings) -> None:
         return {
             "done": bool(days.get("onboarded")),
             "openai": {
-                "set": bool(settings.openai_api_key.get_secret_value()),
+                "set": bool(endpoint.key(settings)),
                 "source": request.app.state.key_source,
             },
             "permissions": permissions,

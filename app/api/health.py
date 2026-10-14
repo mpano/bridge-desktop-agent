@@ -15,6 +15,8 @@ import time
 import httpx
 from fastapi import Depends, FastAPI, Request
 
+from app.llm import endpoint
+
 KEY_CHECK_SECONDS = 600
 STALE_INBOX_HOURS = 24
 WATCH_SECONDS = 600
@@ -138,6 +140,46 @@ def spending(week: dict) -> dict:
     return item("Basics", "spending", "AI spending", "ok", detail)
 
 
+LOW_CREDIT = 0.25
+ADD_KEY = {"label": "Add a key", "view": "settings", "section": "privacy"}
+
+
+async def plan_check(cloud) -> dict:
+    """With a Bridge plan: is there AI credit left?"""
+    from app.integrations.cloud import CloudError
+
+    fix = {"label": "Plan", "view": "settings", "section": "plan"}
+    try:
+        account = await cloud.overview()
+    except CloudError as exc:
+        return item("Basics", "openai", "Bridge plan", "error", str(exc), fix)
+    if account is None:
+        return item("Basics", "openai", "Bridge plan", "error", "This Mac isn't signed in.", fix)
+    left = float(account.get("balance") or 0)
+    name = "Bridge Plus" if account.get("plan") == "plus" else "Free trial"
+    if left <= 0:
+        return item(
+            "Basics",
+            "openai",
+            "Bridge plan",
+            "error",
+            f"{name}: the AI credit has run out. Add credit to keep using Bridge.",
+            fix,
+        )
+    if left < LOW_CREDIT:
+        return item(
+            "Basics",
+            "openai",
+            "Bridge plan",
+            "warn",
+            f"{name}: {money(left)} of AI credit left.",
+            fix,
+        )
+    return item(
+        "Basics", "openai", "Bridge plan", "ok", f"{name}: {money(left)} of AI credit left."
+    )
+
+
 class Alerts:
     """Tell you once when something breaks (and again only if it breaks again later)."""
 
@@ -211,17 +253,22 @@ def install(app: FastAPI, authorize, settings) -> None:
         add = checks.append
 
         # Basics -----------------------------------------------------------------------------
-        ok, detail = await openai_key()
-        add(
-            item(
-                "Basics",
-                "openai",
-                "OpenAI key",
-                "ok" if ok else "warn" if ok is None else "error",
-                detail,
-                None if ok else {"label": "Add a key", "view": "settings", "section": "privacy"},
+        if endpoint.cloud(settings) and getattr(agent, "cloud", None) is not None:
+            add(await plan_check(agent.cloud))
+        else:
+            ok, detail = await openai_key()
+            add(
+                item(
+                    "Basics",
+                    "openai",
+                    "OpenAI key",
+                    "ok" if ok else "warn" if ok is None else "error",
+                    detail,
+                    None
+                    if ok
+                    else {"label": "Add a key", "view": "settings", "section": "privacy"},
+                )
             )
-        )
         add(item("Basics", "service", "Bridge on this Mac", "ok", "Running."))
         usage = getattr(agent, "usage", None)
         week = None

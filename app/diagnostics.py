@@ -117,7 +117,7 @@ def collect_diagnostics(settings: Settings) -> DiagnosticsReport:
         ready=not any(c["status"] == "warning" for c in checks),
         checks=checks,
         provider=ProviderReport(
-            name="openai",
+            name="bridge" if getattr(settings, "ai_provider", "own_key") == "bridge" else "openai",
             model=settings.openai_model,
             remote_tool_results=settings.remote_tool_results,
             remote_tool_result_allowlist=list(settings.remote_tool_result_allowlist),

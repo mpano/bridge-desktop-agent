@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.config.env_file import update_env
+from app.llm import endpoint
 from app.llm.usage import CHOICES
 
 MODEL = Field(default=None, pattern=r"^[a-z0-9.-]{3,40}$")
@@ -32,14 +33,13 @@ def install(app: FastAPI, authorize, settings) -> None:
 
     async def works(model: str) -> None:
         """A tiny test call, so a model your key can't use never breaks Ask."""
-        key = settings.openai_api_key.get_secret_value()
-        if not key:
-            raise HTTPException(409, "Add your OpenAI key first.")
+        if not endpoint.key(settings):
+            raise HTTPException(409, endpoint.NO_AI)
         try:
             async with httpx.AsyncClient(timeout=30) as client:
                 response = await client.post(
-                    "https://api.openai.com/v1/responses",
-                    headers={"Authorization": f"Bearer {key}"},
+                    endpoint.url(settings, "responses"),
+                    headers=endpoint.headers(settings),
                     json={
                         "model": model,
                         "input": "Reply with OK.",

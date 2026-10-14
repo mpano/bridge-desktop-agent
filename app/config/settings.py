@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     desk_buddy: bool = True
     # The Bridge app checks GitHub for a new signed version once a day, and gets it ready.
     updates_automatic: bool = True
+    # Where AI requests go: "own_key" (OpenAI, your key) or "bridge" (a Bridge plan's credit).
+    ai_provider: Literal["own_key", "bridge"] = "own_key"
+    cloud_url: str = "https://bridge-cloud.fly.dev"
+    cloud_token: SecretStr = SecretStr("")  # This Mac's Bridge account; kept in the Keychain.
     update_feed: str = ""  # Defaults to the project's GitHub releases (app.desktop.updates).
     # Meeting notes: listen to meetings (mic + the call's sound), transcribe on this Mac,
     # summarize with OpenAI. Off until you turn it on.

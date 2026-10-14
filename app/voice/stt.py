@@ -9,10 +9,13 @@ from app.voice.errors import VoiceError
 
 def build_stt(settings) -> SpeechToText:
     if settings.voice_stt_provider == "openai":
+        from app.llm import endpoint
+
         return OpenAIWhisperSTT(
-            settings.openai_api_key.get_secret_value(),
+            endpoint.key(settings),
             model=settings.voice_openai_stt_model,
             language=settings.voice_language,
+            base_url=endpoint.base(settings),
         )
     return LocalWhisperSTT(
         model=settings.voice_local_whisper_model,
@@ -109,12 +112,19 @@ class LocalWhisperSTT:
 class OpenAIWhisperSTT:
     """Remote transcription. Audio is uploaded only when explicitly configured."""
 
-    def __init__(self, api_key: str, model: str = "gpt-transcribe", language: str | None = "en"):
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "gpt-transcribe",
+        language: str | None = "en",
+        base_url: str | None = None,
+    ):
         if not api_key:
             raise VoiceError("OPENAI_API_KEY is required for remote voice transcription.")
         from openai import AsyncOpenAI
 
-        self.client = AsyncOpenAI(api_key=api_key, timeout=60.0, max_retries=0)
+        where = {"base_url": base_url} if base_url else {}
+        self.client = AsyncOpenAI(api_key=api_key, timeout=60.0, max_retries=0, **where)
         self.model = model
         self.language = language
         self._closed = False

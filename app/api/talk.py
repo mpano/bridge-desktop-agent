@@ -111,4 +111,11 @@ def install(app: FastAPI, authorize, from_phone) -> None:
     @app.post("/api/v1/talk/end", dependencies=[Depends(authorize)])
     async def end(payload: End, request: Request):
         tokens = payload.tokens.model_dump() if payload.tokens else None
-        return {"usage": talk(request).end(payload.session_id, payload.seconds, tokens)}
+        found = talk(request)
+        usage = found.end(payload.session_id, payload.seconds, tokens)
+        cloud = getattr(request.app.state.agent, "cloud", None)
+        while found.ended_voice:
+            voice_id = found.ended_voice.pop()
+            if cloud is not None:
+                await cloud.voice_ended(voice_id)  # A Bridge plan charges by the minute.
+        return {"usage": usage}

@@ -527,6 +527,9 @@ def run_menubar(settings: Settings) -> None:
     from app.tools.system.notifications import post_notification
 
     load_into(settings)  # An OpenAI key saved in setup lives in the Keychain, not .env.
+    from app.integrations.cloud import load_token
+
+    load_token(settings)  # This Mac's Bridge plan, if it has one.
     local_service = LocalService(settings)
     voice_service = MenuVoiceService(settings, local_service)
     runner = NativeRunner()

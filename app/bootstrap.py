@@ -32,6 +32,7 @@ from app.assistant.watchers import Watchers
 from app.desktop.updates import Updates
 from app.integrations.accounts import AccountManager
 from app.integrations.activity import SQLiteActivity
+from app.integrations.cloud import Cloud
 from app.integrations.credentials import KeychainCredentials
 from app.integrations.email import GmailService
 from app.integrations.mcp.manager import MCPManager
@@ -445,6 +446,7 @@ def build_agent(settings, llm=None, runner=None, accounts=None):
     )
     agent.moments.notify = notify
     moment_tools.register(registry, agent.moments)
+    agent.cloud = Cloud(settings)  # A Bridge plan, instead of your own OpenAI key.
     agent.updates = Updates(settings)
     agent.updates.notify = notify
     agent.actions = Actions(settings.database_path, agent)

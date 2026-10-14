@@ -26,6 +26,7 @@ from app.api.onboarding import install as install_onboarding
 from app.api.operator import install as install_operator
 from app.api.people import install as install_people
 from app.api.phone import install as install_phone
+from app.api.plan import install as install_plan
 from app.api.recipes import install as install_recipes
 from app.api.reports import install as install_reports
 from app.api.schemas import (
@@ -241,6 +242,7 @@ def create_app(
     install_moments(app, authorize)
     install_actions(app, authorize)
     install_updates(app, authorize)
+    install_plan(app, authorize, settings)
     install_people(app, authorize)
     install_work(app, authorize)
     install_talk(app, authorize, from_phone)

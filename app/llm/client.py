@@ -4,6 +4,7 @@ from typing import Protocol
 
 from openai import AsyncOpenAI
 
+from app.llm import endpoint
 from app.llm.models import LLMResponse, ToolCall
 from app.llm.prompts import system_prompt
 
@@ -27,6 +28,7 @@ class OpenAILLMClient:
     def __init__(self, settings):
         self.settings = settings
         self._client = None
+        self._client_for: tuple[str, str] | None = None
         self.usage = None  # Routing and spending (app/llm/usage.py), set by bootstrap.
 
     def _model(self) -> tuple[str, str]:
@@ -44,14 +46,13 @@ class OpenAILLMClient:
                 pass  # Counting must never break a request.
 
     def _openai(self):
-        if not self.settings.openai_api_key.get_secret_value():
-            raise RuntimeError("Set OPENAI_API_KEY in .env to use the agent.")
-        if self._client is None:
-            self._client = AsyncOpenAI(
-                api_key=self.settings.openai_api_key.get_secret_value(),
-                timeout=45,
-                max_retries=1,
-            )
+        key, base = endpoint.key(self.settings), endpoint.base(self.settings)
+        if not key:
+            raise RuntimeError(endpoint.NO_AI)
+        changed = self._client_for is not None and self._client_for != (key, base)
+        if self._client is None or changed:  # First use, or the plan or key changed.
+            self._client = AsyncOpenAI(api_key=key, base_url=base, timeout=45, max_retries=1)
+            self._client_for = (key, base)
         return self._client
 
     async def complete(self, instructions: str, text: str) -> str:

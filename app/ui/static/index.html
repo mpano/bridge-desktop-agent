@@ -309,6 +309,7 @@
             <h1 id="settings-title">Settings</h1>
             <button type="button" data-section="health">Health</button>
             <button type="button" data-section="general">General</button>
+            <button type="button" data-section="plan">Plan &amp; AI</button>
             <button type="button" data-section="shortcuts">Shortcuts</button>
             <button type="button" data-section="voice">Voice & dictation</button>
             <button type="button" data-section="privacy">Privacy</button>
@@ -323,6 +324,7 @@
           </nav>
           <div class="settings-body">
             <div id="restart-banner" class="restart-banner" hidden><span>Saved. These changes apply after Bridge restarts.</span><button type="button" id="restart-now" class="primary small">Restart Bridge</button></div>
+            <section class="settings-section" data-panel="plan" aria-label="Plan and AI" hidden><h2>Plan &amp; AI</h2><p class="lede">Use Bridge with a plan (AI included), or with your own OpenAI key.</p><div id="plan-root" aria-live="polite"></div></section>
             <section class="settings-section" data-panel="health" aria-label="Health" hidden><h2>Health</h2><p id="health-summary" class="lede">Checking…</p><div id="health-week" class="card health-week" hidden></div><div id="settings-health"></div><button type="button" id="health-recheck" class="secondary small">Check again</button></section>
             <section class="settings-section" data-panel="general" aria-label="General" hidden>
               <h2>General</h2>
