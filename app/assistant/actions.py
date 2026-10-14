@@ -80,6 +80,14 @@ TRACKED = {
         None,
         "Delete it in Jira if you don't need it.",
     ),
+    "confluence_create": (
+        lambda a, r: (
+            f"Created the Confluence page “{_short(r.get('title') or a.get('title'), 60)}”"
+            f" in {r.get('space') or a.get('space')}"
+        ),
+        "confluence_trash",
+        "",
+    ),
     "github_comment": (
         lambda a, r: (
             f"Commented on {r.get('repo') or a.get('repo')}#{r.get('number') or a.get('number')}"
@@ -316,6 +324,10 @@ class Actions:
             if not result.get("from_status"):
                 raise ValueError("Bridge doesn't know where the ticket was before.")
             await agent.jira.move(result["key"], result["from_status"])
+        elif kind == "confluence_trash":
+            if not result.get("id"):
+                raise ValueError("Confluence didn't say which page it was.")
+            await agent.jira.trash_page(result["id"])
         elif kind == "github_comment_delete":
             if not result.get("comment_id"):
                 raise ValueError("GitHub didn't say which comment it was.")

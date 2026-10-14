@@ -23,6 +23,7 @@ READ_TOOLS = (
     "jira_projects",
     "confluence_search",
     "confluence_page",
+    "confluence_spaces",
     "github_reviews",
     "github_my_prs",
     "github_assigned",
@@ -66,6 +67,19 @@ class PagesInput(Input):
 
 class PageInput(Input):
     page_id: str = Field(min_length=1, max_length=20, pattern=r"^\d+$")
+
+
+class NewPageInput(Input):
+    space: str = Field(min_length=1, max_length=255, description="Space key, e.g. ENG")
+    title: str = Field(min_length=2, max_length=255)
+    body: str = Field(
+        min_length=1,
+        max_length=60000,
+        description="The page, in Markdown: # headings, - lists, | tables |, ``` code ```",
+    )
+    parent_id: str = Field(
+        default="", max_length=20, pattern=r"^\d*$", description="Put it under this page"
+    )
 
 
 class RepoItemInput(Input):
@@ -173,6 +187,12 @@ class WorkController:
 
     async def page(self, args):
         return await self.jira.page(args.page_id)
+
+    async def spaces(self, _):
+        return {"spaces": await self.jira.spaces()}
+
+    async def create_page(self, args):
+        return await self.jira.create_page(args.space, args.title, args.body, args.parent_id)
 
     async def reviews(self, _):
         return {"items": await self.github.reviews(fresh=True)}
@@ -289,6 +309,26 @@ def register(registry, jira: Jira, github: GitHub, repos=None) -> None:
             RiskLevel.SAFE,
             c.page,
             render=lambda d: f"{d['title']}\n{d['url']}",
+        ),
+        Tool(
+            "confluence_spaces",
+            "List Confluence spaces (keys and names), e.g. to create a page.",
+            Input,
+            RiskLevel.SAFE,
+            c.spaces,
+            render=lambda d: (
+                "\n".join(f"• {s['key']} — {s['name']}" for s in d["spaces"]) or "No spaces."
+            ),
+        ),
+        Tool(
+            "confluence_create",
+            "Create a Confluence page (documentation, notes, a how-to…). Write a complete, "
+            "well-structured page in Markdown. Ask which space if unclear (confluence_spaces).",
+            NewPageInput,
+            RiskLevel.CONFIRM,
+            c.create_page,
+            confirmation_message="Create this Confluence page?",
+            render=lambda d: f"Created “{d['title']}” in {d['space']}: {d['url']}",
         ),
         Tool(
             "github_reviews",

@@ -4,6 +4,7 @@ import asyncio
 import base64
 import json
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import httpx
@@ -79,6 +80,21 @@ class Fake:
                 return httpx.Response(204)
             if path == "/rest/api/3/issue/APP-7/comment":
                 return httpx.Response(201, json={"id": "c1"})
+            if path == "/wiki/rest/api/space":
+                return httpx.Response(
+                    200, json={"results": [{"key": "ENG", "name": "Engineering", "type": "global"}]}
+                )
+            if path == "/wiki/rest/api/content" and request.method == "POST":
+                return httpx.Response(
+                    200,
+                    json={
+                        "id": "987",
+                        "title": json.loads(request.content)["title"],
+                        "_links": {"webui": "/spaces/ENG/pages/987/Cube"},
+                    },
+                )
+            if path == "/wiki/rest/api/content/987" and request.method == "DELETE":
+                return httpx.Response(204)
             if path == "/wiki/rest/api/search":
                 return httpx.Response(
                     200,
@@ -302,9 +318,16 @@ def test_writes_ask_first_and_reads_dont(tmp_path):
         "jira_move",
         "github_create_issue",
         "github_comment",
+        "confluence_create",
     ):
         assert registry.get(name).risk == RiskLevel.CONFIRM
-    for name in ("jira_my_issues", "confluence_search", "github_reviews", "github_read"):
+    for name in (
+        "jira_my_issues",
+        "confluence_search",
+        "confluence_spaces",
+        "github_reviews",
+        "github_read",
+    ):
         assert registry.get(name).risk == RiskLevel.SAFE
 
 
@@ -326,3 +349,54 @@ def test_morning_brief_picks_up_reviews_and_urgent_tickets(tmp_path):
     titles = [item["title"] for item in brief["top"]]
     assert titles == ["Review: Add pricing page", "APP-7 Fix login"]
     assert brief["top"][0]["ref"]["url"] == "https://github.com/acme/web/pull/42"
+
+
+def test_confluence_pages_are_written_from_markdown():
+    fake = Fake()
+    c = connections(fake)
+    asyncio.run(c.connect("jira", site=SITE, email="me@acme.test", token="t"))
+    jira = Jira(c)
+    assert asyncio.run(jira.spaces()) == [{"key": "ENG", "name": "Engineering", "type": "global"}]
+    made = asyncio.run(
+        jira.create_page(
+            "ENG",
+            "Cube query  performance",
+            "# Why\nQueries are **slow** <b>here</b>.\n\n- add rollups\n- cache\n\n"
+            "| Query | Time |\n|---|---|\n| orders | 4s |\n\n```sql\nSELECT 1\n```",
+            parent_id="123",
+        )
+    )
+    assert made == {
+        "id": "987",
+        "title": "Cube query performance",
+        "space": "ENG",
+        "url": f"https://{SITE}/wiki/spaces/ENG/pages/987/Cube",
+    }
+    sent = json.loads(fake.seen[-1].content)
+    assert sent["space"] == {"key": "ENG"} and sent["ancestors"] == [{"id": "123"}]
+    page = sent["body"]["storage"]["value"]
+    assert page.startswith("<h1>Why</h1><p>Queries are <strong>slow</strong> &lt;b&gt;here")
+    assert "<ul><li>add rollups</li><li>cache</li></ul>" in page
+    assert "<tr><th>Query</th><th>Time</th></tr><tr><td>orders</td><td>4s</td></tr>" in page
+    assert '<ac:parameter ac:name="language">sql</ac:parameter>' in page and "SELECT 1" in page
+    with pytest.raises(ValueError, match="space's key"):
+        asyncio.run(jira.create_page("ENG/../x", "T", "body"))
+    asyncio.run(jira.trash_page("987"))
+    assert fake.seen[-1].method == "DELETE"
+
+
+def test_a_confluence_page_bridge_made_can_be_undone(tmp_path):
+    from app.assistant.actions import Actions
+
+    jira = SimpleNamespace(trash_page=AsyncMock())
+    actions = Actions(tmp_path / "db", SimpleNamespace(jira=jira))
+    noted = actions.record(
+        "confluence_create",
+        {"space": "ENG", "title": "Cube query performance"},
+        {"id": "987", "title": "Cube query performance", "space": "ENG", "url": "u"},
+    )
+    [item] = actions.recent()
+    assert item["summary"] == "Created the Confluence page “Cube query performance” in ENG"
+    assert item["can_undo"] is True
+    asyncio.run(actions.undo(noted["id"]))
+    jira.trash_page.assert_awaited_once_with("987")

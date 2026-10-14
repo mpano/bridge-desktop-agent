@@ -309,6 +309,12 @@ def describe(provider: str, method: str, path: str) -> str:
     """What happened, for the Connections activity list (never the content)."""
     if provider == "jira":
         if path.startswith("wiki/"):
+            if method == "POST":
+                return "Created a Confluence page"
+            if method == "DELETE":
+                return "Moved a Confluence page to the trash"
+            if path.endswith("/space"):
+                return "Listed Confluence spaces"
             return "Searched Confluence" if "search" in path else "Read a Confluence page"
         if method == "POST" and path.endswith("/comment"):
             return "Commented on an issue"
