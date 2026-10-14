@@ -402,3 +402,25 @@ def test_a_confluence_page_bridge_made_can_be_undone(tmp_path):
     assert item["can_undo"] is True
     asyncio.run(actions.undo(noted["id"]))
     jira.trash_page.assert_awaited_once_with("987")
+
+
+def test_a_confluence_page_can_be_read_from_its_link_with_its_structure():
+    from app.integrations.work import page_id_of, page_markdown
+
+    assert page_id_of("https://acme.atlassian.net/wiki/spaces/SKH/pages/42/API+guide") == "42"
+    assert page_id_of("https://acme.atlassian.net/wiki/pages/viewpage.action?pageId=7") == "7"
+    assert page_id_of(" 123 ") == "123"
+    with pytest.raises(ValueError, match="link"):
+        page_id_of("https://acme.atlassian.net/wiki/spaces/SKH")
+    text = page_markdown(
+        "<h1>API guide</h1><p>How the <strong>frontend</strong> calls <code>/v1</code>.</p>"
+        "<h2>Endpoints</h2><ul><li>GET /items</li><li>POST /items</li></ul>"
+        "<table><tbody><tr><th>Field</th><th>Type</th></tr><tr><td>id</td><td>int</td></tr>"
+        "</tbody></table>"
+        '<ac:structured-macro ac:name="code"><ac:plain-text-body><![CDATA[fetch("/v1") && x < 2]]>'
+        "</ac:plain-text-body></ac:structured-macro>"
+    )
+    assert text.startswith("# API guide\nHow the **frontend** calls `/v1`.")
+    assert "## Endpoints" in text and "- GET /items\n- POST /items" in text
+    assert "| Field | Type |" in text and "| id | int |" in text
+    assert '```\nfetch("/v1") && x < 2\n```' in text

@@ -460,15 +460,16 @@ class Guides:
 
     async def _wait_command(self, guide: Guide, allowed: set[str]) -> str:
         while True:
+            # An answer given while the question was still being shown counts too.
+            if guide.command in allowed:
+                command, guide.command = guide.command, None
+                return command
+            guide.command = None
             guide.event.clear()
             try:
                 await asyncio.wait_for(guide.event.wait(), IDLE_SECONDS)
             except TimeoutError:
                 return "stop"
-            if guide.command in allowed:
-                command, guide.command = guide.command, None
-                return command
-            guide.command = None
 
     # One step -----------------------------------------------------------------------------------
 
@@ -516,17 +517,21 @@ class Guides:
             "typing": str(action.get("text", ""))[:200] if action.get("type") == "type" else "",
         }
         guide.steps.append(step)
-        guide.step, guide.status = step, "waiting"
-        await self._overlay(step)
-        return await self._until_done(guide, action, scale, step)
-
-    async def _until_done(self, guide: Guide, action: dict, scale: float, step: dict) -> str:
-        kind = action.get("type")
+        # Count clicks and keys from before the step appears: what you do the moment you
+        # see it is part of doing it.
         before = await asyncio.to_thread(self.hands.activity)
         if guide.command in {"stop", "rest"}:
             return guide.command  # Pressed while Bridge was still looking.
         guide.command = None  # A Next or Do from before this step was shown doesn't count.
         guide.event.clear()
+        guide.step, guide.status = step, "waiting"
+        await self._overlay(step)
+        return await self._until_done(guide, action, scale, step, before)
+
+    async def _until_done(
+        self, guide: Guide, action: dict, scale: float, step: dict, before: dict
+    ) -> str:
+        kind = action.get("type")
         idle_since = time.time()
         last_keys, typed_at = before["keys"], time.time()
         while True:

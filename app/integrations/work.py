@@ -160,6 +160,38 @@ def html_text(html: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", "".join(parser.parts)).strip()
 
 
+def page_markdown(storage_html: str) -> str:
+    """A Confluence page as Markdown-ish text: its headings, lists, tables and code kept, so
+    its structure can be followed when writing a page like it."""
+    text = storage_html or ""
+    text = re.sub(
+        r"<ac:plain-text-body><!\[CDATA\[(.*?)\]\]></ac:plain-text-body>",
+        lambda m: "\n```\n" + html.escape(m.group(1), quote=False) + "\n```\n",
+        text,
+        flags=re.S,
+    )
+    text = re.sub(r"<h([1-6])[^>]*>", lambda m: "\n\n" + "#" * int(m.group(1)) + " ", text)
+    text = re.sub(r"</h[1-6]>", "\n", text)
+    text = re.sub(r"<li[^>]*>", "\n- ", text)
+    text = re.sub(r"<t[hd][^>]*>", " | ", text)
+    text = re.sub(r"</tr>", " |\n", text)
+    text = re.sub(r"<(strong|b)>(.*?)</\1>", r"**\2**", text, flags=re.S)
+    text = re.sub(r"<code>(.*?)</code>", r"`\1`", text, flags=re.S)
+    text = re.sub(r"\n[ \t]+\|", "\n|", html_text(text))  # Table rows start at the edge.
+    return re.sub(r"\n\n(?=- )", "\n", text)  # List items one per line.
+
+
+def page_id_of(value: str) -> str:
+    """A page's number, from the number itself or from its link."""
+    value = str(value).strip()
+    if value.isdigit():
+        return value
+    found = re.search(r"/pages/(\d+)", value) or re.search(r"[?&]pageId=(\d+)", value)
+    if found is None:
+        raise ValueError("Use the page's link, or its number from a search.")
+    return found.group(1)
+
+
 class Jira:
     def __init__(self, connections: TokenConnections):
         self.c = connections
@@ -391,8 +423,7 @@ class Jira:
         await self.c.request("jira", "DELETE", f"wiki/rest/api/content/{enc(page_id)}", write=True)
 
     async def page(self, page_id: str) -> dict:
-        if not str(page_id).isdigit():
-            raise ValueError("Use the page's number from a search.")
+        page_id = page_id_of(page_id)
         data = await self.c.request(
             "jira",
             "GET",
@@ -404,8 +435,8 @@ class Jira:
             "id": data.get("id"),
             "title": data.get("title", ""),
             "space": (data.get("space") or {}).get("name", ""),
-            "text": html_text(((data.get("body") or {}).get("storage") or {}).get("value", ""))[
-                :8000
+            "text": page_markdown(((data.get("body") or {}).get("storage") or {}).get("value", ""))[
+                :12000
             ],
             "url": f"https://{site}/wiki{(data.get('_links') or {}).get('webui', '')}",
             "content_is_untrusted": True,

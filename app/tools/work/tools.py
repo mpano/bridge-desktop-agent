@@ -66,7 +66,9 @@ class PagesInput(Input):
 
 
 class PageInput(Input):
-    page_id: str = Field(min_length=1, max_length=20, pattern=r"^\d+$")
+    page_id: str = Field(
+        min_length=1, max_length=500, description="The page's link, or its number from a search"
+    )
 
 
 class NewPageInput(Input):
@@ -306,7 +308,8 @@ def register(registry, jira: Jira, github: GitHub, repos=None) -> None:
         ),
         Tool(
             "confluence_page",
-            "Read a Confluence page found with confluence_search.",
+            "Read a Confluence page (from a search, or its link), with its headings, lists "
+            "and tables.",
             PageInput,
             RiskLevel.SAFE,
             c.page,
@@ -325,7 +328,9 @@ def register(registry, jira: Jira, github: GitHub, repos=None) -> None:
         Tool(
             "confluence_create",
             "Create a Confluence page (documentation, notes, a how-to…). Write a complete, "
-            "well-structured page in Markdown. Ask which space if unclear (confluence_spaces).",
+            "well-structured page in Markdown. Ask which space if unclear (confluence_spaces). "
+            "If the user points to an example page, read it first with confluence_page and "
+            "follow its sections, headings, level of detail and tone (not its content).",
             NewPageInput,
             RiskLevel.CONFIRM,
             c.create_page,
